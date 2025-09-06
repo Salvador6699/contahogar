@@ -1,0 +1,21 @@
+/* Light Mode */
+:root {
+  --color-bg: #F8FAFB;
+  --color-text: #1C1C1C;
+  --color-primary: #1c9aa8;
+  --color-secondary: #3AB8A9;
+  --color-accent: #F47C26;
+  --color-surface: #FFFFFF;
+  --color-border: #DDE3E7;
+}
+
+/* Dark Mode */
+:root.dark {
+  --color-bg: #111827;
+  --color-text: #E5E7EB;
+  --color-primary: #1FA2A0;
+  --color-secondary: #5FD6C8;
+  --color-accent: #F98B39;
+  --color-surface: #1F2937;
+  --color-border: #374151;
+}
