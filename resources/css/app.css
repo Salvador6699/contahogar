@@ -2,3 +2,123 @@
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
+
+/* Estilos adicionales para switches */
+.switch input:checked + .slider {
+    background-color: var(--color-primary);
+}
+
+.switch input:checked + .slider:before {
+    transform: translateX(24px);
+}
+
+.slider:before {
+    position: absolute;
+    content: "";
+    height: 16px;
+    width: 16px;
+    left: 4px;
+    bottom: 4px;
+    background-color: white;
+    transition: .4s;
+    border-radius: 50%;
+}
+
+/* Animaciones adicionales */
+@keyframes pulse {
+    0%, 100% {
+        opacity: 1;
+    }
+    50% {
+        opacity: 0.5;
+    }
+}
+
+.animate-pulse {
+    animation: pulse 2s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+}
+
+/* Mejoras para el scroll */
+.sidebar::-webkit-scrollbar {
+    width: 4px;
+}
+
+.sidebar::-webkit-scrollbar-track {
+    background: transparent;
+}
+
+.sidebar::-webkit-scrollbar-thumb {
+    background: var(--color-border);
+    border-radius: 2px;
+}
+
+.sidebar::-webkit-scrollbar-thumb:hover {
+    background: var(--color-text);
+}
+
+/* Mejoras para el backdrop blur */
+.backdrop-blur-md {
+    backdrop-filter: blur(12px);
+    -webkit-backdrop-filter: blur(12px);
+}
+
+/* Estilos para el modal */
+.modal-overlay.active .modal-content {
+    transform: translateY(0);
+}
+
+/* Estilos para el FAB */
+.fab:hover {
+    transform: scale(1.05);
+    box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04);
+}
+
+.fab:active {
+    transform: scale(0.95);
+}
+
+/* Animaciones para notificaciones */
+@keyframes slideInRight {
+    from {
+        transform: translateX(100%);
+    }
+    to {
+        transform: translateX(0);
+    }
+}
+
+@keyframes slideOutRight {
+    from {
+        transform: translateX(0);
+    }
+    to {
+        transform: translateX(100%);
+    }
+}
+
+/* Mejoras para inputs del modal */
+.form-input:focus {
+    border-color: var(--color-primary);
+    box-shadow: 0 0 0 3px rgba(28, 154, 168, 0.2);
+}
+
+/* Estilos para el selector de tipo */
+.type-option.selected {
+    border-color: var(--color-primary);
+    background-color: rgba(28, 154, 168, 0.1);
+    color: var(--color-primary);
+}
+
+.type-option:hover {
+    border-color: var(--color-primary);
+    background-color: rgba(28, 154, 168, 0.05);
+}
+
+/* Mejoras para botones del modal */
+.submit-btn:hover {
+    background: linear-gradient(135deg, rgba(28, 154, 168, 0.9) 0%, rgba(28, 154, 168, 0.7) 100%);
+}
+
+.cancel-btn:hover {
+    background-color: var(--color-border);
+}
