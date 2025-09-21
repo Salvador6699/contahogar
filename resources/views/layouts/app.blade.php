@@ -82,18 +82,18 @@
         <!-- Header -->
         <header class="sticky top-0 z-30 backdrop-blur-md bg-white/80 dark:bg-gray-900/80 border-b border-border p-3">
             <div class="header-content flex items-center justify-between max-w-7xl mx-auto">
-                <div class="header-left flex items-center gap-4">
+                <div class="header-left flex items-center gap-2 sm:gap-4">
                     <button class="menu-btn w-10 h-10 rounded-full bg-transparent hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors duration-200 flex items-center justify-center" id="menu-btn">
                         <i class="fas fa-bars text-text"></i>
                     </button>
-                    <div class="header-left flex items-center gap-3">
+                    <div class="header-left flex items-center gap-2 sm:gap-3">
                         <a href="{{ route('dashboard') }}">
-                            <img src="{{ asset('images/logo.png') }}" alt="Logo" class="w-10 h-10">
+                            <img src="{{ asset('images/logo.png') }}" alt="Logo" class="w-8 h-8 sm:w-10 sm:h-10">
                         </a>
-                        <h1 class="text-xl font-semibold text-text leading-tight">ContaHogar</h1>
+                        <h1 class="text-lg sm:text-xl font-semibold text-text leading-tight">ContaHogar</h1>
                     </div>
                 </div>
-                <div class="header-right flex items-center gap-4">
+                <div class="header-right flex items-center gap-2 sm:gap-4">
                     <button class="theme-toggle w-10 h-10 rounded-full bg-transparent hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors duration-200 flex items-center justify-center" id="theme-toggle">
                         <i class="fas fa-moon text-text"></i>
                     </button>
@@ -107,13 +107,13 @@
         </main>
 
         <!-- FAB (Floating Action Button) -->
-        <button class="fab fixed bottom-20 right-5 z-40 h-14 w-14 rounded-full bg-gradient-to-br from-primary to-primary/80 text-white flex items-center justify-center shadow-lg border-none cursor-pointer transition-all duration-300 hover:scale-105 hover:shadow-xl" id="add-transaction-btn">
-            <i class="fas fa-plus text-xl"></i>
+        <button class="fab fixed bottom-20 right-4 sm:right-5 z-40 h-12 w-12 sm:h-14 sm:w-14 rounded-full bg-gradient-to-br from-primary to-primary/80 text-white flex items-center justify-center shadow-lg border-none cursor-pointer transition-all duration-300 hover:scale-105 hover:shadow-xl" id="add-transaction-btn">
+            <i class="fas fa-plus text-lg sm:text-xl"></i>
         </button>
 
         <!-- Modal para nueva transacción -->
-        <div class="modal-overlay fixed inset-0 bg-black bg-opacity-50 z-50 flex items-center justify-center p-4 opacity-0 invisible transition-all duration-300" id="modal-overlay">
-            <div class="modal-content w-full max-w-md bg-surface border border-border rounded-xl p-6 relative shadow-xl transform translate-y-5 transition-all duration-300">
+        <div class="modal-overlay fixed inset-0 bg-black bg-opacity-50 z-50 flex items-center justify-center p-2 sm:p-4 opacity-0 invisible transition-all duration-300" id="modal-overlay">
+            <div class="modal-content w-full max-w-sm sm:max-w-md bg-surface border border-border rounded-xl p-4 sm:p-6 relative shadow-xl transform translate-y-5 transition-all duration-300">
                 <div class="modal-header flex items-center justify-between pb-4 border-b border-border mb-6">
                     <h2 class="modal-title text-xl font-semibold text-text">Nuevo movimiento</h2>
                     <button class="close-btn w-8 h-8 rounded-full bg-transparent hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors duration-200 flex items-center justify-center" id="close-modal">

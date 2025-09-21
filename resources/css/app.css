@@ -122,3 +122,117 @@
 .cancel-btn:hover {
     background-color: var(--color-border);
 }
+
+/* Mejoras responsive adicionales */
+@media (max-width: 640px) {
+    /* Ajustes para móviles */
+    .container {
+        padding-left: 0.75rem;
+        padding-right: 0.75rem;
+    }
+    
+    /* Sidebar más estrecho en móviles */
+    .sidebar {
+        width: 280px;
+    }
+    
+    /* Modal más compacto en móviles */
+    .modal-content {
+        margin: 0.5rem;
+        max-height: calc(100vh - 1rem);
+        overflow-y: auto;
+    }
+    
+    /* FAB más pequeño en móviles */
+    .fab {
+        bottom: 5rem;
+        right: 1rem;
+    }
+    
+    /* Bottom navigation ajustada */
+    .bottom-nav {
+        padding-bottom: env(safe-area-inset-bottom);
+    }
+    
+    /* Texto más pequeño en móviles */
+    .card-title {
+        font-size: 0.75rem;
+    }
+    
+    .card-value {
+        font-size: 1.5rem;
+    }
+    
+    /* Gráficos más compactos */
+    .chart-canvas {
+        height: 200px;
+    }
+}
+
+@media (min-width: 1024px) {
+    /* Ajustes para desktop */
+    .sidebar {
+        width: 300px;
+    }
+    
+    /* FAB más grande en desktop */
+    .fab {
+        bottom: 6rem;
+        right: 2rem;
+    }
+    
+    /* Modal más grande en desktop */
+    .modal-content {
+        max-width: 32rem;
+    }
+}
+
+/* Mejoras para tablets */
+@media (min-width: 640px) and (max-width: 1024px) {
+    .card-grid {
+        grid-template-columns: repeat(2, 1fr);
+    }
+    
+    .chart-container .grid {
+        grid-template-columns: 1fr;
+    }
+}
+
+/* Ajustes para pantallas muy pequeñas */
+@media (max-width: 375px) {
+    .header-content {
+        padding: 0.5rem;
+    }
+    
+    .header-text h1 {
+        font-size: 1rem;
+    }
+    
+    .card {
+        padding: 1rem;
+    }
+    
+    .transaction-item {
+        padding: 0.75rem;
+    }
+}
+
+/* Mejoras de accesibilidad */
+@media (prefers-reduced-motion: reduce) {
+    * {
+        animation-duration: 0.01ms !important;
+        animation-iteration-count: 1 !important;
+        transition-duration: 0.01ms !important;
+    }
+}
+
+/* Modo de alto contraste */
+@media (prefers-contrast: high) {
+    .card {
+        border-width: 2px;
+    }
+    
+    .btn, .fab {
+        border: 2px solid currentColor;
+    }
+}
