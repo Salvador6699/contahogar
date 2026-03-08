@@ -12,6 +12,7 @@ import AveragesPage from "./pages/AveragesPage";
 import SettingsPage from "./pages/SettingsPage";
 import TransferPage from "./pages/TransferPage";
 import NotFound from "./pages/NotFound";
+import ScrollToTop from "./components/ScrollToTop";
 
 const queryClient = new QueryClient();
 
@@ -22,6 +23,7 @@ const App = () => (
         <Toaster />
         <Sonner />
         <BrowserRouter>
+          <ScrollToTop />
           <Routes>
             <Route path="/" element={<Index />} />
             <Route path="/presupuestos" element={<BudgetPage />} />
