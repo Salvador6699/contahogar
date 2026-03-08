@@ -8,6 +8,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Progress } from '@/components/ui/progress';
+import { Checkbox } from '@/components/ui/checkbox';
 import { Budget, Transaction } from '@/types/finance';
 import { loadData } from '@/lib/storage';
 import { loadBudgets, saveBudget, updateBudget, deleteBudget } from '@/lib/budgetStorage';
@@ -28,6 +29,7 @@ const BudgetPage = () => {
   const [amount, setAmount] = useState('');
   const [showForm, setShowForm] = useState(false);
   const [suggestions, setSuggestions] = useState<string[]>([]);
+  const [includePendingIncome, setIncludePendingIncome] = useState(false);
 
   const changeMonth = (direction: 'prev' | 'next') => {
     const current = parseISO(monthParam + '-01');
@@ -51,7 +53,7 @@ const BudgetPage = () => {
     });
   }, [data.transactions, monthParam]);
 
-  const totalIncome = calculateTotalIncome(monthTransactions, false);
+  const totalIncome = calculateTotalIncome(monthTransactions, includePendingIncome);
   const totalExpenses = calculateTotalExpenses(monthTransactions, false);
 
   const getSpentForCategory = (cat: string): number => {
@@ -153,6 +155,19 @@ const BudgetPage = () => {
             <CardContent className="p-4">
               <p className="text-xs text-muted-foreground">Ingresos del mes</p>
               <p className="text-lg font-bold text-income">{formatCurrency(totalIncome)}</p>
+              <div className="flex items-center gap-2 mt-2">
+                <Checkbox
+                  id="include-pending-income"
+                  checked={includePendingIncome}
+                  onCheckedChange={(checked) => setIncludePendingIncome(!!checked)}
+                />
+                <label
+                  htmlFor="include-pending-income"
+                  className="text-xs text-muted-foreground cursor-pointer leading-tight"
+                >
+                  Incluir ingresos previstos
+                </label>
+              </div>
             </CardContent>
           </Card>
           <Card>
