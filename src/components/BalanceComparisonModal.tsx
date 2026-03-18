@@ -8,16 +8,14 @@ import {
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { formatCurrency } from '@/lib/calculations';
-import { getCategorySuggestions } from '@/lib/storage';
-import { AlertCircle, CheckCircle, TrendingDown, TrendingUp, Plus, Minus, Trash2, Save, Building2, Banknote } from 'lucide-react';
-import { Transaction, AccountType } from '@/types/finance';
+import { formatCurrency, calculateAccountBalance } from '@/lib/calculations';
+import { getCategorySuggestions, loadData } from '@/lib/storage';
+import { AlertCircle, CheckCircle, TrendingDown, TrendingUp, Plus, Minus, Trash2, Save } from 'lucide-react';
+import { Transaction, Account } from '@/types/finance';
 
 interface BalanceComparisonModalProps {
   isOpen: boolean;
   onClose: () => void;
-  bankBalance: number;
-  cashBalance: number;
   categories: string[];
   onSaveAdjustments: (transactions: Omit<Transaction, 'id'>[]) => void;
 }
@@ -29,50 +27,58 @@ interface Adjustment {
   category: string;
 }
 
-type TabAccount = 'bank' | 'cash';
-
 const BalanceComparisonModal = ({
   isOpen,
   onClose,
-  bankBalance,
-  cashBalance,
   categories,
   onSaveAdjustments,
 }: BalanceComparisonModalProps) => {
-  const [activeTab, setActiveTab] = useState<TabAccount>('bank');
-  const [realBalances, setRealBalances] = useState<Record<TabAccount, string>>({ bank: '', cash: '' });
-  const [adjustments, setAdjustments] = useState<Record<TabAccount, Adjustment[]>>({ bank: [], cash: [] });
+  const [data, setData] = useState(loadData());
+  const [activeAccountId, setActiveAccountId] = useState('');
+  const [realBalances, setRealBalances] = useState<Record<string, string>>({});
+  const [adjustments, setAdjustments] = useState<Record<string, Adjustment[]>>({});
   const [newAmount, setNewAmount] = useState('');
   const [newCategory, setNewCategory] = useState('');
   const [suggestions, setSuggestions] = useState<string[]>([]);
   const [showSuggestions, setShowSuggestions] = useState(false);
 
+  // Initialize with first account and data on modal open
   useEffect(() => {
-    if (newCategory) {
-      const filtered = getCategorySuggestions(newCategory, categories);
-      setSuggestions(filtered);
-      setShowSuggestions(filtered.length > 0 && newCategory.length > 0);
+    if (isOpen) {
+      const loadedData = loadData();
+      setData(loadedData);
+      if (loadedData.accounts.length > 0 && !activeAccountId) {
+        setActiveAccountId(loadedData.accounts[0].id);
+      }
+    }
+  }, [isOpen]);
+
+  // Update suggestions when category is typed
+  useEffect(() => {
+    if (newCategory.trim()) {
+      const filteredSuggestions = getCategorySuggestions(newCategory, data.categories).slice(0, 5);
+      setSuggestions(filteredSuggestions);
     } else {
       setSuggestions([]);
-      setShowSuggestions(false);
     }
-  }, [newCategory, categories]);
+  }, [newCategory, data.categories]);
 
   const handleClose = () => {
-    setRealBalances({ bank: '', cash: '' });
-    setAdjustments({ bank: [], cash: [] });
+    setRealBalances({});
+    setAdjustments({});
     setNewAmount('');
     setNewCategory('');
     setShowSuggestions(false);
     onClose();
   };
 
-  const currentBalance = activeTab === 'bank' ? bankBalance : cashBalance;
-  const realBalance = realBalances[activeTab];
+  const currentAccount = data.accounts.find(a => a.id === activeAccountId);
+  const currentBalance = currentAccount ? calculateAccountBalance(currentAccount, data.transactions) : 0;
+  const realBalance = realBalances[activeAccountId] || '';
 
   const addAdjustment = (type: 'income' | 'expense') => {
     const amount = parseFloat(newAmount);
-    if (amount > 0 && newCategory.trim()) {
+    if (amount > 0 && newCategory.trim() && activeAccountId) {
       const adjustment: Adjustment = {
         id: `${Date.now()}-${Math.random()}`,
         type,
@@ -81,7 +87,7 @@ const BalanceComparisonModal = ({
       };
       setAdjustments(prev => ({
         ...prev,
-        [activeTab]: [...prev[activeTab], adjustment],
+        [activeAccountId]: [...(prev[activeAccountId] || []), adjustment],
       }));
       setNewAmount('');
       setNewCategory('');
@@ -92,7 +98,7 @@ const BalanceComparisonModal = ({
   const removeAdjustment = (id: string) => {
     setAdjustments(prev => ({
       ...prev,
-      [activeTab]: prev[activeTab].filter(a => a.id !== id),
+      [activeAccountId]: (prev[activeAccountId] || []).filter(a => a.id !== id),
     }));
   };
 
@@ -107,31 +113,28 @@ const BalanceComparisonModal = ({
 
   const handleSaveAdjustments = () => {
     const today = new Date().toISOString().split('T')[0];
-    const allAdjustments = [
-      ...adjustments.bank.map(adj => ({
-        date: today,
-        amount: adj.amount,
-        category: adj.category,
-        type: adj.type as 'income' | 'expense',
-        account: 'bank' as AccountType,
-        isPending: false,
-      })),
-      ...adjustments.cash.map(adj => ({
-        date: today,
-        amount: adj.amount,
-        category: adj.category,
-        type: adj.type as 'income' | 'expense',
-        account: 'cash' as AccountType,
-        isPending: false,
-      })),
-    ];
+    const allAdjustments = [];
+
+    Object.entries(adjustments).forEach(([accountId, accts]) => {
+      accts.forEach(adj => {
+        allAdjustments.push({
+          date: today,
+          amount: adj.amount,
+          category: adj.category,
+          type: adj.type as 'income' | 'expense',
+          accountId: accountId,
+          isPending: false,
+        });
+      });
+    });
+
     if (allAdjustments.length > 0) {
       onSaveAdjustments(allAdjustments);
     }
     handleClose();
   };
 
-  const totalAdjustments = adjustments[activeTab].reduce((sum, adj) => {
+  const totalAdjustments = (adjustments[activeAccountId] || []).reduce((sum, adj) => {
     return adj.type === 'income' ? sum + adj.amount : sum - adj.amount;
   }, 0);
 
@@ -141,15 +144,20 @@ const BalanceComparisonModal = ({
   const hasDifference = Math.abs(difference) > 0.01;
   const isTabBalanced = realBalance !== '' && !hasDifference;
 
-  // Check if both tabs are balanced (for save button)
-  const bankAdj = adjustments.bank.reduce((s, a) => a.type === 'income' ? s + a.amount : s - a.amount, 0);
-  const cashAdj = adjustments.cash.reduce((s, a) => a.type === 'income' ? s + a.amount : s - a.amount, 0);
-  const bankReal = parseFloat(realBalances.bank) || 0;
-  const cashReal = parseFloat(realBalances.cash) || 0;
-  const bankBalanced = realBalances.bank !== '' && Math.abs(bankReal - (bankBalance + bankAdj)) < 0.01;
-  const cashBalanced = realBalances.cash !== '' && Math.abs(cashReal - (cashBalance + cashAdj)) < 0.01;
-  const hasAnyAdjustments = adjustments.bank.length > 0 || adjustments.cash.length > 0;
-  const atLeastOneBalanced = (bankBalanced && adjustments.bank.length > 0) || (cashBalanced && adjustments.cash.length > 0);
+  // Summary data for all accounts
+  const summaryData = data.accounts.map(account => {
+    const adj = (adjustments[account.id] || []).reduce((s, a) => a.type === 'income' ? s + a.amount : s - a.amount, 0);
+    const balance = calculateAccountBalance(account, data.transactions);
+    const real = parseFloat(realBalances[account.id] || '0') || 0;
+    return {
+      accountId: account.id,
+      isBalanced: realBalances[account.id] !== '' && Math.abs(real - (balance + adj)) < 0.01,
+      hasAdjustments: (adjustments[account.id] || []).length > 0,
+    };
+  });
+
+  const hasAnyAdjustments = Object.values(adjustments).some(adj => adj.length > 0);
+  const atLeastOneBalanced = summaryData.some(s => s.isBalanced && s.hasAdjustments);
 
   return (
     <ResponsiveDialog open={isOpen} onOpenChange={handleClose}>
@@ -163,27 +171,24 @@ const BalanceComparisonModal = ({
         
         <div className="space-y-4 max-h-[70vh] overflow-y-auto px-1">
           {/* Account tabs */}
-          <div className="flex gap-2">
-            <Button
-              variant={activeTab === 'bank' ? 'default' : 'outline'}
-              size="sm"
-              onClick={() => setActiveTab('bank')}
-              className="flex-1 flex items-center gap-2"
-            >
-              <Building2 className="w-4 h-4" />
-              Banco
-              {bankBalanced && adjustments.bank.length > 0 && <CheckCircle className="w-3 h-3 text-income" />}
-            </Button>
-            <Button
-              variant={activeTab === 'cash' ? 'default' : 'outline'}
-              size="sm"
-              onClick={() => setActiveTab('cash')}
-              className="flex-1 flex items-center gap-2"
-            >
-              <Banknote className="w-4 h-4" />
-              Efectivo
-              {cashBalanced && adjustments.cash.length > 0 && <CheckCircle className="w-3 h-3 text-income" />}
-            </Button>
+          <div className="flex gap-2 flex-wrap">
+            {data.accounts.map(account => {
+              const accountSummary = summaryData.find(s => s.accountId === account.id);
+              return (
+                <Button
+                  key={account.id}
+                  variant={activeAccountId === account.id ? 'default' : 'outline'}
+                  size="sm"
+                  onClick={() => setActiveAccountId(account.id)}
+                  className="flex items-center gap-2"
+                >
+                  {account.name}
+                  {accountSummary?.isBalanced && accountSummary?.hasAdjustments && (
+                    <CheckCircle className="w-3 h-3 text-income" />
+                  )}
+                </Button>
+              );
+            })}
           </div>
 
           {/* Current balances */}
@@ -205,7 +210,7 @@ const BalanceComparisonModal = ({
           {/* Real balance input */}
           <div className="space-y-2">
             <Label htmlFor="realBalance">
-              Tu saldo real ({activeTab === 'bank' ? 'banco' : 'efectivo'})
+              Tu saldo real ({currentAccount?.name || 'Cuenta'})
             </Label>
             <div className="flex gap-2">
               <Input
@@ -320,9 +325,9 @@ const BalanceComparisonModal = ({
             </div>
 
             {/* Adjustments list */}
-            {adjustments[activeTab].length > 0 && (
+            {(adjustments[activeAccountId] || []).length > 0 && (
               <div className="space-y-2 max-h-[150px] overflow-y-auto">
-                {adjustments[activeTab].map((adj) => (
+                {(adjustments[activeAccountId] || []).map((adj) => (
                   <div
                     key={adj.id}
                     className={`flex items-center justify-between p-2 rounded-lg text-sm ${

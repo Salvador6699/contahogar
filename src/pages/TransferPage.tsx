@@ -1,44 +1,56 @@
 import { useState, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { ArrowLeft, ArrowLeftRight, Building2, Banknote, ArrowRight, Trash2, History, Pencil, X } from 'lucide-react';
+import { ArrowLeftRight, ArrowRight, Trash2, Pencil, History, X } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { AccountType, Transaction } from '@/types/finance';
+import {
+    Select,
+    SelectContent,
+    SelectItem,
+    SelectTrigger,
+    SelectValue,
+} from '@/components/ui/select';
+import { Transaction } from '@/types/finance';
 import { loadData, addTransaction, deleteTransaction } from '@/lib/storage';
-import { formatCurrency } from '@/lib/calculations';
-import ThemeToggle from '@/components/ThemeToggle';
+import { formatCurrency, calculateAccountBalance } from '@/lib/calculations';
 import { toast } from 'sonner';
 import MobileNav from '@/components/MobileNav';
+import { useScrollOnFocus } from '@/hooks/useScrollOnFocus';
+import { withKeyboardClose } from '@/lib/utils';
 
 const TransferPage = () => {
     const navigate = useNavigate();
+    const scrollOnFocus = useScrollOnFocus(120);
     const [data, setData] = useState(loadData());
     const [amount, setAmount] = useState('');
-    const [fromAccount, setFromAccount] = useState<AccountType>('bank');
+    const [fromAccountId, setFromAccountId] = useState('');
+    const [toAccountId, setToAccountId] = useState('');
     const [editingTransferId, setEditingTransferId] = useState<string | null>(null);
 
-    const { bankBalance, cashBalance, transferTransactions } = useMemo(() => {
-        const totalTransactions = data.transactions || [];
-        const bank = data.initialBankBalance + totalTransactions
-            .filter(t => t.account === 'bank' && !t.isPending)
-            .reduce((sum, t) => t.type === 'income' ? sum + t.amount : sum - t.amount, 0);
-        const cash = data.initialCashBalance + totalTransactions
-            .filter(t => t.account === 'cash' && !t.isPending)
-            .reduce((sum, t) => t.type === 'income' ? sum + t.amount : sum - t.amount, 0);
+    useMemo(() => {
+        if (data.accounts.length >= 2) {
+            if (!fromAccountId) setFromAccountId(data.accounts[0].id);
+            if (!toAccountId) setToAccountId(data.accounts[1].id);
+        } else if (data.accounts.length === 1) {
+            if (!fromAccountId) setFromAccountId(data.accounts[0].id);
+            if (!toAccountId) setToAccountId(data.accounts[0].id);
+        }
+    }, [data.accounts, fromAccountId, toAccountId]);
 
-        const transfers = totalTransactions.filter(t => t.category === 'Transferencia');
-
-        return { bankBalance: bank, cashBalance: cash, transferTransactions: transfers };
+    const { transferTransactions } = useMemo(() => {
+        const transfers = data.transactions.filter(t => t.category === 'Transferencia');
+        return { transferTransactions: transfers };
     }, [data]);
 
-    const toAccount: AccountType = fromAccount === 'bank' ? 'cash' : 'bank';
-    const maxAmount = fromAccount === 'bank' ? bankBalance : cashBalance;
+    const fromAccount = data.accounts.find(a => a.id === fromAccountId);
+    const toAccount = data.accounts.find(a => a.id === toAccountId);
+    const maxAmount = fromAccount ? calculateAccountBalance(fromAccount, data.transactions) : 0;
 
     const handleTransfer = () => {
         const amountNum = parseFloat(amount);
-        if (isNaN(amountNum) || amountNum <= 0 || amountNum > maxAmount) return;
+        if (isNaN(amountNum) || amountNum <= 0 || amountNum > maxAmount || !fromAccountId || !toAccountId) return;
 
         if (editingTransferId) {
             const expensePart = transferPairs.find(t => t.id === editingTransferId);
@@ -66,7 +78,7 @@ const TransferPage = () => {
             amount: amountNum,
             category: 'Transferencia',
             type: 'expense',
-            account: fromAccount,
+            accountId: fromAccountId,
             isPending: false,
         };
 
@@ -77,7 +89,7 @@ const TransferPage = () => {
             amount: amountNum,
             category: 'Transferencia',
             type: 'income',
-            account: toAccount,
+            accountId: toAccountId,
             isPending: false,
         };
 
@@ -92,7 +104,7 @@ const TransferPage = () => {
 
     const handleEditTransfer = (transfer: Transaction) => {
         setAmount(transfer.amount.toString());
-        setFromAccount(transfer.account);
+        setFromAccountId(transfer.accountId);
         setEditingTransferId(transfer.id);
         window.scrollTo({ top: 0, behavior: 'smooth' });
     };
@@ -132,9 +144,6 @@ const TransferPage = () => {
                 <div className="mb-6 sm:mb-8">
                     <div className="flex items-center justify-between mb-2">
                         <div className="flex items-center gap-3">
-                            <Button variant="outline" size="icon" onClick={() => navigate('/')}>
-                                <ArrowLeft className="w-4 h-4" />
-                            </Button>
                             <div className="p-2 bg-primary rounded-lg">
                                 <ArrowLeftRight className="w-5 h-5 sm:w-6 sm:h-6 text-primary-foreground" />
                             </div>
@@ -142,7 +151,6 @@ const TransferPage = () => {
                                 <h1 className="text-2xl sm:text-3xl font-bold text-foreground">Transferir</h1>
                             </div>
                         </div>
-                        <ThemeToggle />
                     </div>
                 </div>
 
@@ -160,32 +168,54 @@ const TransferPage = () => {
                             )}
                         </CardHeader>
                         <CardContent className="space-y-6">
-                            {/* Selector de dirección */}
-                            <div className="flex items-center justify-between p-6 bg-muted/50 rounded-2xl border border-border relative">
-                                <div className="flex flex-col items-center gap-2 flex-1">
-                                    <div className={`p-3 rounded-xl ${fromAccount === 'bank' ? 'bg-primary/10 text-primary' : 'bg-background text-muted-foreground'}`}>
-                                        {fromAccount === 'bank' ? <Building2 className="w-8 h-8" /> : <Banknote className="w-8 h-8" />}
-                                    </div>
-                                    <span className="text-sm font-bold uppercase tracking-wider">{fromAccount === 'bank' ? 'Banco' : 'Efectivo'}</span>
-                                    <span className="text-xs font-medium text-muted-foreground">{formatCurrency(fromAccount === 'bank' ? bankBalance : cashBalance)}</span>
-                                </div>
+                            {/* From Account Selector */}
+                            <div className="space-y-3">
+                                <Label className="text-base font-semibold">Transferir desde</Label>
+                                <Select value={fromAccountId} onValueChange={setFromAccountId}>
+                                    <SelectTrigger className="h-12">
+                                        <SelectValue placeholder="Selecciona cuenta origen" />
+                                    </SelectTrigger>
+                                    <SelectContent>
+                                        {data.accounts.map((acc) => (
+                                            <SelectItem key={acc.id} value={acc.id}>
+                                                {acc.name} - {formatCurrency(calculateAccountBalance(acc, data.transactions))}
+                                            </SelectItem>
+                                        ))}
+                                    </SelectContent>
+                                </Select>
+                            </div>
 
+                            {/* Swap Button */}
+                            <div className="flex justify-center">
                                 <Button
                                     variant="outline"
                                     size="icon"
-                                    className="rounded-full bg-background shadow-md z-10 hover:scale-110 transition-transform"
-                                    onClick={() => setFromAccount(fromAccount === 'bank' ? 'cash' : 'bank')}
+                                    className="rounded-full bg-background shadow-md hover:scale-110 transition-transform"
+                                    onClick={() => {
+                                        const temp = fromAccountId;
+                                        setFromAccountId(toAccountId);
+                                        setToAccountId(temp);
+                                    }}
                                 >
                                     <ArrowRight className="w-5 h-5" />
                                 </Button>
+                            </div>
 
-                                <div className="flex flex-col items-center gap-2 flex-1">
-                                    <div className={`p-3 rounded-xl ${toAccount === 'bank' ? 'bg-primary/10 text-primary' : 'bg-background text-muted-foreground'}`}>
-                                        {toAccount === 'bank' ? <Building2 className="w-8 h-8" /> : <Banknote className="w-8 h-8" />}
-                                    </div>
-                                    <span className="text-sm font-bold uppercase tracking-wider">{toAccount === 'bank' ? 'Banco' : 'Efectivo'}</span>
-                                    <span className="text-xs font-medium text-muted-foreground">{formatCurrency(toAccount === 'bank' ? bankBalance : cashBalance)}</span>
-                                </div>
+                            {/* To Account Selector */}
+                            <div className="space-y-3">
+                                <Label className="text-base font-semibold">Transferir a</Label>
+                                <Select value={toAccountId} onValueChange={setToAccountId}>
+                                    <SelectTrigger className="h-12">
+                                        <SelectValue placeholder="Selecciona cuenta destino" />
+                                    </SelectTrigger>
+                                    <SelectContent>
+                                        {data.accounts.map((acc) => (
+                                            <SelectItem key={acc.id} value={acc.id}>
+                                                {acc.name} - {formatCurrency(calculateAccountBalance(acc, data.transactions))}
+                                            </SelectItem>
+                                        ))}
+                                    </SelectContent>
+                                </Select>
                             </div>
 
                             {/* Importe */}
@@ -201,6 +231,7 @@ const TransferPage = () => {
                                         onChange={(e) => setAmount(e.target.value)}
                                         placeholder="0.00"
                                         className="text-2xl h-16 font-bold text-center pr-10"
+                                        onFocus={scrollOnFocus}
                                     />
                                     <span className="absolute right-4 top-1/2 -translate-y-1/2 text-xl font-bold text-muted-foreground">€</span>
                                 </div>
@@ -211,8 +242,9 @@ const TransferPage = () => {
 
                             <Button
                                 className={`w-full h-14 text-lg font-bold shadow-lg ${editingTransferId ? 'bg-orange-500 hover:bg-orange-600' : ''}`}
-                                onClick={handleTransfer}
-                                disabled={!amount || parseFloat(amount) <= 0 || (parseFloat(amount) > maxAmount && !editingTransferId)}
+                                onClick={() => withKeyboardClose(() => handleTransfer())}
+                                onPointerDown={() => withKeyboardClose(() => handleTransfer())}
+                                disabled={!amount || parseFloat(amount) <= 0 || (parseFloat(amount) > maxAmount && !editingTransferId) || !fromAccountId || !toAccountId || fromAccountId === toAccountId}
                             >
                                 {editingTransferId ? 'Actualizar Transferencia' : 'Realizar Transferencia'}
                             </Button>
@@ -239,8 +271,8 @@ const TransferPage = () => {
                                             t.date === transfer.date &&
                                             t.id !== transfer.id
                                     );
-                                    const fromLabel = transfer.account === 'bank' ? 'Banco' : 'Efectivo';
-                                    const toLabel = matchingIncome?.account === 'bank' ? 'Banco' : 'Efectivo';
+                                    const fromAccount = data.accounts.find(a => a.id === transfer.accountId);
+                                    const toAccount = matchingIncome ? data.accounts.find(a => a.id === matchingIncome.accountId) : null;
 
                                     return (
                                         <Card key={transfer.id} className="border-none shadow-sm overflow-hidden group">
@@ -251,7 +283,7 @@ const TransferPage = () => {
                                                     </div>
                                                     <div>
                                                         <p className="font-bold text-sm sm:text-base">
-                                                            {fromLabel} <span className="text-muted-foreground font-medium">→</span> {toLabel}
+                                                            {fromAccount?.name} <span className="text-muted-foreground font-medium">→</span> {toAccount?.name}
                                                         </p>
                                                         <p className="text-xs text-muted-foreground font-medium">
                                                             {new Date(transfer.date).toLocaleDateString('es-ES', { day: '2-digit', month: 'long' })}

@@ -2,7 +2,7 @@ import { useState, useMemo } from 'react';
 import { useSearchParams, useNavigate } from 'react-router-dom';
 import { format, parseISO, addMonths, subMonths } from 'date-fns';
 import { es } from 'date-fns/locale';
-import { ArrowLeft, Plus, Pencil, Trash2, PiggyBank, ChevronLeft, ChevronRight } from 'lucide-react';
+import { Plus, Pencil, Trash2, PiggyBank, ChevronLeft, ChevronRight } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -14,12 +14,14 @@ import { loadData } from '@/lib/storage';
 import { loadBudgets, saveBudget, updateBudget, deleteBudget } from '@/lib/budgetStorage';
 import { formatCurrency, calculateTotalIncome, calculateTotalExpenses } from '@/lib/calculations';
 import { getCategorySuggestions } from '@/lib/storage';
-import ThemeToggle from '@/components/ThemeToggle';
 import MobileNav from '@/components/MobileNav';
+import { useScrollOnFocus } from '@/hooks/useScrollOnFocus';
+import { withKeyboardClose } from '@/lib/utils';
 
 const BudgetPage = () => {
   const [searchParams, setSearchParams] = useSearchParams();
   const navigate = useNavigate();
+  const scrollOnFocus = useScrollOnFocus(240);
   const monthParam = searchParams.get('month') || format(new Date(), 'yyyy-MM');
 
   const [data, setData] = useState(loadData());
@@ -30,6 +32,7 @@ const BudgetPage = () => {
   const [showForm, setShowForm] = useState(false);
   const [suggestions, setSuggestions] = useState<string[]>([]);
   const [includePendingIncome, setIncludePendingIncome] = useState(false);
+  const [includePendingExpenses, setIncludePendingExpenses] = useState(false);
 
   const changeMonth = (direction: 'prev' | 'next') => {
     const current = parseISO(monthParam + '-01');
@@ -53,12 +56,12 @@ const BudgetPage = () => {
     });
   }, [data.transactions, monthParam]);
 
-  const totalIncome = calculateTotalIncome(monthTransactions, includePendingIncome);
-  const totalExpenses = calculateTotalExpenses(monthTransactions, false);
+  const totalIncome = calculateTotalIncome(monthTransactions, undefined, includePendingIncome);
+  const totalExpenses = calculateTotalExpenses(monthTransactions, undefined, includePendingExpenses);
 
   const getSpentForCategory = (cat: string): number => {
     return monthTransactions
-      .filter(t => t.type === 'expense' && !t.isPending && t.category.toLowerCase() === cat.toLowerCase())
+      .filter(t => t.type === 'expense' && (!t.isPending || includePendingExpenses) && t.category.toLowerCase().trim() === cat.toLowerCase().trim())
       .reduce((sum, t) => sum + t.amount, 0);
   };
 
@@ -125,9 +128,6 @@ const BudgetPage = () => {
         <div className="mb-6 sm:mb-8">
           <div className="flex items-center justify-between mb-2">
             <div className="flex items-center gap-3">
-              <Button variant="outline" size="icon" onClick={() => navigate('/')}>
-                <ArrowLeft className="w-4 h-4" />
-              </Button>
               <div className="p-2 bg-primary rounded-lg">
                 <PiggyBank className="w-5 h-5 sm:w-6 sm:h-6 text-primary-foreground" />
               </div>
@@ -135,7 +135,6 @@ const BudgetPage = () => {
                 <h1 className="text-2xl sm:text-3xl font-bold text-foreground">Presupuestos</h1>
               </div>
             </div>
-            <ThemeToggle />
           </div>
           {/* Month navigator */}
           <div className="flex items-center justify-center gap-4 mt-3">
@@ -174,6 +173,19 @@ const BudgetPage = () => {
             <CardContent className="p-4">
               <p className="text-xs text-muted-foreground">Total presupuestado</p>
               <p className="text-lg font-bold text-foreground">{formatCurrency(totalBudgeted)}</p>
+              <div className="flex items-center gap-2 mt-2">
+                <Checkbox
+                  id="include-pending-expenses"
+                  checked={includePendingExpenses}
+                  onCheckedChange={(checked) => setIncludePendingExpenses(!!checked)}
+                />
+                <label
+                  htmlFor="include-pending-expenses"
+                  className="text-xs text-muted-foreground cursor-pointer leading-tight"
+                >
+                  Incluir gastos previstos
+                </label>
+              </div>
             </CardContent>
           </Card>
         </div>
@@ -212,13 +224,21 @@ const BudgetPage = () => {
                   value={category}
                   onChange={e => handleCategoryInput(e.target.value)}
                   placeholder="Ej: Alimentación"
+                  onFocus={scrollOnFocus}
                 />
                 {suggestions.length > 0 && (
                   <div className="flex flex-wrap gap-1">
                     {suggestions.slice(0, 5).map(s => (
                       <button
                         key={s}
-                        onClick={() => { setCategory(s); setSuggestions([]); }}
+                        onClick={() => withKeyboardClose(() => {
+                          setCategory(s);
+                          setSuggestions([]);
+                        })}
+                        onPointerDown={() => withKeyboardClose(() => {
+                          setCategory(s);
+                          setSuggestions([]);
+                        })}
                         className="text-xs px-2 py-1 rounded-full bg-secondary text-secondary-foreground hover:bg-accent transition-colors"
                       >
                         {s}
@@ -236,10 +256,15 @@ const BudgetPage = () => {
                   placeholder="0.00"
                   min="0"
                   step="0.01"
+                  onFocus={scrollOnFocus}
                 />
               </div>
               <div className="flex gap-2">
-                <Button onClick={handleSave} className="flex-1">
+                <Button
+                  onClick={() => withKeyboardClose(() => handleSave())}
+                  onPointerDown={() => withKeyboardClose(() => handleSave())}
+                  className="flex-1"
+                >
                   {editingBudget ? 'Guardar' : 'Añadir'}
                 </Button>
                 <Button variant="outline" onClick={handleCancel} className="flex-1">

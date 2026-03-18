@@ -1,12 +1,11 @@
 import { useState, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { ArrowLeft, BarChart3, TrendingUp, TrendingDown, Info } from 'lucide-react';
+import { BarChart3, TrendingUp, TrendingDown, Info } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Transaction } from '@/types/finance';
 import { loadData } from '@/lib/storage';
 import { formatCurrency } from '@/lib/calculations';
-import ThemeToggle from '@/components/ThemeToggle';
 import MobileNav from '@/components/MobileNav';
 import { BarChart, Bar, XAxis, YAxis, ResponsiveContainer, Cell, LabelList, CartesianGrid } from 'recharts';
 
@@ -63,9 +62,6 @@ const AveragesPage = () => {
                 <div className="mb-6 sm:mb-8">
                     <div className="flex items-center justify-between mb-2">
                         <div className="flex items-center gap-3">
-                            <Button variant="outline" size="icon" onClick={() => navigate('/')}>
-                                <ArrowLeft className="w-4 h-4" />
-                            </Button>
                             <div className="p-2 bg-primary rounded-lg">
                                 <BarChart3 className="w-5 h-5 sm:w-6 sm:h-6 text-primary-foreground" />
                             </div>
@@ -73,7 +69,6 @@ const AveragesPage = () => {
                                 <h1 className="text-2xl sm:text-3xl font-bold text-foreground">Medias</h1>
                             </div>
                         </div>
-                        <ThemeToggle />
                     </div>
                     <p className="text-sm text-muted-foreground mt-1 px-11">
                         Gasto e ingreso medio mensual por categoría basado en tu histórico.

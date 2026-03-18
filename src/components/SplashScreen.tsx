@@ -15,8 +15,8 @@ const TIPS = [
 ];
 
 /* ─── Duración total del splash ─────────────────────────────────── */
-const SPLASH_DURATION_MS = 10_000;
-const TIP_INTERVAL_MS = 3_000;
+const SPLASH_DURATION_MS = 3_000;
+const TIP_INTERVAL_MS = 2_000;
 
 interface Props {
     onFinish: () => void;
@@ -59,12 +59,19 @@ const SplashScreen = ({ onFinish }: Props) => {
         return () => clearTimeout(t);
     }, [onFinish]);
 
+    const handleSkip = () => {
+        setLeaving(true);
+        setTimeout(onFinish, 500);
+    };
+
     return (
         <div
             className="splash-screen"
+            onClick={handleSkip}
             style={{
                 opacity: leaving ? 0 : 1,
                 transition: 'opacity 0.6s ease',
+                cursor: 'pointer',
             }}
         >
             {/* Logo / imagen */}
@@ -100,6 +107,9 @@ const SplashScreen = ({ onFinish }: Props) => {
                         style={{ width: `${progress}%` }}
                     />
                 </div>
+                <p style={{ fontSize: '0.6rem', color: 'hsl(0 0% 100% / 0.3)', marginTop: '0.5rem' }}>
+                    Toca para continuar
+                </p>
             </div>
         </div>
     );

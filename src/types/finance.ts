@@ -1,15 +1,21 @@
 export type TransactionType = 'income' | 'expense';
-export type AccountType = 'bank' | 'cash';
-export type AccountView = AccountType | 'total';
+
+// New Account interface for flexible account management
+export interface Account {
+  id: string;
+  name: string;
+  initialBalance: number;
+}
 
 export interface Transaction {
-  id: string;
-  date: string;
+  id:string;
+  date: string; // "yyyy-mm-dd"
   amount: number;
   category: string;
   type: TransactionType;
-  account: AccountType; // 'bank' or 'cash'
-  isPending?: boolean; // true for future/pending transactions
+  accountId: string; // Link to the Account's id
+  description?: string;
+  isPending?: boolean;
 }
 
 export interface CategorySummary {
@@ -25,10 +31,10 @@ export interface Budget {
   month: string; // yyyy-MM
 }
 
+// Updated FinanceData to support multiple accounts
 export interface FinanceData {
-  initialBankBalance: number;
-  initialCashBalance: number;
+  accounts: Account[];
   transactions: Transaction[];
   categories: string[];
-  budgets?: Budget[];
+  budgets: Budget[];
 }

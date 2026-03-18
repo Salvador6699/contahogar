@@ -18,6 +18,61 @@ import {
 import { cn } from "@/lib/utils";
 import { X } from "lucide-react";
 
+/**
+ * MobileKeyboardScrollArea
+ * Contenedor que, al enfocar cualquier input/textarea hijo,
+ * hace scroll para que el campo quede visible por encima del
+ * teclado virtual con suficiente espacio para mostrar sugerencias.
+ */
+function MobileKeyboardScrollArea({ children }: { children: React.ReactNode }) {
+  const containerRef = React.useRef<HTMLDivElement>(null);
+
+  React.useEffect(() => {
+    const container = containerRef.current;
+    if (!container) return;
+
+    const handleFocusIn = (e: FocusEvent) => {
+      const target = e.target as HTMLElement;
+      if (!target || !['INPUT', 'TEXTAREA'].includes(target.tagName)) return;
+
+      // Margen generoso para dejar ver las sugerencias (chips) debajo del input
+      const SUGGESTIONS_SPACE = 220;
+
+      setTimeout(() => {
+        const inputRect = target.getBoundingClientRect();
+        // Altura real visible (descontando teclado virtual si el navegador lo soporta)
+        const visibleHeight = window.visualViewport?.height ?? window.innerHeight;
+
+        const inputBottomWithSpace = inputRect.bottom + SUGGESTIONS_SPACE;
+
+        if (inputBottomWithSpace > visibleHeight) {
+          const overflow = inputBottomWithSpace - visibleHeight;
+          // Scroll dentro del contenedor del drawer
+          container.scrollBy({ top: overflow, behavior: 'smooth' });
+          // También scroll de la ventana (para iOS Safari que a veces ignora el scroll del contenedor)
+          window.scrollBy({ top: overflow, behavior: 'smooth' });
+        }
+      }, 350); // espera a que el teclado termine de abrirse (~300ms en iOS)
+    };
+
+    container.addEventListener('focusin', handleFocusIn);
+    return () => container.removeEventListener('focusin', handleFocusIn);
+  }, []);
+
+  return (
+    <div
+      ref={containerRef}
+      className="flex-1 overflow-y-auto px-2 pb-safe"
+      style={{ overscrollBehavior: 'contain' }}
+    >
+      {children}
+      {/* Espacio extra al final para que se pueda hacer scroll suficiente */}
+      <div style={{ height: '2rem' }} aria-hidden="true" />
+    </div>
+  );
+}
+
+
 interface ResponsiveDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
@@ -86,9 +141,9 @@ export function ResponsiveDialogContent({
             <span className="sr-only">Cerrar</span>
           </DrawerClose>
         </div>
-        <div className="flex-1 overflow-y-auto px-2 pb-safe">
+        <MobileKeyboardScrollArea>
           {children}
-        </div>
+        </MobileKeyboardScrollArea>
       </DrawerContent>
     );
   }

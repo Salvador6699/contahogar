@@ -1,17 +1,19 @@
 import { useState, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { ArrowLeft, Database, Download, Upload, AlertTriangle, ShieldCheck, FileJson } from 'lucide-react';
+import { useTheme } from "next-themes"
+import { Settings, Download, Upload, AlertTriangle, ShieldCheck, FileJson, Sun, Moon, Laptop } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Separator } from '@/components/ui/separator';
 import { loadData, saveData } from '@/lib/storage';
 import { FinanceData } from '@/types/finance';
 import { toast } from 'sonner';
-import ThemeToggle from '@/components/ThemeToggle';
 import MobileNav from '@/components/MobileNav';
+import { AccountManager } from '@/components/AccountManager';
 
 const SettingsPage = () => {
     const navigate = useNavigate();
+    const { setTheme } = useTheme()
     const [importing, setImporting] = useState(false);
     const fileInputRef = useRef<HTMLInputElement>(null);
 
@@ -90,21 +92,45 @@ const SettingsPage = () => {
                 <div className="mb-6 sm:mb-8">
                     <div className="flex items-center justify-between mb-2">
                         <div className="flex items-center gap-3">
-                            <Button variant="outline" size="icon" onClick={() => navigate('/')}>
-                                <ArrowLeft className="w-4 h-4" />
-                            </Button>
                             <div className="p-2 bg-primary rounded-lg">
-                                <Database className="w-5 h-5 sm:w-6 sm:h-6 text-primary-foreground" />
+                                <Settings className="w-5 h-5 sm:w-6 sm:h-6 text-primary-foreground" />
                             </div>
                             <div>
-                                <h1 className="text-2xl sm:text-3xl font-bold text-foreground">Gestionar Datos</h1>
+                                <h1 className="text-2xl sm:text-3xl font-bold text-foreground">Ajustes</h1>
                             </div>
                         </div>
-                        <ThemeToggle />
                     </div>
                 </div>
 
                 <div className="space-y-6">
+                    <AccountManager />
+
+                    <Card className="border-none shadow-sm">
+                        <CardHeader>
+                            <CardTitle className="flex items-center gap-2">
+                                <Sun className="w-5 h-5 text-income" />
+                                Apariencia
+                            </CardTitle>
+                            <CardDescription>
+                                Elige cómo se ve la aplicación en tu dispositivo.
+                            </CardDescription>
+                        </CardHeader>
+                        <CardContent className="grid grid-cols-3 gap-4">
+                            <Button variant="outline" className="h-16 flex-col gap-2" onClick={() => setTheme("light")}>
+                                <Sun className="w-5 h-5" />
+                                Claro
+                            </Button>
+                            <Button variant="outline" className="h-16 flex-col gap-2" onClick={() => setTheme("dark")}>
+                                <Moon className="w-5 h-5" />
+                                Oscuro
+                            </Button>
+                            <Button variant="outline" className="h-16 flex-col gap-2" onClick={() => setTheme("system")}>
+                                <Laptop className="w-5 h-5" />
+                                Sistema
+                            </Button>
+                        </CardContent>
+                    </Card>
+
                     <Card className="border-none shadow-sm">
                         <CardHeader>
                             <CardTitle className="flex items-center gap-2">

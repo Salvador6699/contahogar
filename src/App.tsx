@@ -12,6 +12,7 @@ import ComparisonPage from "./pages/ComparisonPage";
 import AveragesPage from "./pages/AveragesPage";
 import SettingsPage from "./pages/SettingsPage";
 import TransferPage from "./pages/TransferPage";
+import GuidePage from "./pages/GuidePage";
 import NotFound from "./pages/NotFound";
 import ScrollToTop from "./components/ScrollToTop";
 import SplashScreen from "./components/SplashScreen";
@@ -38,6 +39,7 @@ const App = () => {
               <Route path="/medias" element={<AveragesPage />} />
               <Route path="/ajustes" element={<SettingsPage />} />
               <Route path="/transferir" element={<TransferPage />} />
+              <Route path="/guia" element={<GuidePage />} />
               {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
               <Route path="*" element={<NotFound />} />
             </Routes>
