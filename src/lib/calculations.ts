@@ -1,10 +1,9 @@
-import { Transaction, CategorySummary, AccountType } from '@/types/finance';
+import { Transaction, CategorySummary, Account } from '@/types/finance';
 
 export const calculateBalance = (
-  initialBalance: number, 
   transactions: Transaction[], 
+  accountId?: string,
   includePending: boolean = false,
-  account?: AccountType,
   upToEndOfMonth?: string // 'yyyy-MM' format, include transactions up to end of this month
 ): number => {
   let filteredTransactions = includePending 
@@ -12,8 +11,8 @@ export const calculateBalance = (
     : transactions.filter(t => !t.isPending);
   
   // Filter by account if specified
-  if (account) {
-    filteredTransactions = filteredTransactions.filter(t => t.account === account);
+  if (accountId) {
+    filteredTransactions = filteredTransactions.filter(t => t.accountId === accountId);
   }
 
   // Filter transactions up to end of selected month
@@ -25,43 +24,96 @@ export const calculateBalance = (
       return d <= endOfMonth;
     });
   }
-    
+
+  // Calculate balance considering account's initial balance
   return filteredTransactions.reduce((balance, transaction) => {
     if (transaction.type === 'income') {
       return balance + transaction.amount;
     } else {
       return balance - transaction.amount;
     }
-  }, initialBalance);
+  }, 0);
 };
 
-export const calculateTotalIncome = (transactions: Transaction[], includePending: boolean = false): number => {
-  const filtered = includePending 
-    ? transactions.filter(t => t.type === 'income')
-    : transactions.filter(t => t.type === 'income' && !t.isPending);
+export const calculateAccountBalance = (
+  account: Account,
+  transactions: Transaction[],
+  includePending: boolean = false,
+  upToEndOfMonth?: string
+): number => {
+  const transactionBalance = calculateBalance(transactions, account.id, includePending, upToEndOfMonth);
+  return account.initialBalance + transactionBalance;
+};
+
+export const calculateTotalBalance = (
+  accounts: Account[],
+  transactions: Transaction[],
+  includePending: boolean = false
+): number => {
+  return accounts.reduce((total, account) => {
+    return total + calculateAccountBalance(account, transactions, includePending);
+  }, 0);
+};
+
+export const calculateTotalIncome = (
+  transactions: Transaction[], 
+  accountId?: string,
+  includePending: boolean = false
+): number => {
+  let filtered = transactions.filter(t => t.type === 'income');
+  
+  if (!includePending) {
+    filtered = filtered.filter(t => !t.isPending);
+  }
+  
+  if (accountId) {
+    filtered = filtered.filter(t => t.accountId === accountId);
+  }
+  
   return filtered.reduce((sum, t) => sum + t.amount, 0);
 };
 
-export const calculateTotalExpenses = (transactions: Transaction[], includePending: boolean = false): number => {
-  const filtered = includePending 
-    ? transactions.filter(t => t.type === 'expense')
-    : transactions.filter(t => t.type === 'expense' && !t.isPending);
+export const calculateTotalExpenses = (
+  transactions: Transaction[], 
+  accountId?: string,
+  includePending: boolean = false
+): number => {
+  let filtered = transactions.filter(t => t.type === 'expense');
+  
+  if (!includePending) {
+    filtered = filtered.filter(t => !t.isPending);
+  }
+  
+  if (accountId) {
+    filtered = filtered.filter(t => t.accountId === accountId);
+  }
+  
   return filtered.reduce((sum, t) => sum + t.amount, 0);
 };
 
 export const calculateCategorySummaries = (
   transactions: Transaction[],
   type: 'income' | 'expense',
+  accountId?: string,
   onlyPending: boolean = false
 ): CategorySummary[] => {
   const categoryMap = new Map<string, CategorySummary>();
 
   transactions
     .filter(t => {
+      let match = t.type === type;
+      
       if (onlyPending) {
-        return t.type === type && t.isPending;
+        match = match && t.isPending;
+      } else {
+        match = match && !t.isPending;
       }
-      return t.type === type && !t.isPending;
+      
+      if (accountId) {
+        match = match && t.accountId === accountId;
+      }
+      
+      return match;
     })
     .forEach(transaction => {
       const existing = categoryMap.get(transaction.category);

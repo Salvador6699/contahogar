@@ -5,19 +5,25 @@ import {
   ResponsiveDialogHeader,
   ResponsiveDialogTitle,
 } from '@/components/ui/responsive-dialog';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { AccountType, Transaction } from '@/types/finance';
-import { formatCurrency } from '@/lib/calculations';
-import { Building2, Banknote, ArrowRight, Pencil, Trash2 } from 'lucide-react';
+import { Account, Transaction } from '@/types/finance';
+import { formatCurrency, calculateAccountBalance } from '@/lib/calculations';
+import { loadData } from '@/lib/storage';
+import { ArrowRight, Pencil, Trash2 } from 'lucide-react';
 
 interface TransferModalProps {
   isOpen: boolean;
   onClose: () => void;
-  onTransfer: (amount: number, from: AccountType, to: AccountType) => void;
-  bankBalance: number;
-  cashBalance: number;
+  onTransfer: (amount: number, fromAccountId: string, toAccountId: string) => void;
   transferTransactions: Transaction[];
   onEditTransfer: (transaction: Transaction) => void;
   onDeleteTransfer: (transactionId: string) => void;
@@ -27,38 +33,53 @@ const TransferModal = ({
   isOpen,
   onClose,
   onTransfer,
-  bankBalance,
-  cashBalance,
   transferTransactions,
   onEditTransfer,
   onDeleteTransfer,
 }: TransferModalProps) => {
   const [amount, setAmount] = useState('');
-  const [fromAccount, setFromAccount] = useState<AccountType>('bank');
+  const [fromAccountId, setFromAccountId] = useState('');
+  const [toAccountId, setToAccountId] = useState('');
+  const [accounts, setAccounts] = useState<Account[]>([]);
+  const [allTransactions, setAllTransactions] = useState<Transaction[]>([]);
 
   useEffect(() => {
     if (isOpen) {
+      const data = loadData();
+      setAccounts(data.accounts);
+      setAllTransactions(data.transactions);
+
+      // Set default accounts
+      if (data.accounts.length >= 2) {
+        setFromAccountId(data.accounts[0].id);
+        setToAccountId(data.accounts[1].id);
+      } else if (data.accounts.length === 1) {
+        setFromAccountId(data.accounts[0].id);
+        setToAccountId(data.accounts[0].id);
+      }
+
       setAmount('');
-      setFromAccount('bank');
     }
   }, [isOpen]);
 
-  const toAccount: AccountType = fromAccount === 'bank' ? 'cash' : 'bank';
-  const maxAmount = fromAccount === 'bank' ? bankBalance : cashBalance;
+  const fromAccount = accounts.find(a => a.id === fromAccountId);
+  const toAccount = accounts.find(a => a.id === toAccountId);
+  const maxAmount = fromAccount ? calculateAccountBalance(fromAccount, allTransactions) : 0;
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     const amountNum = parseFloat(amount);
-    if (isNaN(amountNum) || amountNum <= 0) return;
-    onTransfer(amountNum, fromAccount, toAccount);
+    if (isNaN(amountNum) || amountNum <= 0 || !fromAccountId || !toAccountId) return;
+    onTransfer(amountNum, fromAccountId, toAccountId);
     setAmount('');
   };
 
-  const toggleDirection = () => {
-    setFromAccount(fromAccount === 'bank' ? 'cash' : 'bank');
+  const swapAccounts = () => {
+    setFromAccountId(toAccountId);
+    setToAccountId(fromAccountId);
   };
 
-  // Group transfer pairs by matching amount + date (expense out = the main record)
+  // Group transfer pairs by matching amount + date
   const transferPairs = transferTransactions
     .filter(t => t.type === 'expense')
     .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
@@ -66,10 +87,10 @@ const TransferModal = ({
   const handleDeletePair = (expenseTransfer: Transaction) => {
     // Find matching income transfer
     const matchingIncome = transferTransactions.find(
-      t => t.type === 'income' && 
-           t.amount === expenseTransfer.amount && 
-           t.date === expenseTransfer.date &&
-           t.id !== expenseTransfer.id
+      t => t.type === 'income' &&
+        t.amount === expenseTransfer.amount &&
+        t.date === expenseTransfer.date &&
+        t.id !== expenseTransfer.id
     );
     onDeleteTransfer(expenseTransfer.id);
     if (matchingIncome) {
@@ -85,46 +106,51 @@ const TransferModal = ({
         </ResponsiveDialogHeader>
 
         <form onSubmit={handleSubmit} className="space-y-4">
-          {/* Account direction */}
-          <div className="space-y-3">
-            <Label>Dirección de la transferencia</Label>
-            <div className="flex items-center justify-center gap-3 p-4 bg-muted rounded-lg">
-              <div className="flex flex-col items-center gap-1">
-                {fromAccount === 'bank' ? (
-                  <Building2 className="w-8 h-8 text-primary" />
-                ) : (
-                  <Banknote className="w-8 h-8 text-primary" />
-                )}
-                <span className="text-xs font-medium">
-                  {fromAccount === 'bank' ? 'Banco' : 'Efectivo'}
-                </span>
-                <span className="text-xs text-muted-foreground">
-                  {formatCurrency(fromAccount === 'bank' ? bankBalance : cashBalance)}
-                </span>
-              </div>
-              <Button
-                type="button"
-                variant="outline"
-                size="icon"
-                onClick={toggleDirection}
-                className="rounded-full"
-              >
-                <ArrowRight className="w-4 h-4" />
-              </Button>
-              <div className="flex flex-col items-center gap-1">
-                {toAccount === 'bank' ? (
-                  <Building2 className="w-8 h-8 text-muted-foreground" />
-                ) : (
-                  <Banknote className="w-8 h-8 text-muted-foreground" />
-                )}
-                <span className="text-xs font-medium">
-                  {toAccount === 'bank' ? 'Banco' : 'Efectivo'}
-                </span>
-                <span className="text-xs text-muted-foreground">
-                  {formatCurrency(toAccount === 'bank' ? bankBalance : cashBalance)}
-                </span>
-              </div>
-            </div>
+          {/* From Account */}
+          <div className="space-y-2">
+            <Label htmlFor="fromAccount">Transferir desde</Label>
+            <Select value={fromAccountId} onValueChange={setFromAccountId}>
+              <SelectTrigger id="fromAccount">
+                <SelectValue placeholder="Selecciona cuenta origen" />
+              </SelectTrigger>
+              <SelectContent>
+                {accounts.map((acc) => (
+                  <SelectItem key={acc.id} value={acc.id}>
+                    {acc.name} - {formatCurrency(calculateAccountBalance(acc, allTransactions))}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+
+          {/* Swap Button */}
+          <div className="flex justify-center">
+            <Button
+              type="button"
+              variant="outline"
+              size="icon"
+              onClick={swapAccounts}
+              className="rounded-full"
+            >
+              <ArrowRight className="w-4 h-4" />
+            </Button>
+          </div>
+
+          {/* To Account */}
+          <div className="space-y-2">
+            <Label htmlFor="toAccount">Transferir a</Label>
+            <Select value={toAccountId} onValueChange={setToAccountId}>
+              <SelectTrigger id="toAccount">
+                <SelectValue placeholder="Selecciona cuenta destino" />
+              </SelectTrigger>
+              <SelectContent>
+                {accounts.map((acc) => (
+                  <SelectItem key={acc.id} value={acc.id}>
+                    {acc.name} - {formatCurrency(calculateAccountBalance(acc, allTransactions))}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
           </div>
 
           {/* Amount */}
@@ -158,7 +184,7 @@ const TransferModal = ({
             <Button
               type="submit"
               className="flex-1"
-              disabled={!amount || parseFloat(amount) <= 0 || parseFloat(amount) > maxAmount}
+              disabled={!amount || !fromAccountId || !toAccountId || fromAccountId === toAccountId || parseFloat(amount) <= 0 || parseFloat(amount) > maxAmount}
             >
               Transferir
             </Button>
@@ -175,12 +201,12 @@ const TransferModal = ({
               {transferPairs.map((transfer) => {
                 const matchingIncome = transferTransactions.find(
                   t => t.type === 'income' &&
-                       t.amount === transfer.amount &&
-                       t.date === transfer.date &&
-                       t.id !== transfer.id
+                    t.amount === transfer.amount &&
+                    t.date === transfer.date &&
+                    t.id !== transfer.id
                 );
-                const fromLabel = transfer.account === 'bank' ? 'Banco' : 'Efectivo';
-                const toLabel = matchingIncome?.account === 'bank' ? 'Banco' : 'Efectivo';
+                const fromAcc = accounts.find(a => a.id === transfer.accountId);
+                const toAcc = matchingIncome ? accounts.find(a => a.id === matchingIncome.accountId) : null;
 
                 return (
                   <div
@@ -189,7 +215,7 @@ const TransferModal = ({
                   >
                     <div className="flex-1 min-w-0">
                       <p className="text-sm font-medium">
-                        {fromLabel} → {toLabel}
+                        {fromAcc?.name} → {toAcc?.name}
                       </p>
                       <p className="text-xs text-muted-foreground">
                         {new Date(transfer.date).toLocaleDateString('es-ES')} · {formatCurrency(transfer.amount)}

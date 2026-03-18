@@ -1,6 +1,6 @@
 import { useNavigate, useLocation } from 'react-router-dom';
-import { Home, History, Scale, BarChart3, PiggyBank, Database, ArrowLeftRight } from 'lucide-react';
-import { cn } from '@/lib/utils';
+import { Home, History, Scale, BarChart3, PiggyBank, Settings, ArrowLeftRight, Book } from 'lucide-react';
+import { cn, withKeyboardClose } from '@/lib/utils';
 
 const MobileNav = () => {
     const navigate = useNavigate();
@@ -11,9 +11,10 @@ const MobileNav = () => {
         { icon: History, label: 'Historial', path: '/historial' },
         { icon: BarChart3, label: 'Medias', path: '/medias' },
         { icon: Scale, label: 'Cuadrar', path: '/comparativa' },
-        { icon: ArrowLeftRight, label: 'Transferir', path: '/transferir' },
-        { icon: PiggyBank, label: 'Presupuestos', path: '/presupuestos' },
-        { icon: Database, label: 'Backup', path: '/ajustes' },
+        { icon: ArrowLeftRight, label: 'Transf.', path: '/transferir' },
+        { icon: PiggyBank, label: 'Presupto.', path: '/presupuestos' },
+        { icon: Settings, label: 'Ajustes', path: '/ajustes' },
+        { icon: Book, label: 'Guía', path: '/guia' },
     ];
 
     const isActive = (path: string, exact?: boolean) => {
@@ -25,13 +26,14 @@ const MobileNav = () => {
         <>
             {/* Versión Móvil: Barra Inferior */}
             <div className="lg:hidden fixed bottom-0 left-0 z-50 w-full h-20 pb-safe bg-background/80 backdrop-blur-lg border-t border-border shadow-[0_-4px_16px_rgba(0,0,0,0.05)]">
-                <div className="grid h-full grid-cols-7 mx-auto px-2">
+                <div className="grid h-full grid-cols-8 mx-auto px-2">
                     {navItems.map((item) => {
                         const active = isActive(item.path, item.exact);
                         return (
                             <button
                                 key={item.path}
-                                onClick={() => navigate(item.path)}
+                                onClick={() => withKeyboardClose(() => navigate(item.path))}
+                                onPointerDown={() => withKeyboardClose(() => navigate(item.path))}
                                 type="button"
                                 className="inline-flex flex-col items-center justify-center group"
                             >
@@ -42,7 +44,7 @@ const MobileNav = () => {
                                     <item.icon className={cn("w-5 h-5", active && "stroke-[2.5px]")} />
                                 </div>
                                 <span className={cn(
-                                    "text-[8px] font-bold mt-1 uppercase tracking-tighter transition-all duration-300 truncate w-full px-0.5",
+                                    "text-[9px] font-bold mt-0.5 uppercase tracking-tight transition-all duration-300 truncate w-full text-center px-0.5 leading-none",
                                     active ? "text-primary opacity-100" : "text-muted-foreground opacity-60 group-hover:opacity-100"
                                 )}>
                                     {item.label}
@@ -61,7 +63,8 @@ const MobileNav = () => {
                         return (
                             <button
                                 key={item.path}
-                                onClick={() => navigate(item.path)}
+                                onClick={() => withKeyboardClose(() => navigate(item.path))}
+                                onPointerDown={() => withKeyboardClose(() => navigate(item.path))}
                                 type="button"
                                 className={cn(
                                     "relative flex flex-col items-center justify-center w-full aspect-square rounded-2xl transition-all duration-300 group",

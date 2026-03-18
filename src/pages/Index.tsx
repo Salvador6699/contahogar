@@ -1,15 +1,16 @@
 import { useState, useEffect } from 'react';
-import { Transaction, TransactionType, AccountType, AccountView } from '@/types/finance';
+import { Transaction, TransactionType, AccountView } from '@/types/finance';
 import {
   loadData,
   addTransaction as saveTransaction,
-  updateInitialBalance,
   addCategory,
   updateTransaction,
   deleteTransaction,
 } from '@/lib/storage';
 import {
   calculateBalance,
+  calculateAccountBalance,
+  calculateTotalBalance,
   calculateTotalIncome,
   calculateTotalExpenses,
   calculateCategorySummaries,
@@ -21,13 +22,11 @@ import CategoryBreakdown from '@/components/CategoryBreakdown';
 import TransactionModal from '@/components/TransactionModal';
 import TransactionList from '@/components/TransactionList';
 import FloatingButtons from '@/components/FloatingButtons';
-import InitialBalanceDialog from '@/components/InitialBalanceDialog';
 import AccountSelector from '@/components/AccountSelector';
 import DashboardCharts from '@/components/DashboardCharts';
 import MobileNav from '@/components/MobileNav';
 import { format, parseISO, addMonths, subMonths } from 'date-fns';
-import ThemeToggle from '@/components/ThemeToggle';
-import { Wallet, Calendar, Database, ArrowLeftRight, PiggyBank, ChevronLeft, ChevronRight, Scale, BarChart3 } from 'lucide-react';
+import { Wallet, Calendar, ChevronLeft, ChevronRight, Scale, BarChart3 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { useNavigate } from 'react-router-dom';
 import { loadBudgets } from '@/lib/budgetStorage';
@@ -39,9 +38,8 @@ const Index = () => {
   const [isTransactionModalOpen, setIsTransactionModalOpen] = useState(false);
   const [transactionType, setTransactionType] = useState<TransactionType>('expense');
   const [editingTransaction, setEditingTransaction] = useState<Transaction | null>(null);
-  const [showInitialBalanceDialog, setShowInitialBalanceDialog] = useState(false);
   const [selectedMonth, setSelectedMonth] = useState<string | null>(null);
-  const [selectedAccount, setSelectedAccount] = useState<AccountView>('total');
+  const [selectedAccount, setSelectedAccount] = useState<string | 'total'>('total');
 
   // Filter transactions by selected month
   const { filteredTransactions, isCurrentMonth, selectedMonthLabel, currentMonthKey } = useMonthFilter(
@@ -52,19 +50,7 @@ const Index = () => {
   useEffect(() => {
     const storedData = loadData();
     setData(storedData);
-
-    // Show initial balance dialog if no data exists
-    if (storedData.transactions.length === 0 && storedData.initialBankBalance === 0 && storedData.initialCashBalance === 0) {
-      setShowInitialBalanceDialog(true);
-    }
   }, []);
-
-  const handleSaveInitialBalance = (bankBalance: number, cashBalance: number) => {
-    updateInitialBalance('bank', bankBalance);
-    updateInitialBalance('cash', cashBalance);
-    setData(loadData());
-    setShowInitialBalanceDialog(false);
-  };
 
   const handleAddTransaction = (transaction: Omit<Transaction, 'id'>, copyToNextMonth?: boolean) => {
     if (editingTransaction) {
@@ -131,18 +117,26 @@ const Index = () => {
   const balanceMonthKey = selectedMonth || currentMonthKey;
 
   // Calculate balances for each account (filtered up to selected month)
-  const bankBalance = calculateBalance(data.initialBankBalance, data.transactions, false, 'bank', balanceMonthKey);
-  const cashBalance = calculateBalance(data.initialCashBalance, data.transactions, false, 'cash', balanceMonthKey);
-  const bankProjectedBalance = calculateBalance(data.initialBankBalance, data.transactions, true, 'bank', balanceMonthKey);
-  const cashProjectedBalance = calculateBalance(data.initialCashBalance, data.transactions, true, 'cash', balanceMonthKey);
+  const accountBalances = data.accounts.map(account => ({
+    account,
+    balance: calculateAccountBalance(account, data.transactions, false, balanceMonthKey),
+    projectedBalance: calculateAccountBalance(account, data.transactions, true, balanceMonthKey),
+  }));
 
   // Total balances
-  const totalBalance = bankBalance + cashBalance;
-  const totalProjectedBalance = bankProjectedBalance + cashProjectedBalance;
+  const totalBalance = calculateTotalBalance(data.accounts, data.transactions, false);
+  const totalProjectedBalance = calculateTotalBalance(data.accounts, data.transactions, true);
 
   // Selected account balance
-  const balance = selectedAccount === 'total' ? totalBalance : selectedAccount === 'bank' ? bankBalance : cashBalance;
-  const projectedBalance = selectedAccount === 'total' ? totalProjectedBalance : selectedAccount === 'bank' ? bankProjectedBalance : cashProjectedBalance;
+  let balance = totalBalance;
+  let projectedBalance = totalProjectedBalance;
+  if (selectedAccount !== 'total') {
+    const selected = accountBalances.find(ab => ab.account.id === selectedAccount);
+    if (selected) {
+      balance = selected.balance;
+      projectedBalance = selected.projectedBalance;
+    }
+  }
 
   // Exclude transfers from summaries and lists
   const nonTransferTransactions = filteredTransactions.filter(t => t.category !== 'Transferencia');
@@ -151,20 +145,19 @@ const Index = () => {
   const currentBudgets = loadBudgets(balanceMonthKey);
 
   // Monthly filtered calculations (all accounts combined for categories)
-  const totalIncome = calculateTotalIncome(nonTransferTransactions, false);
-  const totalExpenses = calculateTotalExpenses(nonTransferTransactions, false);
-  const expenseCategories = calculateCategorySummaries(nonTransferTransactions, 'expense', false);
-  const incomeCategories = calculateCategorySummaries(nonTransferTransactions, 'income', false);
+  const totalIncome = calculateTotalIncome(nonTransferTransactions, undefined, false);
+  const totalExpenses = calculateTotalExpenses(nonTransferTransactions, undefined, false);
+  const expenseCategories = calculateCategorySummaries(nonTransferTransactions, 'expense', undefined, false);
+  const incomeCategories = calculateCategorySummaries(nonTransferTransactions, 'income', undefined, false);
 
   // Account-filtered expense categories for the Top Gastos chart
-  const accountFilteredNonTransfer = selectedAccount === 'total'
-    ? nonTransferTransactions
-    : nonTransferTransactions.filter(t => t.account === selectedAccount);
-  const chartExpenseCategories = calculateCategorySummaries(accountFilteredNonTransfer, 'expense', false);
+  const chartExpenseCategories = selectedAccount === 'total'
+    ? calculateCategorySummaries(nonTransferTransactions, 'expense', undefined, false)
+    : calculateCategorySummaries(nonTransferTransactions, 'expense', selectedAccount, false);
 
   // Pending/future transactions (monthly filtered)
-  const pendingExpenseCategories = calculateCategorySummaries(nonTransferTransactions, 'expense', true);
-  const pendingIncomeCategories = calculateCategorySummaries(nonTransferTransactions, 'income', true);
+  const pendingExpenseCategories = calculateCategorySummaries(nonTransferTransactions, 'expense', undefined, true);
+  const pendingIncomeCategories = calculateCategorySummaries(nonTransferTransactions, 'income', undefined, true);
 
   // Separate transactions: regular (non-pending) sorted by most recent, pending sorted by closest date
   const regularTransactions = nonTransferTransactions
@@ -208,9 +201,6 @@ const Index = () => {
                 </div>
                 <h1 className="text-2xl sm:text-3xl font-extrabold tracking-tight text-foreground">ContaHogar</h1>
               </div>
-              <div className="flex items-center gap-2">
-                <ThemeToggle />
-              </div>
             </div>
 
             {/* Month Navigator Header */}
@@ -245,8 +235,8 @@ const Index = () => {
             <AccountSelector
               selectedAccount={selectedAccount}
               onSelectAccount={setSelectedAccount}
-              bankBalance={bankBalance}
-              cashBalance={cashBalance}
+              accounts={data.accounts}
+              accountBalances={accountBalances}
             />
           </div>
 
@@ -338,12 +328,6 @@ const Index = () => {
           type={transactionType}
           categories={data.categories}
           editingTransaction={editingTransaction}
-        />
-
-        {/* Initial Balance Dialog */}
-        <InitialBalanceDialog
-          isOpen={showInitialBalanceDialog}
-          onSave={handleSaveInitialBalance}
         />
 
         {/* Mobile Navigation */}

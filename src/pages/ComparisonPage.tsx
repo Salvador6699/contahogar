@@ -1,16 +1,17 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { ArrowLeft, Scale, AlertCircle, CheckCircle, TrendingDown, TrendingUp, Plus, Minus, Trash2, Save, Building2, Banknote } from 'lucide-react';
+import { Scale, AlertCircle, CheckCircle, TrendingDown, TrendingUp, Plus, Minus, Trash2, Save, Building2, Banknote } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Transaction, AccountType } from '@/types/finance';
-import { loadData, saveData, getCategorySuggestions } from '@/lib/storage';
-import { formatCurrency } from '@/lib/calculations';
-import ThemeToggle from '@/components/ThemeToggle';
+import { Transaction } from '@/types/finance';
+import { loadData, saveData, getCategorySuggestions, addTransaction } from '@/lib/storage';
+import { formatCurrency, calculateAccountBalance } from '@/lib/calculations';
 import { toast } from 'sonner';
 import MobileNav from '@/components/MobileNav';
+import { useScrollOnFocus } from '@/hooks/useScrollOnFocus';
+import { withKeyboardClose } from '@/lib/utils';
 
 interface Adjustment {
     id: string;
@@ -19,48 +20,55 @@ interface Adjustment {
     category: string;
 }
 
-type TabAccount = 'bank' | 'cash';
-
 const ComparisonPage = () => {
     const navigate = useNavigate();
+    const scrollOnFocus = useScrollOnFocus(240);
     const [data, setData] = useState(loadData());
-    const [activeTab, setActiveTab] = useState<TabAccount>('bank');
-    const [realBalances, setRealBalances] = useState<Record<TabAccount, string>>({ bank: '', cash: '' });
-    const [adjustments, setAdjustments] = useState<Record<TabAccount, Adjustment[]>>({ bank: [], cash: [] });
+    const [activeAccountId, setActiveAccountId] = useState('');
+    const [realBalances, setRealBalances] = useState<Record<string, string>>({});
+    const [adjustments, setAdjustments] = useState<Record<string, Adjustment[]>>({});
     const [newAmount, setNewAmount] = useState('');
     const [newCategory, setNewCategory] = useState('');
     const [suggestions, setSuggestions] = useState<string[]>([]);
     const [showSuggestions, setShowSuggestions] = useState(false);
 
-    // Derived from data
-    const { bankBalance, cashBalance, categories } = useMemo(() => {
-        const totalTransactions = data.transactions || [];
-        const bank = data.initialBankBalance + totalTransactions
-            .filter(t => t.account === 'bank' && !t.isPending)
-            .reduce((sum, t) => t.type === 'income' ? sum + t.amount : sum - t.amount, 0);
-        const cash = data.initialCashBalance + totalTransactions
-            .filter(t => t.account === 'cash' && !t.isPending)
-            .reduce((sum, t) => t.type === 'income' ? sum + t.amount : sum - t.amount, 0);
-        return { bankBalance: bank, cashBalance: cash, categories: data.categories };
-    }, [data]);
+    // Initialize with first account
+    useEffect(() => {
+        if (data.accounts.length > 0 && !activeAccountId) {
+            setActiveAccountId(data.accounts[0].id);
+        }
+    }, [data.accounts, activeAccountId]);
+
+    // Initialize real balances and adjustments for all accounts
+    useEffect(() => {
+        const newRealBalances: Record<string, string> = {};
+        const newAdjustments: Record<string, Adjustment[]> = {};
+        data.accounts.forEach(account => {
+            newRealBalances[account.id] = '';
+            newAdjustments[account.id] = [];
+        });
+        setRealBalances(newRealBalances);
+        setAdjustments(newAdjustments);
+    }, [data.accounts]);
 
     useEffect(() => {
         if (newCategory) {
-            const filtered = getCategorySuggestions(newCategory, categories);
+            const filtered = getCategorySuggestions(newCategory, data.categories);
             setSuggestions(filtered);
             setShowSuggestions(filtered.length > 0 && newCategory.length > 0);
         } else {
             setSuggestions([]);
             setShowSuggestions(false);
         }
-    }, [newCategory, categories]);
+    }, [newCategory, data.categories]);
 
-    const currentBalance = activeTab === 'bank' ? bankBalance : cashBalance;
-    const realBalance = realBalances[activeTab];
+    const currentAccount = data.accounts.find(a => a.id === activeAccountId);
+    const currentBalance = currentAccount ? calculateAccountBalance(currentAccount, data.transactions) : 0;
+    const realBalance = realBalances[activeAccountId] || '';
 
     const addAdjustment = (type: 'income' | 'expense') => {
         const amount = parseFloat(newAmount);
-        if (amount > 0 && newCategory.trim()) {
+        if (amount > 0 && newCategory.trim() && activeAccountId) {
             const adjustment: Adjustment = {
                 id: `${Date.now()}-${Math.random()}`,
                 type,
@@ -69,7 +77,7 @@ const ComparisonPage = () => {
             };
             setAdjustments(prev => ({
                 ...prev,
-                [activeTab]: [...prev[activeTab], adjustment],
+                [activeAccountId]: [...(prev[activeAccountId] || []), adjustment],
             }));
             setNewAmount('');
             setNewCategory('');
@@ -80,45 +88,36 @@ const ComparisonPage = () => {
     const removeAdjustment = (id: string) => {
         setAdjustments(prev => ({
             ...prev,
-            [activeTab]: prev[activeTab].filter(a => a.id !== id),
+            [activeAccountId]: (prev[activeAccountId] || []).filter(a => a.id !== id),
         }));
     };
 
     const handleSaveAdjustments = () => {
         const today = new Date().toISOString().split('T')[0];
-        const allAdjustments = [
-            ...adjustments.bank.map(adj => ({
-                id: `${Date.now()}-${Math.random()}`,
-                date: today,
-                amount: adj.amount,
-                category: adj.category,
-                type: adj.type as 'income' | 'expense',
-                account: 'bank' as AccountType,
-                isPending: false,
-            })),
-            ...adjustments.cash.map(adj => ({
-                id: `${Date.now()}-${Math.random()}`,
-                date: today,
-                amount: adj.amount,
-                category: adj.category,
-                type: adj.type as 'income' | 'expense',
-                account: 'cash' as AccountType,
-                isPending: false,
-            })),
-        ];
+        const allAdjustments: Transaction[] = [];
+
+        Object.entries(adjustments).forEach(([accountId, accts]) => {
+            accts.forEach(adj => {
+                allAdjustments.push({
+                    id: `${Date.now()}-${Math.random()}`,
+                    date: today,
+                    amount: adj.amount,
+                    category: adj.category,
+                    type: adj.type as 'income' | 'expense',
+                    accountId: accountId,
+                    isPending: false,
+                });
+            });
+        });
 
         if (allAdjustments.length > 0) {
-            const newData = {
-                ...data,
-                transactions: [...data.transactions, ...allAdjustments]
-            };
-            saveData(newData);
+            allAdjustments.forEach(adj => addTransaction(adj));
             toast.success('Ajustes guardados correctamente');
             navigate('/');
         }
     };
 
-    const totalAdjustments = adjustments[activeTab].reduce((sum, adj) => {
+    const totalAdjustments = (adjustments[activeAccountId] || []).reduce((sum, adj) => {
         return adj.type === 'income' ? sum + adj.amount : sum - adj.amount;
     }, 0);
 
@@ -127,14 +126,20 @@ const ComparisonPage = () => {
     const difference = realBalanceNum - adjustedBalance;
     const hasDifference = Math.abs(difference) > 0.01;
 
-    const bankAdj = adjustments.bank.reduce((s, a) => a.type === 'income' ? s + a.amount : s - a.amount, 0);
-    const cashAdj = adjustments.cash.reduce((s, a) => a.type === 'income' ? s + a.amount : s - a.amount, 0);
-    const bankReal = parseFloat(realBalances.bank) || 0;
-    const cashReal = parseFloat(realBalances.cash) || 0;
-    const bankBalanced = realBalances.bank !== '' && Math.abs(bankReal - (bankBalance + bankAdj)) < 0.01;
-    const cashBalanced = realBalances.cash !== '' && Math.abs(cashReal - (cashBalance + cashAdj)) < 0.01;
-    const hasAnyAdjustments = adjustments.bank.length > 0 || adjustments.cash.length > 0;
-    const atLeastOneBalanced = (bankBalanced && adjustments.bank.length > 0) || (cashBalanced && adjustments.cash.length > 0);
+    // Check if all accounts are balanced
+    const allAccountBalances = data.accounts.map(account => {
+        const adj = (adjustments[account.id] || []).reduce((s, a) => a.type === 'income' ? s + a.amount : s - a.amount, 0);
+        const balance = calculateAccountBalance(account, data.transactions);
+        const real = parseFloat(realBalances[account.id] || '0') || 0;
+        return {
+            accountId: account.id,
+            isBalanced: realBalances[account.id] !== '' && Math.abs(real - (balance + adj)) < 0.01,
+            hasAdjustments: (adjustments[account.id] || []).length > 0,
+        };
+    });
+
+    const hasAnyAdjustments = Object.values(adjustments).some(adj => adj.length > 0);
+    const atLeastOneBalanced = allAccountBalances.some(ab => ab.isBalanced && ab.hasAdjustments);
 
     return (
         <div className="min-h-screen app-gradient-bg pb-32 lg:pl-20">
@@ -143,9 +148,6 @@ const ComparisonPage = () => {
                 <div className="mb-6 sm:mb-8">
                     <div className="flex items-center justify-between mb-2">
                         <div className="flex items-center gap-3">
-                            <Button variant="outline" size="icon" onClick={() => navigate('/')}>
-                                <ArrowLeft className="w-4 h-4" />
-                            </Button>
                             <div className="p-2 bg-primary rounded-lg">
                                 <Scale className="w-5 h-5 sm:w-6 sm:h-6 text-primary-foreground" />
                             </div>
@@ -153,29 +155,22 @@ const ComparisonPage = () => {
                                 <h1 className="text-2xl sm:text-3xl font-bold text-foreground">Cuadrar Saldo</h1>
                             </div>
                         </div>
-                        <ThemeToggle />
                     </div>
                 </div>
 
                 <div className="space-y-6 pb-20">
                     {/* Account tabs */}
-                    <div className="flex gap-2 p-1 bg-muted rounded-xl">
-                        <Button
-                            variant={activeTab === 'bank' ? 'default' : 'ghost'}
-                            className="flex-1 flex items-center gap-2 rounded-lg py-6"
-                            onClick={() => setActiveTab('bank')}
-                        >
-                            <Building2 className="w-4 h-4" />
-                            Banco
-                        </Button>
-                        <Button
-                            variant={activeTab === 'cash' ? 'default' : 'ghost'}
-                            className="flex-1 flex items-center gap-2 rounded-lg py-6"
-                            onClick={() => setActiveTab('cash')}
-                        >
-                            <Banknote className="w-4 h-4" />
-                            Efectivo
-                        </Button>
+                    <div className="flex gap-2 p-1 bg-muted rounded-xl flex-wrap">
+                        {data.accounts.map(account => (
+                            <Button
+                                key={account.id}
+                                variant={activeAccountId === account.id ? 'default' : 'ghost'}
+                                className="flex-1 flex items-center gap-2 rounded-lg py-6 min-w-[120px]"
+                                onClick={() => setActiveAccountId(account.id)}
+                            >
+                                <span>{account.name}</span>
+                            </Button>
+                        ))}
                     </div>
 
                     <Card>
@@ -195,7 +190,7 @@ const ComparisonPage = () => {
                             {/* Real balance input */}
                             <div className="space-y-3">
                                 <Label htmlFor="realBalance" className="text-base font-semibold">
-                                    ¿Cuál es tu saldo real en {activeTab === 'bank' ? 'el banco' : 'efectivo'}?
+                                    ¿Cuál es tu saldo real en {currentAccount?.name}?
                                 </Label>
                                 <div className="relative">
                                     <Input
@@ -203,9 +198,10 @@ const ComparisonPage = () => {
                                         type="number"
                                         step="0.01"
                                         value={realBalance}
-                                        onChange={(e) => setRealBalances(prev => ({ ...prev, [activeTab]: e.target.value }))}
+                                        onChange={(e) => setRealBalances(prev => ({ ...prev, [activeAccountId]: e.target.value }))}
                                         placeholder="0.00"
                                         className="text-lg py-6 pr-10"
+                                        onFocus={scrollOnFocus}
                                     />
                                     <span className="absolute right-4 top-1/2 -translate-y-1/2 text-muted-foreground font-bold text-lg">€</span>
                                 </div>
@@ -264,6 +260,7 @@ const ComparisonPage = () => {
                                         onChange={(e) => setNewCategory(e.target.value)}
                                         placeholder="Ej: Supermercado"
                                         autoComplete="off"
+                                        onFocus={scrollOnFocus}
                                     />
                                     {suggestions.length > 0 && (
                                         <div className="flex flex-wrap gap-2 mt-2">
@@ -271,7 +268,14 @@ const ComparisonPage = () => {
                                                 <button
                                                     key={index}
                                                     type="button"
-                                                    onClick={() => { setNewCategory(suggestion); setSuggestions([]); }}
+                                                    onClick={() => withKeyboardClose(() => {
+                                                        setNewCategory(suggestion);
+                                                        setSuggestions([]);
+                                                    })}
+                                                    onPointerDown={() => withKeyboardClose(() => {
+                                                        setNewCategory(suggestion);
+                                                        setSuggestions([]);
+                                                    })}
                                                     className="text-[10px] px-2 py-1 rounded-full bg-secondary text-secondary-foreground hover:bg-primary hover:text-primary-foreground transition-all border border-border font-medium"
                                                 >
                                                     {suggestion}
@@ -289,20 +293,23 @@ const ComparisonPage = () => {
                                         value={newAmount}
                                         onChange={(e) => setNewAmount(e.target.value)}
                                         placeholder="0.00"
+                                        onFocus={scrollOnFocus}
                                     />
                                 </div>
                             </div>
                             <div className="flex gap-3">
                                 <Button
                                     className="flex-1 bg-income hover:bg-income/90 gap-2"
-                                    onClick={() => addAdjustment('income')}
+                                    onClick={() => withKeyboardClose(() => addAdjustment('income'))}
+                                    onPointerDown={() => withKeyboardClose(() => addAdjustment('income'))}
                                     disabled={!newAmount || parseFloat(newAmount) <= 0 || !newCategory.trim()}
                                 >
                                     <Plus className="w-4 h-4" /> Ingreso
                                 </Button>
                                 <Button
                                     className="flex-1 bg-expense hover:bg-expense/90 gap-2"
-                                    onClick={() => addAdjustment('expense')}
+                                    onClick={() => withKeyboardClose(() => addAdjustment('expense'))}
+                                    onPointerDown={() => withKeyboardClose(() => addAdjustment('expense'))}
                                     disabled={!newAmount || parseFloat(newAmount) <= 0 || !newCategory.trim()}
                                 >
                                     <Minus className="w-4 h-4" /> Gasto
@@ -310,10 +317,10 @@ const ComparisonPage = () => {
                             </div>
 
                             {/* List of adjustments */}
-                            {adjustments[activeTab].length > 0 && (
+                            {(adjustments[activeAccountId] || []).length > 0 && (
                                 <div className="space-y-2 mt-4">
                                     <p className="text-xs font-bold uppercase text-muted-foreground border-b pb-1">Ajustes Pendientes</p>
-                                    {adjustments[activeTab].map((adj) => (
+                                    {(adjustments[activeAccountId] || []).map((adj) => (
                                         <div key={adj.id} className="flex items-center justify-between p-3 rounded-lg bg-muted/30 border border-border group">
                                             <div className="flex items-center gap-3">
                                                 <div className={`p-1.5 rounded-full ${adj.type === 'income' ? 'bg-income/10 text-income' : 'bg-expense/10 text-expense'}`}>
@@ -342,7 +349,7 @@ const ComparisonPage = () => {
                     </Card>
 
                     {/* Action Buttons */}
-                    <div className="fixed bottom-0 left-0 w-full p-4 bg-background/80 backdrop-blur-md border-t sm:relative sm:border-t-0 sm:bg-transparent sm:p-0 flex gap-4">
+                    <div className="fixed bottom-20 left-0 w-full p-4 bg-background/80 backdrop-blur-md border-t sm:relative sm:bottom-auto sm:border-t-0 sm:bg-transparent sm:p-0 flex gap-4 z-40">
                         <Button
                             variant="outline"
                             onClick={() => navigate('/')}
@@ -352,7 +359,8 @@ const ComparisonPage = () => {
                         </Button>
                         <Button
                             className="flex-1 py-6 bg-primary text-primary-foreground font-bold shadow-lg disabled:opacity-50"
-                            onClick={handleSaveAdjustments}
+                            onClick={() => withKeyboardClose(() => handleSaveAdjustments())}
+                            onPointerDown={() => withKeyboardClose(() => handleSaveAdjustments())}
                             disabled={!hasAnyAdjustments || !atLeastOneBalanced}
                         >
                             <Save className="w-5 h-5 mr-2" />
@@ -367,4 +375,4 @@ const ComparisonPage = () => {
 };
 
 export default ComparisonPage;
-import { useMemo } from 'react';
+

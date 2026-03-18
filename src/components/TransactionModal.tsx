@@ -8,9 +8,18 @@ import {
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { Transaction, TransactionType, AccountType } from '@/types/finance';
-import { getCategorySuggestions, findSimilarCategory } from '@/lib/storage';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
+import { Transaction, TransactionType, Account } from '@/types/finance';
+import { getCategorySuggestions, findSimilarCategory, loadData } from '@/lib/storage';
 import { Calendar, DollarSign, Tag, Building2, Banknote } from 'lucide-react';
+import { useScrollOnFocus } from '@/hooks/useScrollOnFocus';
+import { withKeyboardClose } from '@/lib/utils';
 
 interface TransactionModalProps {
   isOpen: boolean;
@@ -29,10 +38,12 @@ const TransactionModal = ({
   categories,
   editingTransaction = null,
 }: TransactionModalProps) => {
+  const scrollOnFocus = useScrollOnFocus(240);
   const [date, setDate] = useState('');
   const [amount, setAmount] = useState('');
   const [category, setCategory] = useState('');
-  const [account, setAccount] = useState<AccountType>('bank');
+  const [accountId, setAccountId] = useState('');
+  const [accounts, setAccounts] = useState<Account[]>([]);
   const [isPending, setIsPending] = useState(false);
   const [copyToNextMonth, setCopyToNextMonth] = useState(false);
   const [suggestions, setSuggestions] = useState<string[]>([]);
@@ -40,12 +51,17 @@ const TransactionModal = ({
 
   useEffect(() => {
     if (isOpen) {
+      // Load accounts from storage
+      const data = loadData();
+      setAccounts(data.accounts);
+      const defaultAccountId = data.accounts.length > 0 ? data.accounts[0].id : '';
+
       if (editingTransaction) {
         // Editing mode - populate with existing data
         setDate(editingTransaction.date);
         setAmount(editingTransaction.amount.toString());
         setCategory(editingTransaction.category);
-        setAccount(editingTransaction.account || 'bank');
+        setAccountId(editingTransaction.accountId);
         setIsPending(editingTransaction.isPending || false);
         setCopyToNextMonth(false);
       } else {
@@ -54,7 +70,7 @@ const TransactionModal = ({
         setDate(today);
         setAmount('');
         setCategory('');
-        setAccount('bank');
+        setAccountId(defaultAccountId);
         setIsPending(false);
         setCopyToNextMonth(false);
       }
@@ -92,7 +108,7 @@ const TransactionModal = ({
       amount: amountNum,
       category: existingCategory,
       type,
-      account,
+      accountId,
       isPending,
     }, copyToNextMonth);
 
@@ -101,7 +117,7 @@ const TransactionModal = ({
       setDate(new Date().toISOString().split('T')[0]);
       setAmount('');
       setCategory('');
-      setAccount('bank');
+      setAccountId(accounts.length > 0 ? accounts[0].id : '');
       setIsPending(false);
       setCopyToNextMonth(false);
     }
@@ -147,30 +163,22 @@ const TransactionModal = ({
           </div>
 
           <div className="space-y-2">
-            <Label className="flex items-center gap-2">
+            <Label htmlFor="account" className="flex items-center gap-2">
               <Building2 className="w-4 h-4" />
               Cuenta
             </Label>
-            <div className="grid grid-cols-2 gap-2">
-              <Button
-                type="button"
-                variant={account === 'bank' ? 'default' : 'outline'}
-                onClick={() => setAccount('bank')}
-                className="flex items-center gap-2"
-              >
-                <Building2 className="w-4 h-4" />
-                Banco
-              </Button>
-              <Button
-                type="button"
-                variant={account === 'cash' ? 'default' : 'outline'}
-                onClick={() => setAccount('cash')}
-                className="flex items-center gap-2"
-              >
-                <Banknote className="w-4 h-4" />
-                Efectivo
-              </Button>
-            </div>
+            <Select value={accountId} onValueChange={setAccountId}>
+              <SelectTrigger id="account">
+                <SelectValue placeholder="Selecciona una cuenta" />
+              </SelectTrigger>
+              <SelectContent>
+                {accounts.map((acc) => (
+                  <SelectItem key={acc.id} value={acc.id}>
+                    {acc.name}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
           </div>
 
           <div className="space-y-2">
@@ -217,6 +225,7 @@ const TransactionModal = ({
               placeholder="0.00"
               required
               className="w-full"
+              onFocus={scrollOnFocus}
             />
           </div>
 
@@ -234,6 +243,7 @@ const TransactionModal = ({
               required
               className="w-full"
               autoComplete="off"
+              onFocus={scrollOnFocus}
             />
             {suggestions.length > 0 && (
               <div className="flex flex-wrap gap-2 mt-2">
@@ -241,7 +251,8 @@ const TransactionModal = ({
                   <button
                     key={index}
                     type="button"
-                    onClick={() => selectSuggestion(suggestion)}
+                    onClick={() => withKeyboardClose(() => selectSuggestion(suggestion))}
+                    onPointerDown={() => withKeyboardClose(() => selectSuggestion(suggestion))}
                     className="text-xs px-3 py-1.5 rounded-full bg-secondary text-secondary-foreground hover:bg-primary hover:text-primary-foreground transition-all border border-border font-medium shadow-sm animate-in fade-in zoom-in duration-200"
                   >
                     {suggestion}
@@ -262,6 +273,8 @@ const TransactionModal = ({
             </Button>
             <Button
               type="submit"
+              onClick={() => withKeyboardClose(() => { })}
+              onPointerDown={() => withKeyboardClose(() => { })}
               className={`flex-1 text-white ${buttonClass}`}
             >
               Guardar

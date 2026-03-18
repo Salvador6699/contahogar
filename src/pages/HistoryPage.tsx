@@ -2,13 +2,12 @@ import { useState, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { format, parseISO, startOfMonth } from 'date-fns';
 import { es } from 'date-fns/locale';
-import { ArrowLeft, Calendar, History } from 'lucide-react';
+import { Calendar, History } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { Transaction } from '@/types/finance';
 import { loadData } from '@/lib/storage';
 import { formatCurrency } from '@/lib/calculations';
-import ThemeToggle from '@/components/ThemeToggle';
 import MobileNav from '@/components/MobileNav';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from 'recharts';
 import { ChartContainer, ChartTooltipContent } from '@/components/ui/chart';
@@ -75,9 +74,6 @@ const HistoryPage = () => {
                 <div className="mb-6 sm:mb-8">
                     <div className="flex items-center justify-between mb-2">
                         <div className="flex items-center gap-3">
-                            <Button variant="outline" size="icon" onClick={() => navigate('/')}>
-                                <ArrowLeft className="w-4 h-4" />
-                            </Button>
                             <div className="p-2 bg-primary rounded-lg">
                                 <History className="w-5 h-5 sm:w-6 sm:h-6 text-primary-foreground" />
                             </div>
@@ -85,7 +81,6 @@ const HistoryPage = () => {
                                 <h1 className="text-2xl sm:text-3xl font-bold text-foreground">Historial</h1>
                             </div>
                         </div>
-                        <ThemeToggle />
                     </div>
                 </div>
 
