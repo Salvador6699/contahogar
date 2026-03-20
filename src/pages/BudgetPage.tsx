@@ -1,8 +1,8 @@
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useRef } from 'react';
 import { useSearchParams, useNavigate } from 'react-router-dom';
 import { format, parseISO, addMonths, subMonths } from 'date-fns';
 import { es } from 'date-fns/locale';
-import { Plus, Pencil, Trash2, PiggyBank, ChevronLeft, ChevronRight } from 'lucide-react';
+import { Plus, Pencil, Trash2, PiggyBank, ChevronLeft, ChevronRight, Wand2, Info } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -12,7 +12,7 @@ import { Checkbox } from '@/components/ui/checkbox';
 import { Budget, Transaction } from '@/types/finance';
 import { loadData } from '@/lib/storage';
 import { loadBudgets, saveBudget, updateBudget, deleteBudget } from '@/lib/budgetStorage';
-import { formatCurrency, calculateTotalIncome, calculateTotalExpenses } from '@/lib/calculations';
+import { formatCurrency, calculateTotalIncome, calculateTotalExpenses, calculateMonthlyAverages, CategoryMonthlyAverage } from '@/lib/calculations';
 import { getCategorySuggestions } from '@/lib/storage';
 import MobileNav from '@/components/MobileNav';
 import { useScrollOnFocus } from '@/hooks/useScrollOnFocus';
@@ -59,6 +59,47 @@ const BudgetPage = () => {
   const totalIncome = calculateTotalIncome(monthTransactions, undefined, includePendingIncome);
   const totalExpenses = calculateTotalExpenses(monthTransactions, undefined, includePendingExpenses);
 
+  const averages = useMemo(() => calculateMonthlyAverages(data.transactions), [data.transactions]);
+  
+  const currentAverage = useMemo(() => {
+    if (!category.trim()) return null;
+    return averages.find(a => a.category.toLowerCase().trim() === category.toLowerCase().trim());
+  }, [averages, category]);
+
+  const handleFillFromAverages = () => {
+    // Get user-selected categories from localStorage (same as AveragesPage)
+    const saved = localStorage.getItem('contahogar_selected_averages');
+    let selectedSet: Record<string, boolean> = {};
+    if (saved) {
+      try {
+        selectedSet = JSON.parse(saved);
+      } catch (e) {}
+    }
+
+    // Fill only expenses that are selected in the Averages page
+    const filteredAverages = averages.filter(a => {
+      // If we have saved preferences, use them. Otherwise fallback to isRegular.
+      const isSelected = saved ? selectedSet[a.category] : a.isRegular;
+      return a.type === 'expense' && isSelected;
+    });
+
+    const existingCategories = new Set(budgets.map(b => b.category.toLowerCase().trim()));
+    
+    filteredAverages.forEach(avg => {
+      if (!existingCategories.has(avg.category.toLowerCase().trim())) {
+        const newBudget: Budget = {
+          id: `${Date.now()}-${Math.random()}`,
+          category: avg.category.trim(),
+          amount: avg.average,
+          month: monthParam,
+        };
+        saveBudget(newBudget);
+      }
+    });
+
+    setBudgets(loadBudgets(monthParam));
+  };
+
   const getSpentForCategory = (cat: string): number => {
     return monthTransactions
       .filter(t => t.type === 'expense' && (!t.isPending || includePendingExpenses) && t.category.toLowerCase().trim() === cat.toLowerCase().trim())
@@ -98,11 +139,23 @@ const BudgetPage = () => {
     setSuggestions([]);
   };
 
+  const formRef = useRef<HTMLDivElement>(null);
+
   const handleEdit = (budget: Budget) => {
     setEditingBudget(budget);
     setCategory(budget.category);
     setAmount(budget.amount.toString());
     setShowForm(true);
+    setTimeout(() => {
+      formRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    }, 100);
+  };
+
+  const handleAddClick = () => {
+    setShowForm(true);
+    setTimeout(() => {
+      formRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    }, 100);
   };
 
   const handleDelete = (id: string) => {
@@ -206,17 +259,25 @@ const BudgetPage = () => {
           </CardContent>
         </Card>
 
-        {/* Add Budget Button */}
+        {/* Add Budget Button and Autocomplete */}
         {!showForm && (
-          <Button onClick={() => setShowForm(true)} className="w-full mb-6 gap-2">
-            <Plus className="w-4 h-4" />
-            Añadir presupuesto
-          </Button>
+          <div className="flex flex-col sm:flex-row gap-3 mb-6">
+            <Button onClick={handleAddClick} className="flex-1 gap-2">
+              <Plus className="w-4 h-4" />
+              Añadir presupuesto
+            </Button>
+            {budgets.length === 0 && averages.some(a => a.type === 'expense' && a.isRegular) && (
+              <Button onClick={handleFillFromAverages} variant="outline" className="flex-1 gap-2 border-primary/20 text-primary hover:bg-primary/5">
+                <Wand2 className="w-4 h-4" />
+                Autocompletar con medias
+              </Button>
+            )}
+          </div>
         )}
 
         {/* Budget Form */}
         {showForm && (
-          <Card className="mb-6">
+          <Card ref={formRef} className="mb-6 border-primary/20 shadow-md scroll-mt-20">
             <CardContent className="p-4 space-y-4">
               <div className="space-y-2">
                 <Label>Categoría</Label>
@@ -248,7 +309,18 @@ const BudgetPage = () => {
                 )}
               </div>
               <div className="space-y-2">
-                <Label>Presupuesto (€)</Label>
+                <div className="flex items-center justify-between">
+                  <Label>Presupuesto (€)</Label>
+                  {currentAverage && (
+                    <button 
+                      onClick={() => setAmount(currentAverage.average.toString())}
+                      className="text-[10px] bg-primary/10 text-primary px-2 py-0.5 rounded-full hover:bg-primary/20 transition-colors flex items-center gap-1"
+                    >
+                      <Info className="w-3 h-3" />
+                      Media: {formatCurrency(currentAverage.average)}
+                    </button>
+                  )}
+                </div>
                 <Input
                   type="number"
                   value={amount}

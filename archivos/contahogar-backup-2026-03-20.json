@@ -1,4 +1,16 @@
 {
+  "accounts": [
+    {
+      "id": "default-bank-id",
+      "name": "Banco",
+      "initialBalance": 1062.78
+    },
+    {
+      "id": "default-cash-id",
+      "name": "Efectivo",
+      "initialBalance": 0
+    }
+  ],
   "transactions": [
     {
       "date": "2026-01-03",
@@ -7,7 +19,7 @@
       "type": "income",
       "isPending": false,
       "id": "1769111086795-0.08601692243527814",
-      "account": "bank"
+      "accountId": "default-bank-id"
     },
     {
       "date": "2026-01-19",
@@ -16,7 +28,7 @@
       "type": "income",
       "isPending": false,
       "id": "1769111106389-0.419643714896934",
-      "account": "bank"
+      "accountId": "default-bank-id"
     },
     {
       "date": "2026-01-31",
@@ -25,7 +37,7 @@
       "type": "expense",
       "isPending": false,
       "id": "1769111131592-0.6580968298088085",
-      "account": "bank"
+      "accountId": "default-bank-id"
     },
     {
       "date": "2026-01-03",
@@ -34,7 +46,7 @@
       "type": "expense",
       "isPending": false,
       "id": "1769111157599-0.09885566100426546",
-      "account": "bank"
+      "accountId": "default-bank-id"
     },
     {
       "date": "2026-01-05",
@@ -43,7 +55,7 @@
       "type": "expense",
       "isPending": false,
       "id": "1769111204308-0.33392981281130696",
-      "account": "bank"
+      "accountId": "default-bank-id"
     },
     {
       "date": "2026-01-23",
@@ -52,7 +64,7 @@
       "type": "expense",
       "isPending": false,
       "id": "1769111418658-0.5760403728881167",
-      "account": "bank"
+      "accountId": "default-bank-id"
     },
     {
       "date": "2026-01-27",
@@ -61,7 +73,7 @@
       "type": "expense",
       "isPending": false,
       "id": "1769111507384-0.8706590874495009",
-      "account": "bank"
+      "accountId": "default-bank-id"
     },
     {
       "date": "2026-01-05",
@@ -70,7 +82,7 @@
       "type": "expense",
       "isPending": false,
       "id": "1769111550089-0.10201438542151309",
-      "account": "bank"
+      "accountId": "default-bank-id"
     },
     {
       "date": "2026-01-26",
@@ -79,7 +91,7 @@
       "type": "expense",
       "isPending": false,
       "id": "1769111577161-0.5206376062423177",
-      "account": "bank"
+      "accountId": "default-bank-id"
     },
     {
       "date": "2026-01-03",
@@ -88,7 +100,7 @@
       "type": "expense",
       "isPending": false,
       "id": "1769111619591-0.6113605271519049",
-      "account": "bank"
+      "accountId": "default-bank-id"
     },
     {
       "date": "2026-01-03",
@@ -97,7 +109,7 @@
       "type": "expense",
       "isPending": false,
       "id": "1769111636432-0.1437287374528784",
-      "account": "bank"
+      "accountId": "default-bank-id"
     },
     {
       "date": "2026-01-22",
@@ -106,7 +118,7 @@
       "type": "expense",
       "isPending": false,
       "id": "1769111680662-0.7673213837585988",
-      "account": "bank"
+      "accountId": "default-bank-id"
     },
     {
       "date": "2026-01-22",
@@ -115,7 +127,7 @@
       "type": "expense",
       "isPending": false,
       "id": "1769111698526-0.24889050433576732",
-      "account": "bank"
+      "accountId": "default-bank-id"
     },
     {
       "date": "2026-01-22",
@@ -124,7 +136,7 @@
       "type": "expense",
       "isPending": false,
       "id": "1769111721389-0.4968720656385024",
-      "account": "bank"
+      "accountId": "default-bank-id"
     },
     {
       "date": "2026-01-22",
@@ -133,7 +145,7 @@
       "type": "expense",
       "isPending": false,
       "id": "1769111737061-0.31560670470934105",
-      "account": "bank"
+      "accountId": "default-bank-id"
     },
     {
       "date": "2026-01-22",
@@ -142,7 +154,7 @@
       "type": "expense",
       "isPending": false,
       "id": "1769111751853-0.34124262176271736",
-      "account": "bank"
+      "accountId": "default-bank-id"
     },
     {
       "date": "2026-01-22",
@@ -151,7 +163,7 @@
       "type": "expense",
       "isPending": false,
       "id": "1769111770949-0.7054350161639823",
-      "account": "bank"
+      "accountId": "default-bank-id"
     },
     {
       "date": "2026-01-22",
@@ -160,7 +172,7 @@
       "type": "expense",
       "isPending": false,
       "id": "1769111786525-0.2147557275570322",
-      "account": "bank"
+      "accountId": "default-bank-id"
     },
     {
       "date": "2026-01-22",
@@ -169,7 +181,7 @@
       "type": "expense",
       "isPending": false,
       "id": "1769111802013-0.25656565990417324",
-      "account": "bank"
+      "accountId": "default-bank-id"
     },
     {
       "date": "2026-01-22",
@@ -178,7 +190,7 @@
       "type": "expense",
       "isPending": false,
       "id": "1769111812396-0.025024531212570533",
-      "account": "bank"
+      "accountId": "default-bank-id"
     },
     {
       "date": "2026-01-22",
@@ -187,7 +199,7 @@
       "type": "expense",
       "isPending": false,
       "id": "1769111836637-0.42244700127889245",
-      "account": "bank"
+      "accountId": "default-bank-id"
     },
     {
       "date": "2026-01-21",
@@ -196,7 +208,7 @@
       "type": "expense",
       "isPending": false,
       "id": "1769112179557-0.6627952178928571",
-      "account": "bank"
+      "accountId": "default-bank-id"
     },
     {
       "date": "2026-01-21",
@@ -205,7 +217,7 @@
       "type": "expense",
       "isPending": false,
       "id": "1769112213975-0.25906086395077166",
-      "account": "bank"
+      "accountId": "default-bank-id"
     },
     {
       "date": "2026-01-21",
@@ -214,7 +226,7 @@
       "type": "expense",
       "isPending": false,
       "id": "1769112308014-0.32932695807946655",
-      "account": "bank"
+      "accountId": "default-bank-id"
     },
     {
       "date": "2026-01-23",
@@ -223,7 +235,7 @@
       "type": "expense",
       "isPending": false,
       "id": "1769256208460-0.32803019050653015",
-      "account": "bank"
+      "accountId": "default-bank-id"
     },
     {
       "date": "2026-01-23",
@@ -232,7 +244,7 @@
       "type": "expense",
       "isPending": false,
       "id": "1769256223786-0.3725500870656634",
-      "account": "bank"
+      "accountId": "default-bank-id"
     },
     {
       "date": "2026-01-24",
@@ -241,7 +253,7 @@
       "type": "expense",
       "isPending": false,
       "id": "1769256236237-0.16427119234879106",
-      "account": "bank"
+      "accountId": "default-bank-id"
     },
     {
       "date": "2026-01-23",
@@ -250,7 +262,7 @@
       "type": "expense",
       "isPending": false,
       "id": "1769256252667-0.8124743880174776",
-      "account": "bank"
+      "accountId": "default-bank-id"
     },
     {
       "date": "2026-01-26",
@@ -259,7 +271,7 @@
       "type": "expense",
       "isPending": false,
       "id": "1769445382913-0.3274287504194925",
-      "account": "bank"
+      "accountId": "default-bank-id"
     },
     {
       "date": "2026-01-26",
@@ -268,7 +280,7 @@
       "type": "expense",
       "isPending": false,
       "id": "1769445403085-0.9729631073145191",
-      "account": "bank"
+      "accountId": "default-bank-id"
     },
     {
       "date": "2026-01-26",
@@ -277,7 +289,7 @@
       "type": "expense",
       "isPending": false,
       "id": "1769445442967-0.7328680408007922",
-      "account": "bank"
+      "accountId": "default-bank-id"
     },
     {
       "date": "2026-01-27",
@@ -286,7 +298,7 @@
       "type": "expense",
       "isPending": false,
       "id": "1769532360043-0.9716484160168122",
-      "account": "bank"
+      "accountId": "default-bank-id"
     },
     {
       "date": "2026-02-03",
@@ -295,7 +307,7 @@
       "type": "income",
       "isPending": false,
       "id": "1769627160774-0.534300839507834",
-      "account": "bank"
+      "accountId": "default-bank-id"
     },
     {
       "date": "2026-02-03",
@@ -304,52 +316,52 @@
       "type": "expense",
       "isPending": false,
       "id": "1769627244368-0.7212282300549455",
-      "account": "bank"
+      "accountId": "default-bank-id"
     },
     {
       "date": "2026-02-13",
       "amount": 1415,
       "category": "nomina 2",
       "type": "income",
-      "account": "cash",
       "isPending": false,
-      "id": "1769627312307-0.3370964933592092"
+      "id": "1769627312307-0.3370964933592092",
+      "accountId": "default-cash-id"
     },
     {
       "date": "2026-02-28",
       "amount": 680.51,
       "category": "hipoteca",
       "type": "expense",
-      "account": "bank",
       "isPending": false,
-      "id": "1769627349489-0.9271180107209239-copy"
+      "id": "1769627349489-0.9271180107209239-copy",
+      "accountId": "default-bank-id"
     },
     {
       "date": "2026-02-25",
       "amount": 180.65,
       "category": "orange",
       "type": "expense",
-      "account": "bank",
       "isPending": false,
-      "id": "1769627439818-0.23765035242260624-copy"
+      "id": "1769627439818-0.23765035242260624-copy",
+      "accountId": "default-bank-id"
     },
     {
       "date": "2026-02-15",
       "amount": 212.79,
       "category": "luz",
       "type": "expense",
-      "account": "bank",
       "isPending": false,
-      "id": "1769627452784-0.2511861532953398-copy"
+      "id": "1769627452784-0.2511861532953398-copy",
+      "accountId": "default-bank-id"
     },
     {
       "date": "2026-02-05",
       "amount": 20.99,
       "category": "Spotify",
       "type": "expense",
-      "account": "bank",
       "isPending": false,
-      "id": "1769627480691-0.15128361440504878-copy"
+      "id": "1769627480691-0.15128361440504878-copy",
+      "accountId": "default-bank-id"
     },
     {
       "date": "2026-01-29",
@@ -358,7 +370,7 @@
       "type": "expense",
       "isPending": false,
       "id": "1769705394976-0.3436803375194004",
-      "account": "bank"
+      "accountId": "default-bank-id"
     },
     {
       "date": "2026-01-30",
@@ -367,7 +379,7 @@
       "type": "expense",
       "isPending": false,
       "id": "1769765307893-0.8063483352801856",
-      "account": "bank"
+      "accountId": "default-bank-id"
     },
     {
       "date": "2026-02-01",
@@ -376,7 +388,7 @@
       "type": "expense",
       "isPending": false,
       "id": "1769859703175-0.07837206529632468",
-      "account": "bank"
+      "accountId": "default-bank-id"
     },
     {
       "date": "2026-02-01",
@@ -385,7 +397,7 @@
       "type": "expense",
       "isPending": false,
       "id": "1769940379985-0.6431979176638988",
-      "account": "bank"
+      "accountId": "default-bank-id"
     },
     {
       "date": "2026-02-03",
@@ -394,7 +406,7 @@
       "type": "expense",
       "isPending": false,
       "id": "1770023607169-0.8269380929373817",
-      "account": "bank"
+      "accountId": "default-bank-id"
     },
     {
       "date": "2026-02-02",
@@ -403,7 +415,7 @@
       "type": "expense",
       "isPending": false,
       "id": "1770054902260-0.04805898814509835",
-      "account": "bank"
+      "accountId": "default-bank-id"
     },
     {
       "date": "2026-02-02",
@@ -412,7 +424,7 @@
       "type": "expense",
       "isPending": false,
       "id": "1770065403205-0.5075006512864636",
-      "account": "bank"
+      "accountId": "default-bank-id"
     },
     {
       "date": "2026-02-03",
@@ -421,7 +433,7 @@
       "type": "expense",
       "isPending": false,
       "id": "1770127352800-0.35654223612765434",
-      "account": "bank"
+      "accountId": "default-bank-id"
     },
     {
       "date": "2026-02-03",
@@ -430,7 +442,7 @@
       "type": "expense",
       "isPending": false,
       "id": "1770183499693-0.003965454938080204",
-      "account": "bank"
+      "accountId": "default-bank-id"
     },
     {
       "date": "2026-02-03",
@@ -439,7 +451,7 @@
       "type": "expense",
       "isPending": false,
       "id": "1770183518121-0.20172935947052706",
-      "account": "bank"
+      "accountId": "default-bank-id"
     },
     {
       "date": "2026-02-04",
@@ -448,7 +460,7 @@
       "type": "expense",
       "isPending": false,
       "id": "1770212335076-0.6082756711562344",
-      "account": "bank"
+      "accountId": "default-bank-id"
     },
     {
       "date": "2026-02-04",
@@ -457,7 +469,7 @@
       "type": "expense",
       "isPending": false,
       "id": "1770212407792-0.814649784035351",
-      "account": "bank"
+      "accountId": "default-bank-id"
     },
     {
       "date": "2026-02-05",
@@ -466,7 +478,7 @@
       "type": "expense",
       "isPending": false,
       "id": "1770275467313-0.892599245533121",
-      "account": "bank"
+      "accountId": "default-bank-id"
     },
     {
       "date": "2026-02-05",
@@ -475,7 +487,7 @@
       "type": "expense",
       "isPending": false,
       "id": "1770310155189-0.07337006742293217",
-      "account": "bank"
+      "accountId": "default-bank-id"
     },
     {
       "date": "2026-02-05",
@@ -484,7 +496,7 @@
       "type": "expense",
       "isPending": false,
       "id": "1770317458063-0.5991690559936773",
-      "account": "bank"
+      "accountId": "default-bank-id"
     },
     {
       "date": "2026-02-06",
@@ -493,7 +505,7 @@
       "type": "expense",
       "isPending": false,
       "id": "1770361114378-0.2877360440695511",
-      "account": "bank"
+      "accountId": "default-bank-id"
     },
     {
       "date": "2026-02-06",
@@ -502,7 +514,7 @@
       "type": "expense",
       "isPending": false,
       "id": "1770380410165-0.912158734394899",
-      "account": "bank"
+      "accountId": "default-bank-id"
     },
     {
       "id": "1770542817265-0.6655975208350768-transfer-out",
@@ -510,8 +522,8 @@
       "amount": 35,
       "category": "Transferencia",
       "type": "expense",
-      "account": "bank",
-      "isPending": false
+      "isPending": false,
+      "accountId": "default-bank-id"
     },
     {
       "id": "1770542817265-0.6150795333482729-transfer-in",
@@ -519,116 +531,116 @@
       "amount": 35,
       "category": "Transferencia",
       "type": "income",
-      "account": "cash",
-      "isPending": false
+      "isPending": false,
+      "accountId": "default-cash-id"
     },
     {
       "date": "2026-02-08",
       "amount": 64,
       "category": "tabaco",
       "type": "expense",
-      "account": "bank",
       "isPending": false,
-      "id": "1770543977921-0.1419081267444875"
+      "id": "1770543977921-0.1419081267444875",
+      "accountId": "default-bank-id"
     },
     {
       "date": "2026-02-08",
       "amount": 66.75,
       "category": "Supermercado",
       "type": "expense",
-      "account": "bank",
       "isPending": false,
-      "id": "1770543977921-0.022776418256333142"
+      "id": "1770543977921-0.022776418256333142",
+      "accountId": "default-bank-id"
     },
     {
       "date": "2026-02-08",
       "amount": 7.3,
       "category": "Bar/Restaurante",
       "type": "expense",
-      "account": "bank",
       "isPending": false,
-      "id": "1770543977922-0.8511251325813035"
+      "id": "1770543977922-0.8511251325813035",
+      "accountId": "default-bank-id"
     },
     {
       "date": "2026-02-09",
       "amount": 1.5,
       "category": "Bar/Restaurante",
       "type": "expense",
-      "account": "cash",
       "isPending": false,
-      "id": "1770619574730-0.16198674713829686"
+      "id": "1770619574730-0.16198674713829686",
+      "accountId": "default-cash-id"
     },
     {
       "date": "2026-02-09",
       "amount": 1.8,
       "category": "Bar/Restaurante",
       "type": "expense",
-      "account": "cash",
       "isPending": false,
-      "id": "1770628918013-0.4522487714068347"
+      "id": "1770628918013-0.4522487714068347",
+      "accountId": "default-cash-id"
     },
     {
       "date": "2026-02-11",
       "amount": 30,
       "category": "Transporte  Vari ",
       "type": "expense",
-      "account": "bank",
       "isPending": false,
-      "id": "1770832063875-0.9737772619125331"
+      "id": "1770832063875-0.9737772619125331",
+      "accountId": "default-bank-id"
     },
     {
       "date": "2026-02-11",
       "amount": 33.1,
       "category": "ocio",
       "type": "expense",
-      "account": "bank",
       "isPending": false,
-      "id": "1770839221801-0.9447764443294501"
+      "id": "1770839221801-0.9447764443294501",
+      "accountId": "default-bank-id"
     },
     {
       "date": "2026-02-12",
       "amount": 11.7,
       "category": "Bar/Restaurante",
       "type": "expense",
-      "account": "cash",
       "isPending": false,
-      "id": "1770869632315-0.0052042752259531255"
+      "id": "1770869632315-0.0052042752259531255",
+      "accountId": "default-cash-id"
     },
     {
       "date": "2026-02-12",
       "amount": 20,
       "category": "Gasoleo",
       "type": "expense",
-      "account": "bank",
       "isPending": false,
-      "id": "1770879406463-0.08198209788458277"
+      "id": "1770879406463-0.08198209788458277",
+      "accountId": "default-bank-id"
     },
     {
       "date": "2026-02-12",
       "amount": 55,
       "category": "tabaco",
       "type": "expense",
-      "account": "bank",
       "isPending": false,
-      "id": "1770901080581-0.006744491710499512"
+      "id": "1770901080581-0.006744491710499512",
+      "accountId": "default-bank-id"
     },
     {
       "date": "2026-02-13",
       "amount": 30,
       "category": "Transferencia",
       "type": "expense",
-      "account": "bank",
       "isPending": false,
-      "id": "1770989616020-0.8769298114709259"
+      "id": "1770989616020-0.8769298114709259",
+      "accountId": "default-bank-id"
     },
     {
       "date": "2026-02-13",
       "amount": 14.1,
       "category": "Bar/Restaurante",
       "type": "expense",
-      "account": "cash",
       "isPending": false,
-      "id": "1770999699308-0.5082528560717559"
+      "id": "1770999699308-0.5082528560717559",
+      "accountId": "default-cash-id"
     },
     {
       "id": "1771098236519-0.4861273457601677-transfer-out",
@@ -636,8 +648,8 @@
       "amount": 150,
       "category": "Transferencia",
       "type": "expense",
-      "account": "bank",
-      "isPending": false
+      "isPending": false,
+      "accountId": "default-bank-id"
     },
     {
       "id": "1771098236519-0.27621024973237795-transfer-in",
@@ -645,62 +657,62 @@
       "amount": 150,
       "category": "Transferencia",
       "type": "income",
-      "account": "cash",
-      "isPending": false
+      "isPending": false,
+      "accountId": "default-cash-id"
     },
     {
       "date": "2026-02-15",
       "amount": 25,
       "category": "farmacia",
       "type": "expense",
-      "account": "cash",
       "isPending": false,
-      "id": "1771184273188-0.6891497976505936"
+      "id": "1771184273188-0.6891497976505936",
+      "accountId": "default-cash-id"
     },
     {
       "date": "2026-02-15",
       "amount": 30,
       "category": "Paga Varinia",
       "type": "expense",
-      "account": "cash",
       "isPending": false,
-      "id": "1771184273189-0.888416502459982"
+      "id": "1771184273189-0.888416502459982",
+      "accountId": "default-cash-id"
     },
     {
       "date": "2026-02-15",
       "amount": 50.2,
       "category": "Supermercado",
       "type": "expense",
-      "account": "cash",
       "isPending": false,
-      "id": "1771184273189-0.20526006330411506"
+      "id": "1771184273189-0.20526006330411506",
+      "accountId": "default-cash-id"
     },
     {
       "date": "2026-02-15",
       "amount": 17.5,
       "category": "Bar/Restaurante",
       "type": "expense",
-      "account": "bank",
       "isPending": false,
-      "id": "1771184381518-0.4507096402911537"
+      "id": "1771184381518-0.4507096402911537",
+      "accountId": "default-bank-id"
     },
     {
       "date": "2026-02-15",
       "amount": 93.53,
       "category": "Supermercado",
       "type": "expense",
-      "account": "bank",
       "isPending": false,
-      "id": "1771184381518-0.05363700945455274"
+      "id": "1771184381518-0.05363700945455274",
+      "accountId": "default-bank-id"
     },
     {
       "date": "2026-02-15",
       "amount": 7.55,
       "category": "Bar/Restaurante",
       "type": "expense",
-      "account": "bank",
       "isPending": false,
-      "id": "1771184381518-0.3556295925830475"
+      "id": "1771184381518-0.3556295925830475",
+      "accountId": "default-bank-id"
     },
     {
       "id": "1771254799657-0.6359044246202831-transfer-out",
@@ -708,8 +720,8 @@
       "amount": 1100,
       "category": "Transferencia",
       "type": "expense",
-      "account": "cash",
-      "isPending": false
+      "isPending": false,
+      "accountId": "default-cash-id"
     },
     {
       "id": "1771254799657-0.25541715471693094-transfer-in",
@@ -717,98 +729,98 @@
       "amount": 1100,
       "category": "Transferencia",
       "type": "income",
-      "account": "bank",
-      "isPending": false
+      "isPending": false,
+      "accountId": "default-bank-id"
     },
     {
       "date": "2026-02-16",
       "amount": 71.4,
       "category": "ocio",
       "type": "expense",
-      "account": "bank",
       "isPending": false,
-      "id": "1771263919810-0.17396847895998702"
+      "id": "1771263919810-0.17396847895998702",
+      "accountId": "default-bank-id"
     },
     {
       "date": "2026-02-21",
       "amount": 58,
       "category": "Supermercado",
       "type": "expense",
-      "account": "cash",
       "isPending": false,
-      "id": "1771651012705-0.5824645254884914"
+      "id": "1771651012705-0.5824645254884914",
+      "accountId": "default-cash-id"
     },
     {
       "date": "2026-02-21",
       "amount": 16.7,
       "category": "Bar/Restaurante",
       "type": "expense",
-      "account": "cash",
       "isPending": false,
-      "id": "1771651012707-0.8919018963914034"
+      "id": "1771651012707-0.8919018963914034",
+      "accountId": "default-cash-id"
     },
     {
       "date": "2026-02-21",
       "amount": 50,
       "category": "tabaco",
       "type": "expense",
-      "account": "cash",
       "isPending": false,
-      "id": "1771651012708-0.4016557244839477"
+      "id": "1771651012708-0.4016557244839477",
+      "accountId": "default-cash-id"
     },
     {
       "date": "2026-02-21",
       "amount": 51,
       "category": "tabaco",
       "type": "expense",
-      "account": "bank",
       "isPending": false,
-      "id": "1771651477001-0.5675893643819262"
+      "id": "1771651477001-0.5675893643819262",
+      "accountId": "default-bank-id"
     },
     {
       "date": "2026-02-21",
       "amount": 57.47,
       "category": "Gasoleo",
       "type": "expense",
-      "account": "bank",
       "isPending": false,
-      "id": "1771740153381-0.6703631662506723"
+      "id": "1771740153381-0.6703631662506723",
+      "accountId": "default-bank-id"
     },
     {
       "date": "2026-02-21",
       "amount": 60,
       "category": "Bar/Restaurante",
       "type": "expense",
-      "account": "cash",
       "isPending": false,
-      "id": "1771757983092-0.23830324444214546"
+      "id": "1771757983092-0.23830324444214546",
+      "accountId": "default-cash-id"
     },
     {
       "date": "2026-02-21",
       "amount": 108,
       "category": "Ropa / Calzado",
       "type": "expense",
-      "account": "cash",
       "isPending": false,
-      "id": "1771757983092-0.4186927142996072"
+      "id": "1771757983092-0.4186927142996072",
+      "accountId": "default-cash-id"
     },
     {
       "date": "2026-02-22",
       "amount": 6,
       "category": "tabaco",
       "type": "expense",
-      "account": "cash",
       "isPending": false,
-      "id": "1771757983092-0.8158956016133022"
+      "id": "1771757983092-0.8158956016133022",
+      "accountId": "default-cash-id"
     },
     {
       "date": "2026-02-21",
       "amount": 6.6,
       "category": "Supermercado",
       "type": "expense",
-      "account": "cash",
       "isPending": false,
-      "id": "1771757983092-0.9909827299454592"
+      "id": "1771757983092-0.9909827299454592",
+      "accountId": "default-cash-id"
     },
     {
       "id": "1771783164012-0.45075134324701693-transfer-out",
@@ -816,8 +828,8 @@
       "amount": 600,
       "category": "Transferencia",
       "type": "expense",
-      "account": "bank",
-      "isPending": false
+      "isPending": false,
+      "accountId": "default-bank-id"
     },
     {
       "id": "1771783164012-0.7401339107879498-transfer-in",
@@ -825,26 +837,26 @@
       "amount": 600,
       "category": "Transferencia",
       "type": "income",
-      "account": "cash",
-      "isPending": false
+      "isPending": false,
+      "accountId": "default-cash-id"
     },
     {
       "date": "2026-02-22",
       "amount": 6.2,
       "category": "tabaco",
       "type": "expense",
-      "account": "cash",
       "isPending": false,
-      "id": "1771783188705-0.10558869746993615"
+      "id": "1771783188705-0.10558869746993615",
+      "accountId": "default-cash-id"
     },
     {
       "date": "2026-02-26",
       "amount": 9,
       "category": "tabaco",
       "type": "expense",
-      "account": "bank",
       "isPending": false,
-      "id": "1772130376982-0.2816632133101876"
+      "id": "1772130376982-0.2816632133101876",
+      "accountId": "default-bank-id"
     },
     {
       "id": "1772198284651-0.9453637417124928-transfer-out",
@@ -852,8 +864,8 @@
       "amount": 580,
       "category": "Transferencia",
       "type": "expense",
-      "account": "cash",
-      "isPending": false
+      "isPending": false,
+      "accountId": "default-cash-id"
     },
     {
       "id": "1772198284651-0.9952895326009426-transfer-in",
@@ -861,53 +873,53 @@
       "amount": 580,
       "category": "Transferencia",
       "type": "income",
-      "account": "bank",
-      "isPending": false
+      "isPending": false,
+      "accountId": "default-bank-id"
     },
     {
       "date": "2026-02-28",
       "amount": 14.5,
       "category": "Bar/Restaurante",
       "type": "expense",
-      "account": "bank",
       "isPending": false,
-      "id": "1772264266142-0.7136043768285826"
+      "id": "1772264266142-0.7136043768285826",
+      "accountId": "default-bank-id"
     },
     {
       "date": "2026-02-28",
       "amount": 45,
       "category": "tabaco",
       "type": "expense",
-      "account": "bank",
       "isPending": false,
-      "id": "1772264266144-0.5403138267595776"
+      "id": "1772264266144-0.5403138267595776",
+      "accountId": "default-bank-id"
     },
     {
       "date": "2026-02-28",
       "amount": 30,
       "category": "Bar/Restaurante",
       "type": "expense",
-      "account": "cash",
       "isPending": false,
-      "id": "1772265050820-0.9606675865592968"
+      "id": "1772265050820-0.9606675865592968",
+      "accountId": "default-cash-id"
     },
     {
       "date": "2026-02-28",
       "amount": 8.1,
       "category": "Supermercado",
       "type": "expense",
-      "account": "cash",
       "isPending": false,
-      "id": "1772265050821-0.42071361615877356"
+      "id": "1772265050821-0.42071361615877356",
+      "accountId": "default-cash-id"
     },
     {
       "date": "2026-02-28",
       "amount": 29.6,
       "category": "Bar/Restaurante",
       "type": "expense",
-      "account": "bank",
       "isPending": false,
-      "id": "1772273707801-0.9370227731541081"
+      "id": "1772273707801-0.9370227731541081",
+      "accountId": "default-bank-id"
     },
     {
       "id": "1772284258775-0.30108823839328713-transfer-out",
@@ -915,8 +927,8 @@
       "amount": 60,
       "category": "Transferencia",
       "type": "expense",
-      "account": "bank",
-      "isPending": false
+      "isPending": false,
+      "accountId": "default-bank-id"
     },
     {
       "id": "1772284258775-0.03633725494979778-transfer-in",
@@ -924,168 +936,357 @@
       "amount": 60,
       "category": "Transferencia",
       "type": "income",
-      "account": "cash",
-      "isPending": false
+      "isPending": false,
+      "accountId": "default-cash-id"
     },
     {
       "date": "2026-03-03",
       "amount": 18,
       "category": "tabaco",
       "type": "expense",
-      "account": "cash",
       "isPending": false,
-      "id": "1772535053595-0.09964962302488822"
+      "id": "1772535053595-0.09964962302488822",
+      "accountId": "default-cash-id"
     },
     {
       "date": "2026-02-28",
       "amount": 36,
       "category": "Bar/Restaurante",
       "type": "expense",
-      "account": "cash",
       "isPending": false,
-      "id": "1772535053596-0.003743902332460025"
+      "id": "1772535053596-0.003743902332460025",
+      "accountId": "default-cash-id"
     },
     {
       "date": "2026-03-03",
       "amount": 12.05,
       "category": "Bar/Restaurante",
       "type": "expense",
-      "account": "cash",
       "isPending": false,
-      "id": "1772535053597-0.9159669871478072"
+      "id": "1772535053597-0.9159669871478072",
+      "accountId": "default-cash-id"
     },
     {
       "date": "2026-03-04",
       "amount": 65.1,
       "category": "Gasoleo",
       "type": "expense",
-      "account": "bank",
       "isPending": false,
-      "id": "1772647770322-0.40771811603745234"
+      "id": "1772647770322-0.40771811603745234",
+      "accountId": "default-bank-id"
     },
     {
       "date": "2026-03-04",
       "amount": 27.78,
       "category": "Supermercado",
       "type": "expense",
-      "account": "bank",
       "isPending": false,
-      "id": "1772647788263-0.45897235444702467"
+      "id": "1772647788263-0.45897235444702467",
+      "accountId": "default-bank-id"
     },
     {
       "date": "2026-03-04",
       "amount": 49,
       "category": "tabaco",
       "type": "expense",
-      "account": "bank",
       "isPending": false,
-      "id": "1772647801458-0.1242917651772808"
+      "id": "1772647801458-0.1242917651772808",
+      "accountId": "default-bank-id"
     },
     {
       "date": "2026-03-05",
       "amount": 1498.52,
       "category": "nomina",
       "type": "income",
-      "account": "bank",
       "isPending": false,
-      "id": "1772685249756-0.7340648540506258"
+      "id": "1772685249756-0.7340648540506258",
+      "accountId": "default-bank-id"
     },
     {
       "date": "2026-03-05",
       "amount": 303.32,
       "category": "Devengos nomina",
       "type": "expense",
-      "account": "bank",
       "isPending": false,
-      "id": "1772685301778-0.8431485733316108"
+      "id": "1772685301778-0.8431485733316108",
+      "accountId": "default-bank-id"
     },
     {
       "date": "2026-03-05",
       "amount": 57.47,
       "category": "Supermercado",
       "type": "expense",
-      "account": "bank",
       "isPending": false,
-      "id": "1772687060410-0.8939920677122709"
+      "id": "1772687060410-0.8939920677122709",
+      "accountId": "default-bank-id"
     },
     {
       "date": "2026-03-05",
       "amount": 47.82,
       "category": "Supermercado",
       "type": "expense",
-      "account": "bank",
       "isPending": false,
-      "id": "1772687082165-0.558035092181276"
+      "id": "1772687082165-0.558035092181276",
+      "accountId": "default-bank-id"
     },
     {
       "date": "2026-03-05",
       "amount": 18.33,
       "category": "Supermercado",
       "type": "expense",
-      "account": "bank",
       "isPending": false,
-      "id": "1772687214069-0.35116929793255447"
+      "id": "1772687214069-0.35116929793255447",
+      "accountId": "default-bank-id"
     },
     {
       "date": "2026-03-05",
       "amount": 20.99,
       "category": "Spotify",
       "type": "expense",
-      "account": "bank",
       "isPending": false,
-      "id": "1772721334991-0.011610821652219716"
+      "id": "1772721334991-0.011610821652219716",
+      "accountId": "default-bank-id"
     },
     {
       "date": "2026-03-05",
       "amount": 45,
       "category": "Dentista ",
       "type": "expense",
-      "account": "bank",
       "isPending": false,
-      "id": "1772721353838-0.16091641107488752"
+      "id": "1772721353838-0.16091641107488752",
+      "accountId": "default-bank-id"
     },
     {
       "date": "2026-03-07",
       "amount": 400,
       "category": "Alquiler piso",
       "type": "expense",
-      "account": "bank",
       "isPending": false,
-      "id": "1772878978141-0.9820594007416655"
+      "id": "1772878978141-0.9820594007416655",
+      "accountId": "default-bank-id"
+    },
+    {
+      "date": "2026-03-07",
+      "amount": 55.6,
+      "category": "Supermercado",
+      "type": "expense",
+      "isPending": false,
+      "id": "1772915237834-0.5121230411993114",
+      "accountId": "default-bank-id"
+    },
+    {
+      "date": "2026-03-07",
+      "amount": 98.4,
+      "category": "Bar/Restaurante",
+      "type": "expense",
+      "isPending": false,
+      "id": "1772915237837-0.2387134173316493",
+      "accountId": "default-bank-id"
+    },
+    {
+      "date": "2026-03-07",
+      "amount": 83.53,
+      "category": "Supermercado",
+      "type": "expense",
+      "isPending": false,
+      "id": "1772915237838-0.46135565457655425",
+      "accountId": "default-bank-id"
+    },
+    {
+      "date": "2026-03-08",
+      "amount": 5.1,
+      "category": "tabaco",
+      "type": "expense",
+      "accountId": "default-cash-id",
+      "isPending": false,
+      "id": "48b993c8-23bf-4735-9c77-08b6abc230c6"
+    },
+    {
+      "date": "2026-03-09",
+      "amount": 45,
+      "category": "tabaco",
+      "type": "expense",
+      "accountId": "default-bank-id",
+      "isPending": false,
+      "id": "71bd0c85-1f1a-43a8-a711-ada4e9193bbc"
+    },
+    {
+      "date": "2026-03-09",
+      "amount": 13,
+      "category": "tabaco",
+      "type": "expense",
+      "accountId": "default-bank-id",
+      "isPending": false,
+      "id": "190bfc86-d367-479a-8419-d0506705d88b"
+    },
+    {
+      "date": "2026-03-09",
+      "amount": 4.9,
+      "category": "Bar/Restaurante",
+      "type": "expense",
+      "accountId": "default-cash-id",
+      "isPending": false,
+      "id": "2e350280-ced6-450b-82db-465965dd62b0"
+    },
+    {
+      "date": "2026-03-12",
+      "amount": 20.05,
+      "category": "Bar/Restaurante",
+      "type": "expense",
+      "accountId": "default-cash-id",
+      "isPending": false,
+      "id": "deec4139-8524-4e06-b8bc-895553370e44"
+    },
+    {
+      "date": "2026-03-12",
+      "amount": 12,
+      "category": "Bar/Restaurante",
+      "type": "expense",
+      "accountId": "default-bank-id",
+      "isPending": false,
+      "id": "2aab5707-b336-4fab-ba72-e32b96347794"
+    },
+    {
+      "date": "2026-03-12",
+      "amount": 1660,
+      "category": "nomina 2",
+      "type": "income",
+      "accountId": "default-cash-id",
+      "isPending": false,
+      "id": "db7c8440-fd45-4360-90a6-f68235f29fb3"
+    },
+    {
+      "date": "2026-03-13",
+      "amount": 47,
+      "category": "Supermercado",
+      "type": "expense",
+      "accountId": "default-cash-id",
+      "isPending": false,
+      "id": "19d107ad-b83e-43eb-890c-38fce0f536b1"
+    },
+    {
+      "date": "2026-03-13",
+      "amount": 51,
+      "category": "tabaco",
+      "type": "expense",
+      "accountId": "default-bank-id",
+      "isPending": false,
+      "id": "8592035e-52bf-4463-86ce-63d89127137a"
+    },
+    {
+      "date": "2026-03-13",
+      "amount": 30,
+      "category": "Gasoleo",
+      "type": "expense",
+      "accountId": "default-bank-id",
+      "isPending": false,
+      "id": "3f19d3da-2e9e-4841-8aa1-7d034fbb845b"
+    },
+    {
+      "date": "2026-03-16",
+      "amount": 40,
+      "category": "Gastos bancarios 🏦",
+      "type": "expense",
+      "accountId": "default-bank-id",
+      "isPending": false,
+      "id": "b0127fa1-3ddc-4894-9f3a-1ac7b40b9631"
+    },
+    {
+      "date": "2026-03-16",
+      "amount": 9,
+      "category": "tabaco",
+      "type": "expense",
+      "accountId": "default-cash-id",
+      "isPending": false,
+      "id": "889b1cf1-562a-43cb-a540-601f74acc286"
+    },
+    {
+      "date": "2026-03-17",
+      "amount": 26,
+      "category": "Supermercado",
+      "type": "expense",
+      "accountId": "default-cash-id",
+      "isPending": false,
+      "id": "1fce4447-10c7-4de6-a721-a481cfb7a897"
+    },
+    {
+      "date": "2026-03-17",
+      "amount": 35,
+      "category": "Bar/Restaurante",
+      "type": "expense",
+      "accountId": "default-cash-id",
+      "isPending": false,
+      "id": "e6bf1980-2594-4962-af1d-8a31972948e9"
+    },
+    {
+      "date": "2026-03-17",
+      "amount": 8,
+      "category": "Bar/Restaurante",
+      "type": "expense",
+      "accountId": "default-cash-id",
+      "isPending": false,
+      "id": "a91fc6f7-4550-40bc-a258-375bc5b9f8c0"
+    },
+    {
+      "date": "2026-03-17",
+      "amount": 1.6,
+      "category": "Bar/Restaurante",
+      "type": "expense",
+      "accountId": "default-cash-id",
+      "isPending": false,
+      "id": "547ee1da-e771-4ee3-965e-137044e70e99"
+    },
+    {
+      "id": "42d9f11c-fc3f-40c8-9c5b-460ad793dc90",
+      "date": "2026-03-18",
+      "amount": 500,
+      "category": "Transferencia",
+      "type": "expense",
+      "accountId": "default-cash-id",
+      "isPending": false
+    },
+    {
+      "id": "d0acf182-4a9e-4be4-8fe8-eb494e7cb886",
+      "date": "2026-03-18",
+      "amount": 500,
+      "category": "Transferencia",
+      "type": "income",
+      "accountId": "default-bank-id",
+      "isPending": false
     }
   ],
   "categories": [
+    "agua",
+    "Alquiler piso",
+    "Bar/Restaurante",
+    "Dentista ",
+    "Devengos nomina",
+    "farmacia",
+    "Gasoleo",
+    "Gastos bancarios 🏦",
+    "Herramientas ",
+    "hipoteca",
+    "Hobby ",
+    "luz",
+    "Mantenimiento coche ",
+    "menaje",
     "nomina",
     "nomina 2",
-    "hipoteca",
-    "Devengos nomina",
-    "Alquiler piso",
-    "luz",
+    "nomina yasmina",
+    "ocio",
+    "Ocio -puzzles",
     "orange",
     "Paga Varinia",
-    "agua",
+    "psicologa",
+    "Ropa / Calzado",
     "Spotify",
-    "UNRWA",
     "Supermercado",
     "tabaco",
-    "Varios/Imprevistos",
-    "Gasoleo",
-    "farmacia",
-    "Bar/Restaurante",
-    "psicologa",
-    "menaje",
-    "ocio",
-    "Udemy",
-    "nomina yasmina",
-    "Ocio -puzzles",
-    "Hobby ",
-    "Mantenimiento coche ",
-    "Herramientas ",
     "Transferencia",
     "Transporte  Vari ",
-    "Ropa / Calzado",
-    "Dentista "
+    "Udemy",
+    "UNRWA",
+    "Varios/Imprevistos"
   ],
-  "initialBankBalance": 1062.78,
-  "initialCashBalance": 0
+  "budgets": []
 }

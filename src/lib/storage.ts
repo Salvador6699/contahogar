@@ -24,7 +24,7 @@ const getDefaultData = (): FinanceData => ({
   budgets: [],
 });
 
-const migrateData = (data: any): FinanceData => {
+export const migrateData = (data: any): FinanceData => {
   if (!data || typeof data !== 'object') {
     return getDefaultData();
   }
@@ -64,8 +64,8 @@ const migrateData = (data: any): FinanceData => {
   
   // Clean up undefined fields from final transaction objects
   migratedData.transactions.forEach(t => {
-      if (t.account === undefined) {
-          delete t.account;
+      if ((t as any).account === undefined) {
+          delete (t as any).account;
       }
   });
 
