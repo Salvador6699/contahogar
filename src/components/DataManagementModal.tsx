@@ -7,7 +7,7 @@ import {
 } from '@/components/ui/responsive-dialog';
 import { Button } from '@/components/ui/button';
 import { Download, Upload, AlertTriangle } from 'lucide-react';
-import { loadData, saveData } from '@/lib/storage';
+import { loadData, saveData, migrateData } from '@/lib/storage';
 import { FinanceData } from '@/types/finance';
 import { toast } from 'sonner';
 
@@ -55,45 +55,25 @@ const DataManagementModal = ({ isOpen, onClose, onDataImported }: DataManagement
 
     try {
       const text = await file.text();
-      const importedData: FinanceData = JSON.parse(text);
+      const rawData = JSON.parse(text);
+      const importedData: FinanceData = migrateData(rawData);
 
-      // Validate structure (support both old and new format)
-      const hasNewFormat = 'initialBankBalance' in importedData;
-      const hasOldFormat = 'initialBalance' in importedData;
-      
+      // Validate the newly migrated data structure minimally
       if (
-        (!hasNewFormat && !hasOldFormat) ||
+        !Array.isArray(importedData.accounts) ||
         !Array.isArray(importedData.transactions) ||
-        !Array.isArray(importedData.categories)
+        !Array.isArray(importedData.categories) ||
+        !Array.isArray(importedData.budgets)
       ) {
-        throw new Error('Formato de archivo inválido');
+        throw new Error('Formato inválido. Tipos: acc:' + !!Array.isArray(importedData.accounts) + ' tx:' + !!Array.isArray(importedData.transactions) + ' cat:' + !!Array.isArray(importedData.categories) + ' bdg:' + !!Array.isArray(importedData.budgets));
       }
 
-      // Migrate old format if needed
-      if (hasOldFormat && !hasNewFormat) {
-        (importedData as any).initialBankBalance = (importedData as any).initialBalance;
-        (importedData as any).initialCashBalance = 0;
-        delete (importedData as any).initialBalance;
-      }
-
-      // Ensure initialBankBalance and initialCashBalance are numbers
-      if (typeof importedData.initialBankBalance !== 'number') {
-        importedData.initialBankBalance = 0;
-      }
-      if (typeof importedData.initialCashBalance !== 'number') {
-        importedData.initialCashBalance = 0;
-      }
-
-      // Validate transactions and add missing fields
+      // Validate transactions after migration
       for (const t of importedData.transactions) {
         if (!t.id || !t.date || typeof t.amount !== 'number' || !t.type || !t.category) {
           throw new Error('Transacción inválida en el archivo');
         }
-        // Add account field if missing (default to bank)
-        if (!t.account) {
-          t.account = 'bank';
-        }
-        // Add isPending field if missing (default to false)
+        // Ensure isPending is correctly typed
         if (typeof t.isPending !== 'boolean') {
           t.isPending = false;
         }

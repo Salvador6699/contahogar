@@ -138,3 +138,48 @@ export const formatCurrency = (amount: number): string => {
     currency: 'EUR',
   }).format(amount);
 };
+
+export interface CategoryMonthlyAverage {
+  category: string;
+  average: number;
+  totalAmount: number;
+  transactionCount: number;
+  monthsCount: number;
+  isRegular: boolean;
+  type: 'income' | 'expense';
+  lastDate?: string;
+}
+
+
+export const calculateMonthlyAverages = (transactions: Transaction[]): CategoryMonthlyAverage[] => {
+  const categories: Record<string, { total: number; months: Set<string>; count: number; type: 'income' | 'expense', lastDate: string }> = {};
+
+  transactions.forEach(t => {
+    if (t.category === 'Transferencia') return;
+    const month = t.date.substring(0, 7);
+    if (!categories[t.category]) {
+      categories[t.category] = { total: 0, months: new Set(), count: 0, type: t.type, lastDate: t.date };
+    }
+    categories[t.category].total += t.amount;
+    categories[t.category].months.add(month);
+    categories[t.category].count += 1;
+    if (t.date > categories[t.category].lastDate) {
+      categories[t.category].lastDate = t.date;
+    }
+  });
+
+  return Object.entries(categories).map(([category, data]) => {
+    const monthsCount = data.months.size;
+    return {
+      category,
+      average: Math.round(data.total / (monthsCount || 1)),
+      totalAmount: data.total,
+      transactionCount: data.count,
+      monthsCount: monthsCount,
+      isRegular: monthsCount >= 3,
+      type: data.type,
+      lastDate: data.lastDate
+    };
+  }).sort((a, b) => b.average - a.average);
+};
+

@@ -5,7 +5,7 @@ import { Settings, Download, Upload, AlertTriangle, ShieldCheck, FileJson, Sun, 
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Separator } from '@/components/ui/separator';
-import { loadData, saveData } from '@/lib/storage';
+import { loadData, saveData, migrateData } from '@/lib/storage';
 import { FinanceData } from '@/types/finance';
 import { toast } from 'sonner';
 import MobileNav from '@/components/MobileNav';
@@ -52,25 +52,17 @@ const SettingsPage = () => {
 
         try {
             const text = await file.text();
-            const importedData: FinanceData = JSON.parse(text);
+            const rawData = JSON.parse(text);
+            const importedData: FinanceData = migrateData(rawData);
 
-            // Validate structure
-            const hasNewFormat = 'initialBankBalance' in importedData;
-            const hasOldFormat = 'initialBalance' in importedData;
-
+            // Validate the newly migrated data structure minimally
             if (
-                (!hasNewFormat && !hasOldFormat) ||
+                !Array.isArray(importedData.accounts) ||
                 !Array.isArray(importedData.transactions) ||
-                !Array.isArray(importedData.categories)
+                !Array.isArray(importedData.categories) ||
+                !Array.isArray(importedData.budgets)
             ) {
                 throw new Error('El archivo no tiene el formato correcto de ContaHogar');
-            }
-
-            // Migrate old format if needed
-            if (hasOldFormat && !hasNewFormat) {
-                (importedData as any).initialBankBalance = (importedData as any).initialBalance;
-                (importedData as any).initialCashBalance = 0;
-                delete (importedData as any).initialBalance;
             }
 
             saveData(importedData);
