@@ -247,19 +247,9 @@ const Index = () => {
 
   return (
     <>
-      <div className="min-h-screen app-gradient-bg lg:pl-20 pt-16">
+      <div className="min-h-screen app-gradient-bg lg:pl-20 pt-24">
         <div className="container max-w-6xl mx-auto px-4 py-6 sm:py-8 transition-all duration-500 pb-32">
-          {/* Header */}
           <div className="mb-6 sm:mb-8">
-            <div className="flex items-center justify-between mb-6">
-              <div className="flex items-center gap-3">
-                <div className="p-2.5 bg-primary rounded-xl shadow-lg shadow-primary/20">
-                  <Wallet className="w-6 h-6 text-primary-foreground" />
-                </div>
-                <h1 className="text-2xl sm:text-3xl font-extrabold tracking-tight text-foreground">ContaHogar</h1>
-              </div>
-            </div>
-
             {/* Month Navigator Header */}
             <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 p-4 bg-white dark:bg-card rounded-2xl shadow-sm border border-border/50 mb-8">
               <div className="flex items-center gap-2">

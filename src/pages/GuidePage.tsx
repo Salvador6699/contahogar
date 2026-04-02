@@ -10,22 +10,8 @@ const GuidePage = () => {
   const navigate = useNavigate();
 
   return (
-    <div className="min-h-screen bg-background pb-32 lg:pl-20">
-      <div className="container max-w-5xl mx-auto px-4 py-6 sm:py-8">
-        {/* Header */}
-        <div className="mb-6 sm:mb-8">
-          <div className="flex items-center justify-between mb-2">
-            <div className="flex items-center gap-3">
-              <div className="p-2 bg-primary rounded-lg">
-                <Book className="w-5 h-5 sm:w-6 sm:h-6 text-primary-foreground" />
-              </div>
-              <div>
-                <h1 className="text-2xl sm:text-3xl font-bold text-foreground">Guía Completa de ContaHogar</h1>
-                <p className="text-sm text-muted-foreground mt-1">Tu compañero financiero paso a paso</p>
-              </div>
-            </div>
-          </div>
-        </div>
+    <div className="min-h-screen bg-background pb-32 lg:pl-20 pt-24">
+      <div className="container max-w-5xl mx-auto px-4 py-4 sm:py-6">
 
         {/* Welcome Section */}
         <Card className="mb-6 border-primary/20">

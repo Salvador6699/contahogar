@@ -11,6 +11,7 @@ import HistoryPage from "./pages/HistoryPage";
 import ComparisonPage from "./pages/ComparisonPage";
 import AveragesPage from "./pages/AveragesPage";
 import SettingsPage from "./pages/SettingsPage";
+import BackupPage from "./pages/BackupPage";
 import TransferPage from "./pages/TransferPage";
 import GuidePage from "./pages/GuidePage";
 import ManagementPage from "./pages/ManagementPage";
@@ -46,6 +47,7 @@ const App = () => {
               <Route path="/comparativa" element={<ComparisonPage />} />
               <Route path="/medias" element={<AveragesPage />} />
               <Route path="/ajustes" element={<SettingsPage />} />
+              <Route path="/backup" element={<BackupPage />} />
               <Route path="/transferir" element={<TransferPage />} />
               <Route path="/guia" element={<GuidePage />} />
               <Route path="/gestion" element={<ManagementPage />} />

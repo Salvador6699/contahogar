@@ -25,6 +25,7 @@ export interface Category {
   icon?: string;
   color?: string;
   monthlyLimit?: number;
+  customIcon?: string; // Data URL for custom uploaded icon
 }
 
 export interface RecurringTransaction {

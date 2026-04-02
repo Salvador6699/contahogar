@@ -128,25 +128,8 @@ const AveragesPage = () => {
     };
 
     return (
-        <div className="min-h-screen app-gradient-bg pb-20 lg:pl-20">
-            <div className="container max-w-3xl mx-auto px-4 py-6 sm:py-8">
-                {/* Header */}
-                <div className="mb-6 sm:mb-8">
-                    <div className="flex items-center justify-between mb-2">
-                        <div className="flex items-center gap-3">
-                            <div className="p-2 bg-primary rounded-lg">
-                                <BarChart3 className="w-5 h-5 sm:w-6 sm:h-6 text-primary-foreground" />
-                            </div>
-                            <div>
-                                <h1 className="text-2xl sm:text-3xl font-bold text-foreground">Medias</h1>
-                            </div>
-                        </div>
-                    </div>
-                    <p className="text-sm text-muted-foreground mt-1 px-11">
-                        Gasto e ingreso medio mensual por categoría, incluyendo transacciones previstas.
-                    </p>
-                </div>
-
+        <div className="min-h-screen app-gradient-bg pb-20 lg:pl-20 pt-24">
+            <div className="container max-w-3xl mx-auto px-4 py-4 sm:py-6">
                 {!hasData ? (
                     <div className="text-center py-20 bg-card/50 rounded-2xl border border-dashed border-border">
                         <BarChart3 className="w-12 h-12 mx-auto text-muted-foreground mb-4 opacity-20" />
