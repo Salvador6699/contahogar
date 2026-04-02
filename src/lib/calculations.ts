@@ -48,10 +48,11 @@ export const calculateAccountBalance = (
 export const calculateTotalBalance = (
   accounts: Account[],
   transactions: Transaction[],
-  includePending: boolean = false
+  includePending: boolean = false,
+  upToEndOfMonth?: string
 ): number => {
   return accounts.reduce((total, account) => {
-    return total + calculateAccountBalance(account, transactions, includePending);
+    return total + calculateAccountBalance(account, transactions, includePending, upToEndOfMonth);
   }, 0);
 };
 

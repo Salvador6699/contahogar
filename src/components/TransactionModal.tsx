@@ -15,18 +15,18 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
-import { Transaction, TransactionType, Account } from '@/types/finance';
+import { Transaction, TransactionType, Account, Category } from '@/types/finance';
 import { getCategorySuggestions, findSimilarCategory, loadData } from '@/lib/storage';
-import { Calendar, DollarSign, Tag, Building2, Banknote } from 'lucide-react';
+import { Calendar, DollarSign, Tag, Building2, Banknote, Clock } from 'lucide-react';
 import { useScrollOnFocus } from '@/hooks/useScrollOnFocus';
 import { withKeyboardClose } from '@/lib/utils';
 
 interface TransactionModalProps {
   isOpen: boolean;
   onClose: () => void;
-  onSave: (transaction: Omit<Transaction, 'id'>, copyToNextMonth?: boolean) => void;
+  onSave: (transaction: Omit<Transaction, 'id'>, copyToNextMonth?: boolean, recurringOptions?: { frequency: string }) => void;
   type: TransactionType;
-  categories: string[];
+  categories: (string | Category)[];
   editingTransaction?: Transaction | null;
 }
 
@@ -46,6 +46,8 @@ const TransactionModal = ({
   const [accounts, setAccounts] = useState<Account[]>([]);
   const [isPending, setIsPending] = useState(false);
   const [copyToNextMonth, setCopyToNextMonth] = useState(false);
+  const [isRecurring, setIsRecurring] = useState(false);
+  const [frequency, setFrequency] = useState('monthly');
   const [suggestions, setSuggestions] = useState<string[]>([]);
   const [showSuggestions, setShowSuggestions] = useState(false);
 
@@ -110,7 +112,7 @@ const TransactionModal = ({
       type,
       accountId,
       isPending,
-    }, copyToNextMonth);
+    }, copyToNextMonth, isRecurring ? { frequency } : undefined);
 
     // Reset form only if not editing
     if (!editingTransaction) {
@@ -194,20 +196,38 @@ const TransactionModal = ({
                 Marcar como transacción futura/prevista
               </Label>
             </div>
-            {editingTransaction && (
-              <div className="flex items-center gap-2 mt-2">
+            <div className="space-y-4 pt-2 border-t border-border/50">
+              <div className="flex items-center gap-2">
                 <input
                   type="checkbox"
-                  id="copyToNextMonth"
-                  checked={copyToNextMonth}
-                  onChange={(e) => setCopyToNextMonth(e.target.checked)}
+                  id="isRecurring"
+                  checked={isRecurring}
+                  onChange={(e) => setIsRecurring(e.target.checked)}
                   className="w-4 h-4 rounded border-input accent-primary"
                 />
-                <Label htmlFor="copyToNextMonth" className="cursor-pointer text-sm text-muted-foreground">
-                  Copiar al mes siguiente como futura
+                <Label htmlFor="isRecurring" className="cursor-pointer font-bold text-primary flex items-center gap-1.5">
+                  <Clock className="w-4 h-4" />
+                  Hacer este gasto recurrente (Fijo)
                 </Label>
               </div>
-            )}
+
+              {isRecurring && (
+                <div className="pl-6 space-y-2 animate-in slide-in-from-top-2 duration-200">
+                  <Label htmlFor="frequency" className="text-xs text-muted-foreground uppercase font-bold tracking-wider">¿Cada cuánto tiempo?</Label>
+                  <Select value={frequency} onValueChange={setFrequency}>
+                    <SelectTrigger id="frequency" className="h-9">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="daily">Diariamente</SelectItem>
+                      <SelectItem value="weekly">Semanalmente</SelectItem>
+                      <SelectItem value="monthly">Mensualmente</SelectItem>
+                      <SelectItem value="yearly">Anualmente</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+              )}
+            </div>
           </div>
 
           <div className="space-y-2">

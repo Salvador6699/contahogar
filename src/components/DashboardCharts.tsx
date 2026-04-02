@@ -2,7 +2,7 @@ import { useState } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { ResponsiveContainer, PieChart, Pie, Cell, Tooltip, BarChart, Bar, XAxis, YAxis, CartesianGrid, Legend } from 'recharts';
 import { formatCurrency } from '@/lib/calculations';
-import { CategorySummary } from '@/types/finance';
+import { CategorySummary, Category, Account } from '@/types/finance';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { ScrollArea } from "@/components/ui/scroll-area";
 
@@ -10,13 +10,16 @@ interface DashboardChartsProps {
     expenseCategories: CategorySummary[];
     totalIncome: number;
     totalExpenses: number;
-    selectedAccount: 'total' | 'bank' | 'cash';
+    selectedAccount: string;
+    accounts?: Account[];
+    categoryCatalog?: Category[];
 }
 
-const DashboardCharts = ({ expenseCategories, totalIncome, totalExpenses, selectedAccount }: DashboardChartsProps) => {
+const DashboardCharts = ({ expenseCategories, totalIncome, totalExpenses, selectedAccount, accounts = [], categoryCatalog = [] }: DashboardChartsProps) => {
     const [topCount, setTopCount] = useState<string>("5");
 
-    const accountLabel = selectedAccount === 'bank' ? ' · Banco' : selectedAccount === 'cash' ? ' · Efectivo' : '';
+    const selectedAccObj = accounts.find(a => a.id === selectedAccount);
+    const accountLabel = selectedAccObj ? ` · ${selectedAccObj.name}` : '';
 
     // Prep data for Pie Chart (Expenses by Category)
     const sortedData = expenseCategories.map(cat => ({
@@ -90,9 +93,11 @@ const DashboardCharts = ({ expenseCategories, totalIncome, totalExpenses, select
                                         paddingAngle={5}
                                         dataKey="value"
                                     >
-                                        {pieData.map((entry, index) => (
-                                            <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
-                                        ))}
+                                        {pieData.map((entry, index) => {
+                                            const catObj = categoryCatalog.find(c => c.name === entry.name);
+                                            const color = catObj?.color || COLORS[index % COLORS.length];
+                                            return <Cell key={`cell-${index}`} fill={color} />;
+                                        })}
                                     </Pie>
                                     <Tooltip
                                         formatter={(value: number) => formatCurrency(value)}
@@ -108,10 +113,16 @@ const DashboardCharts = ({ expenseCategories, totalIncome, totalExpenses, select
                                 {pieData.map((item, index) => (
                                     <div key={item.name} className="flex flex-col gap-0.5 group shrink-0">
                                         <div className="flex items-center gap-3">
-                                            <div
-                                                className="w-2.5 h-2.5 rounded-full shrink-0 shadow-sm"
-                                                style={{ backgroundColor: COLORS[index % COLORS.length] }}
-                                            />
+                                            {(() => {
+                                                const catObj = categoryCatalog.find(c => c.name === item.name);
+                                                const color = catObj?.color || COLORS[index % COLORS.length];
+                                                return (
+                                                    <div
+                                                        className="w-2.5 h-2.5 rounded-full shrink-0 shadow-sm"
+                                                        style={{ backgroundColor: color }}
+                                                    />
+                                                );
+                                            })()}
                                             <span className="text-[12px] font-bold leading-tight capitalize text-foreground/90">
                                                 {item.name}
                                             </span>

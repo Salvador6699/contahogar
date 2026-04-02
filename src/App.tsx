@@ -13,14 +13,22 @@ import AveragesPage from "./pages/AveragesPage";
 import SettingsPage from "./pages/SettingsPage";
 import TransferPage from "./pages/TransferPage";
 import GuidePage from "./pages/GuidePage";
+import ManagementPage from "./pages/ManagementPage";
 import NotFound from "./pages/NotFound";
 import ScrollToTop from "./components/ScrollToTop";
 import SplashScreen from "./components/SplashScreen";
+import { useEffect } from "react";
+import { processRecurringTransactions } from "@/lib/automation";
 
 const queryClient = new QueryClient();
 
 const App = () => {
   const [showSplash, setShowSplash] = useState(true);
+
+  useEffect(() => {
+    // Run automation on start
+    processRecurringTransactions();
+  }, []);
 
   return (
     <QueryClientProvider client={queryClient}>
@@ -40,6 +48,7 @@ const App = () => {
               <Route path="/ajustes" element={<SettingsPage />} />
               <Route path="/transferir" element={<TransferPage />} />
               <Route path="/guia" element={<GuidePage />} />
+              <Route path="/gestion" element={<ManagementPage />} />
               {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
               <Route path="*" element={<NotFound />} />
             </Routes>
