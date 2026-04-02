@@ -71,7 +71,7 @@ const MobileNav = () => {
                 >
                     <div className="w-10 h-10 rounded-xl overflow-hidden shadow-md ring-2 ring-primary/20 group-hover:ring-primary/40 transition-all">
                         <img 
-                            src="/archivos/bienvenida.png" 
+                            src="/archivos/logo-premium.png" 
                             alt="ContaHogar Logo" 
                             className="w-full h-full object-cover"
                         />
