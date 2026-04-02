@@ -229,7 +229,7 @@ const ManagementPage = () => {
   };
 
   return (
-    <div className="min-h-screen app-gradient-bg pb-20 lg:pl-20">
+    <div className="min-h-screen app-gradient-bg pb-20 lg:pl-20 pt-16">
       <div className="container max-w-4xl mx-auto px-4 py-8">
         <header className="mb-8">
             <div className="flex items-center gap-3 mb-2">
