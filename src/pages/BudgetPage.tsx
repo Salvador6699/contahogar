@@ -175,22 +175,10 @@ const BudgetPage = () => {
   const totalBudgetSpent = budgets.reduce((sum, b) => sum + getSpentForCategory(b.category), 0);
 
   return (
-    <div className="min-h-screen app-gradient-bg pb-32 lg:pl-20">
-      <div className="container max-w-4xl mx-auto px-4 py-6 sm:py-8">
-        {/* Header */}
-        <div className="mb-6 sm:mb-8">
-          <div className="flex items-center justify-between mb-2">
-            <div className="flex items-center gap-3">
-              <div className="p-2 bg-primary rounded-lg">
-                <PiggyBank className="w-5 h-5 sm:w-6 sm:h-6 text-primary-foreground" />
-              </div>
-              <div>
-                <h1 className="text-2xl sm:text-3xl font-bold text-foreground">Presupuestos</h1>
-              </div>
-            </div>
-          </div>
+    <div className="min-h-screen app-gradient-bg pb-32 lg:pl-20 pt-24">
+      <div className="container max-w-4xl mx-auto px-4 py-4 sm:py-6">
           {/* Month navigator */}
-          <div className="flex items-center justify-center gap-4 mt-3">
+          <div className="flex items-center justify-center gap-4 mb-8">
             <Button variant="outline" size="icon" className="h-8 w-8" onClick={() => changeMonth('prev')}>
               <ChevronLeft className="w-4 h-4" />
             </Button>
@@ -199,7 +187,6 @@ const BudgetPage = () => {
               <ChevronRight className="w-4 h-4" />
             </Button>
           </div>
-        </div>
 
         {/* Summary */}
         <div className="grid grid-cols-2 gap-4 mb-6">

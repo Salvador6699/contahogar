@@ -108,26 +108,39 @@ All colors MUST be HSL.
   }
 
   body {
-    @apply text-foreground;
+    @apply text-foreground antialiased;
     background: hsl(var(--background));
   }
 }
 
 @layer components {
   .app-gradient-bg {
-    background: linear-gradient(180deg, hsl(215 70% 97%) 0%, hsl(200 50% 96%) 50%, hsl(180 40% 95%) 100%);
+    background: radial-gradient(
+      circle at 50% -20%, 
+      hsl(215 70% 98%) 0%, 
+      hsl(220 40% 96%) 40%, 
+      hsl(220 20% 92%) 100%
+    );
+    background-attachment: fixed;
   }
 
   .dark .app-gradient-bg {
-    background: linear-gradient(180deg, hsl(220 20% 10%) 0%, hsl(220 25% 12%) 50%, hsl(215 20% 14%) 100%);
+    background: radial-gradient(
+      circle at 50% -20%, 
+      hsl(220 30% 15%) 0%, 
+      hsl(220 25% 10%) 50%, 
+      hsl(220 25% 8%) 100%
+    );
+    background-attachment: fixed;
   }
 
-  .modal-gradient-bg {
-    background: linear-gradient(180deg, hsl(0 0% 100%) 0%, hsl(220 20% 98%) 100%);
+  .nav-blur-fade {
+    @apply backdrop-blur-3xl;
+    box-shadow: 0 10px 30px -10px rgba(0, 0, 0, 0.05);
   }
 
-  .dark .modal-gradient-bg {
-    background: linear-gradient(180deg, hsl(220 20% 14%) 0%, hsl(220 20% 12%) 100%);
+  .dark .nav-blur-fade {
+    box-shadow: 0 10px 30px -10px rgba(0, 0, 0, 0.2);
   }
 
   .no-scrollbar {

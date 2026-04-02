@@ -83,6 +83,43 @@ const ManagementPage = () => {
   const [catName, setCatName] = useState('');
   const [catColor, setCatColor] = useState('#94a3b8');
   const [catIcon, setCatIcon] = useState('Tag');
+  const [catCustomIcon, setCatCustomIcon] = useState<string | undefined>(undefined);
+
+  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file) {
+      const reader = new FileReader();
+      reader.onload = (event) => {
+        const img = new Image();
+        img.onload = () => {
+          const canvas = document.createElement('canvas');
+          const MAX_SIZE = 120;
+          let width = img.width;
+          let height = img.height;
+          
+          if (width > height) {
+            if (width > MAX_SIZE) {
+              height *= MAX_SIZE / width;
+              width = MAX_SIZE;
+            }
+          } else {
+            if (height > MAX_SIZE) {
+              width *= MAX_SIZE / height;
+              height = MAX_SIZE;
+            }
+          }
+          canvas.width = width;
+          canvas.height = height;
+          const ctx = canvas.getContext('2d');
+          ctx?.drawImage(img, 0, 0, width, height);
+          setCatCustomIcon(canvas.toDataURL('image/png', 0.7));
+          setCatIcon('Tag'); 
+        };
+        img.src = event.target?.result as string;
+      };
+      reader.readAsDataURL(file);
+    }
+  };
 
   const ICON_LIST = [
     'Tag', 'Wallet', 'CreditCard', 'ShoppingBag', 'Utensils', 'Car', 'Home', 
@@ -119,11 +156,13 @@ const ManagementPage = () => {
       setCatName(cat.name);
       setCatColor(cat.color || '#94a3b8');
       setCatIcon(cat.icon || 'Tag');
+      setCatCustomIcon(cat.customIcon);
     } else {
       setEditingCat(null);
       setCatName('');
       setCatColor('#94a3b8');
       setCatIcon('Tag');
+      setCatCustomIcon(undefined);
     }
     setIsCatDialogOpen(true);
   };
@@ -135,14 +174,14 @@ const ManagementPage = () => {
     }
 
     if (editingCat) {
-      updateCategory({ ...editingCat, name: catName, color: catColor, icon: catIcon });
+      updateCategory({ ...editingCat, name: catName, color: catColor, icon: catIcon, customIcon: catCustomIcon });
       toast.success('Categoría actualizada');
     } else {
       addCategory(catName);
       const updatedCats = getCategories();
       const newCat = updatedCats.find(c => c.name === catName);
       if (newCat) {
-        updateCategory({ ...newCat, color: catColor, icon: catIcon });
+        updateCategory({ ...newCat, color: catColor, icon: catIcon, customIcon: catCustomIcon });
       }
       toast.success('Categoría añadida');
     }
@@ -229,22 +268,9 @@ const ManagementPage = () => {
   };
 
   return (
-    <div className="min-h-screen app-gradient-bg pb-20 lg:pl-20 pt-16">
+    <div className="min-h-screen app-gradient-bg pb-20 lg:pl-20 pt-24">
       <div className="container max-w-4xl mx-auto px-4 py-8">
-        <header className="mb-8">
-            <div className="flex items-center gap-3 mb-2">
-                <div className="p-2 bg-primary rounded-xl shadow-lg shadow-primary/20">
-                    <Wrench className="w-6 h-6 text-primary-foreground" />
-                </div>
-                <div>
-                    <h1 className="text-3xl font-extrabold tracking-tight text-foreground">Gestión y Automatización</h1>
-                    <p className="text-muted-foreground">Administra tus categorías y gastos recurrentes.</p>
-                </div>
-            </div>
-        </header>
-
         <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
-          
           {/* CATEGORIES SECTION */}
           <section className="space-y-4">
             <div className="flex items-center justify-between">
@@ -391,19 +417,57 @@ const ManagementPage = () => {
               <Label htmlFor="catName">Nombre de la Categoría</Label>
               <Input id="catName" value={catName} onChange={(e) => setCatName(e.target.value)} placeholder="Ej: Supermercado" />
             </div>
-            <div className="space-y-2">
-              <Label>Icono</Label>
-              <div className="grid grid-cols-7 gap-2">
+            <div className="space-y-3">
+              <Label>Icono Personalizado o Selector</Label>
+              <div className="flex items-center gap-4 p-4 rounded-xl border-2 border-dashed border-muted hover:border-primary transition-all">
+                <input 
+                  type="file" 
+                  id="catFileInput" 
+                  accept="image/*" 
+                  className="hidden" 
+                  onChange={handleFileChange} 
+                />
+                <button 
+                  type="button"
+                  onClick={() => document.getElementById('catFileInput')?.click()}
+                  className="w-16 h-16 rounded-xl bg-muted flex items-center justify-center overflow-hidden border-2 border-transparent hover:border-primary"
+                >
+                  {catCustomIcon ? (
+                    <img src={catCustomIcon} className="w-full h-full object-cover" alt="Custom icon preview" />
+                  ) : (
+                    <Icons.Upload className="w-6 h-6 text-muted-foreground" />
+                  )}
+                </button>
+                <div className="flex-1">
+                  <p className="text-sm font-bold">Subir foto</p>
+                  <p className="text-[10px] text-muted-foreground">La imagen se ajustará automáticamente.</p>
+                  {catCustomIcon && (
+                    <Button 
+                      variant="link" 
+                      size="sm" 
+                      onClick={() => setCatCustomIcon(undefined)}
+                      className="h-auto p-0 text-destructive text-[10px]"
+                    >
+                      Quitar personalizada
+                    </Button>
+                  )}
+                </div>
+              </div>
+
+              <div className="grid grid-cols-7 gap-2 max-h-40 overflow-y-auto p-2 bg-muted/30 rounded-xl">
                 {ICON_LIST.map((iconName) => {
                   const IconComp = (Icons as any)[iconName] || Icons.Tag;
                   return (
                     <button
                       key={iconName}
                       type="button"
-                      onClick={() => setCatIcon(iconName)}
+                      onClick={() => {
+                        setCatIcon(iconName);
+                        setCatCustomIcon(undefined);
+                      }}
                       className={cn(
                         "p-2 rounded-lg border-2 transition-all hover:bg-muted",
-                        catIcon === iconName ? "border-primary bg-primary/5" : "border-transparent"
+                        catIcon === iconName && !catCustomIcon ? "border-primary bg-primary/5" : "border-transparent"
                       )}
                     >
                       <IconComp className="w-4 h-4" />

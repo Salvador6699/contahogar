@@ -70,18 +70,27 @@ const CategoryBreakdown = ({
             >
               <div className="flex items-center justify-between gap-3">
                 <div className="flex-1 min-w-0 flex items-center gap-3">
-                  {(() => {
-                    const catObj = categoryCatalog.find(c => c.name === transaction.category);
-                    const IconComponent = (catObj?.icon && (Icons as any)[catObj.icon]) || Icons.Tag;
-                    return (
-                      <div 
-                        className="w-10 h-10 rounded-xl flex items-center justify-center flex-shrink-0 text-white shadow-sm"
-                        style={{ backgroundColor: catObj?.color || (type === 'expense' ? '#ef4444' : '#10b981') }}
-                      >
-                        <IconComponent className="w-5 h-5" />
-                      </div>
-                    );
-                  })()}
+                    {(() => {
+                      const catObj = categoryCatalog.find(c => c.name === transaction.category);
+                      if (catObj?.customIcon) {
+                        return (
+                          <div 
+                            className="w-10 h-10 rounded-xl flex items-center justify-center flex-shrink-0 shadow-sm overflow-hidden border border-border/20 bg-muted"
+                          >
+                            <img src={catObj.customIcon} className="w-full h-full object-cover" alt={catObj.name} />
+                          </div>
+                        );
+                      }
+                      const IconComponent = (catObj?.icon && (Icons as any)[catObj.icon]) || Icons.Tag;
+                      return (
+                        <div 
+                          className="w-10 h-10 rounded-xl flex items-center justify-center flex-shrink-0 text-white shadow-sm"
+                          style={{ backgroundColor: catObj?.color || (type === 'expense' ? '#ef4444' : '#10b981') }}
+                        >
+                          <IconComponent className="w-5 h-5" />
+                        </div>
+                      );
+                    })()}
                   <div className="min-w-0">
                     <div className="flex items-center gap-2">
                        <p className="font-bold text-foreground capitalize truncate">{transaction.category}</p>
@@ -190,6 +199,15 @@ const CategoryBreakdown = ({
                 <div className="flex-1 flex items-center gap-3">
                   {(() => {
                     const catObj = categoryCatalog.find(c => c.name === category.category);
+                    if (catObj?.customIcon) {
+                      return (
+                        <div 
+                          className="w-10 h-10 rounded-xl flex items-center justify-center flex-shrink-0 shadow-sm overflow-hidden border border-border/20 bg-muted"
+                        >
+                          <img src={catObj.customIcon} className="w-full h-full object-cover" alt={catObj.name} />
+                        </div>
+                      );
+                    }
                     const IconComponent = (catObj?.icon && (Icons as any)[catObj.icon]) || Icons.Tag;
                     return (
                       <div 
