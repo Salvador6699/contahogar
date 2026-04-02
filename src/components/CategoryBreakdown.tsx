@@ -1,9 +1,10 @@
 import { useState } from 'react';
 import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { CategorySummary, Transaction, Budget } from '@/types/finance';
+import { CategorySummary, Transaction, Budget, Category } from '@/types/finance';
 import { formatCurrency } from '@/lib/calculations';
-import { Tag, Pencil, ChevronLeft, ChevronRight, Calendar, Trash2 } from 'lucide-react';
+import { Tag, Pencil, ChevronLeft, ChevronRight, Calendar, Trash2, LucideIcon, CheckCircle2 } from 'lucide-react';
+import * as Icons from 'lucide-react';
 
 interface CategoryBreakdownProps {
   categories: CategorySummary[];
@@ -12,7 +13,9 @@ interface CategoryBreakdownProps {
   transactions?: Transaction[];
   onEditTransaction?: (transaction: Transaction) => void;
   onDeleteTransaction?: (transactionId: string) => void;
+  onConfirmTransaction?: (transaction: Transaction) => void;
   budgets?: Budget[];
+  categoryCatalog?: Category[];
 }
 
 const ITEMS_PER_PAGE = 5;
@@ -24,7 +27,9 @@ const CategoryBreakdown = ({
   transactions = [],
   onEditTransaction,
   onDeleteTransaction,
+  onConfirmTransaction,
   budgets = [],
+  categoryCatalog = [],
 }: CategoryBreakdownProps) => {
   const [currentPage, setCurrentPage] = useState(1);
 
@@ -64,16 +69,43 @@ const CategoryBreakdown = ({
               className={`p-4 ${bgClass} border-2 ${borderClass} hover:shadow-md transition-all`}
             >
               <div className="flex items-center justify-between gap-3">
-                <div className="flex-1 min-w-0">
-                  <p className="font-medium text-foreground capitalize">{transaction.category}</p>
-                  <p className="text-xs text-muted-foreground flex items-center gap-1">
-                    <Calendar className="w-3 h-3" />
-                    {new Date(transaction.date).toLocaleDateString('es-ES', {
-                      day: 'numeric',
-                      month: 'long',
-                      year: 'numeric',
-                    })}
-                  </p>
+                <div className="flex-1 min-w-0 flex items-center gap-3">
+                  {(() => {
+                    const catObj = categoryCatalog.find(c => c.name === transaction.category);
+                    const IconComponent = (catObj?.icon && (Icons as any)[catObj.icon]) || Icons.Tag;
+                    return (
+                      <div 
+                        className="w-10 h-10 rounded-xl flex items-center justify-center flex-shrink-0 text-white shadow-sm"
+                        style={{ backgroundColor: catObj?.color || (type === 'expense' ? '#ef4444' : '#10b981') }}
+                      >
+                        <IconComponent className="w-5 h-5" />
+                      </div>
+                    );
+                  })()}
+                  <div className="min-w-0">
+                    <div className="flex items-center gap-2">
+                       <p className="font-bold text-foreground capitalize truncate">{transaction.category}</p>
+                       {onConfirmTransaction && (
+                         <button 
+                           onClick={(e) => {
+                             e.stopPropagation();
+                             onConfirmTransaction(transaction);
+                           }}
+                           className="text-income hover:scale-125 transition-transform duration-200 focus:outline-none"
+                           title="Confirmar transacción (pasar a real)"
+                         >
+                           <CheckCircle2 className="w-5 h-5 fill-income/10" />
+                         </button>
+                       )}
+                    </div>
+                    <p className="text-[10px] text-muted-foreground flex items-center gap-1 font-bold uppercase tracking-wider">
+                      <Calendar className="w-3 h-3" />
+                      {new Date(transaction.date).toLocaleDateString('es-ES', {
+                        day: 'numeric',
+                        month: 'short',
+                      })}
+                    </p>
+                  </div>
                 </div>
                 <div className="flex items-center gap-2">
                   <p className={`text-lg font-bold ${colorClass} whitespace-nowrap`}>
@@ -155,18 +187,32 @@ const CategoryBreakdown = ({
               className={`p-4 ${bgClass} border-2 ${borderClass} hover:shadow-md transition-all`}
             >
               <div className="flex items-center justify-between">
-                <div className="flex-1">
-                  <p className="font-medium text-foreground capitalize">{category.category}</p>
-                  <p className="text-xs text-muted-foreground">
-                    {category.count} {category.count === 1 ? 'transacción' : 'transacciones'}
-                  </p>
-                  {budget && budgetRemaining !== null && (
-                    <p className={`text-xs font-medium ${budgetRemaining >= 0 ? 'text-income' : 'text-destructive'}`}>
-                      {budgetRemaining >= 0
-                        ? `${formatCurrency(budgetRemaining)} restante`
-                        : `${formatCurrency(Math.abs(budgetRemaining))} excedido`}
+                <div className="flex-1 flex items-center gap-3">
+                  {(() => {
+                    const catObj = categoryCatalog.find(c => c.name === category.category);
+                    const IconComponent = (catObj?.icon && (Icons as any)[catObj.icon]) || Icons.Tag;
+                    return (
+                      <div 
+                        className="w-10 h-10 rounded-xl flex items-center justify-center flex-shrink-0 text-white shadow-sm"
+                        style={{ backgroundColor: catObj?.color || (type === 'expense' ? '#ef4444' : '#10b981') }}
+                      >
+                        <IconComponent className="w-5 h-5" />
+                      </div>
+                    );
+                  })()}
+                  <div>
+                    <p className="font-bold text-foreground capitalize">{category.category}</p>
+                    <p className="text-[10px] text-muted-foreground font-bold uppercase tracking-wider">
+                      {category.count} {category.count === 1 ? 'transacción' : 'transacciones'}
                     </p>
-                  )}
+                    {budget && budgetRemaining !== null && (
+                      <p className={`text-[10px] font-bold uppercase tracking-wider ${budgetRemaining >= 0 ? 'text-income' : 'text-destructive'}`}>
+                        {budgetRemaining >= 0
+                          ? `${formatCurrency(budgetRemaining)} restante`
+                          : `${formatCurrency(Math.abs(budgetRemaining))} excedido`}
+                      </p>
+                    )}
+                  </div>
                 </div>
                 <p className={`text-xl font-bold ${colorClass}`}>
                   {formatCurrency(category.total)}

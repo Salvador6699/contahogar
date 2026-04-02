@@ -1,5 +1,5 @@
 import { useNavigate, useLocation } from 'react-router-dom';
-import { Home, History, Scale, BarChart3, PiggyBank, Settings, ArrowLeftRight, Book } from 'lucide-react';
+import { Home, History, Scale, BarChart3, PiggyBank, Settings, ArrowLeftRight, Book, Wrench } from 'lucide-react';
 import { cn, withKeyboardClose } from '@/lib/utils';
 
 const MobileNav = () => {
@@ -10,6 +10,7 @@ const MobileNav = () => {
         { icon: Home, label: 'Inicio', path: '/', exact: true },
         { icon: History, label: 'Historial', path: '/historial' },
         { icon: BarChart3, label: 'Medias', path: '/medias' },
+        { icon: Wrench, label: 'Gestión', path: '/gestion' },
         { icon: Scale, label: 'Cuadrar', path: '/comparativa' },
         { icon: ArrowLeftRight, label: 'Transf.', path: '/transferir' },
         { icon: PiggyBank, label: 'Presupto.', path: '/presupuestos' },
@@ -26,7 +27,7 @@ const MobileNav = () => {
         <>
             {/* Versión Móvil: Barra Inferior */}
             <div className="lg:hidden fixed bottom-0 left-0 z-50 w-full h-20 pb-safe bg-background/80 backdrop-blur-lg border-t border-border shadow-[0_-4px_16px_rgba(0,0,0,0.05)]">
-                <div className="grid h-full grid-cols-8 mx-auto px-2">
+                <div className="grid h-full grid-cols-9 mx-auto px-1">
                     {navItems.map((item) => {
                         const active = isActive(item.path, item.exact);
                         return (

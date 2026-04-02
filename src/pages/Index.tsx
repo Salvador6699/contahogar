@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { Transaction, TransactionType, AccountView } from '@/types/finance';
+import { Transaction, TransactionType } from '@/types/finance';
 import {
   loadData,
   addTransaction as saveTransaction,
@@ -14,6 +14,7 @@ import {
   calculateTotalIncome,
   calculateTotalExpenses,
   calculateCategorySummaries,
+  formatCurrency,
 } from '@/lib/calculations';
 import { useMonthFilter } from '@/hooks/useMonthFilter';
 import BalanceCard from '@/components/BalanceCard';
@@ -30,7 +31,10 @@ import { Wallet, Calendar, ChevronLeft, ChevronRight, Scale, BarChart3 } from 'l
 import { Button } from '@/components/ui/button';
 import { useNavigate } from 'react-router-dom';
 import { loadBudgets } from '@/lib/budgetStorage';
-import { Budget } from '@/types/finance';
+import { Budget, RecurringTransaction, RecurrenceFrequency } from '@/types/finance';
+import { addRecurringTransaction } from '@/lib/storage';
+import { processRecurringTransactions } from '@/lib/automation';
+import { toast } from 'sonner';
 
 const Index = () => {
   const navigate = useNavigate();
@@ -52,36 +56,70 @@ const Index = () => {
     setData(storedData);
   }, []);
 
-  const handleAddTransaction = (transaction: Omit<Transaction, 'id'>, copyToNextMonth?: boolean) => {
-    if (editingTransaction) {
-      // Update existing transaction
+  const handleAddTransaction = (transaction: Omit<Transaction, 'id'>, copyToNextMonth?: boolean, recurringOptions?: { frequency: string }) => {
+    let finalId = editingTransaction ? editingTransaction.id : `${Date.now()}-${Math.random()}`;
+    let isAutomating = !!recurringOptions;
+
+    // Handle automation (Recurring Transaction creation)
+    if (isAutomating) {
+      const recurringId = `rec-${Date.now()}`;
+      const originalDate = transaction.date;
+      
+      // We use the "auto-" pattern ID to link this transaction to the new automation rule
+      const patternedId = `auto-${recurringId}-${originalDate}`;
+      
+      const newRecurring: Omit<RecurringTransaction, 'id'> = {
+        name: transaction.category,
+        amount: transaction.amount,
+        type: transaction.type,
+        category: transaction.category,
+        accountId: transaction.accountId,
+        frequency: recurringOptions!.frequency as RecurrenceFrequency,
+        startDate: originalDate,
+        isActive: true
+      };
+
+      addRecurringTransaction(newRecurring);
+      processRecurringTransactions();
+      toast.info(`Automatización creada para "${transaction.category}"`);
+
+      // If we are automating, the transaction ID must follow the pattern to avoid duplicates
+      if (editingTransaction) {
+        // If editing, we delete the old manual one and add the new "automated-pattern" one
+        deleteTransaction(editingTransaction.id);
+      }
+      finalId = patternedId;
+    }
+
+    if (editingTransaction && !isAutomating) {
+      // Normal edit without automation
       const updatedTransaction: Transaction = {
         ...transaction,
         id: editingTransaction.id,
       };
       updateTransaction(updatedTransaction);
-
-      // Copy to next month if requested
-      if (copyToNextMonth) {
-        const currentDate = new Date(transaction.date);
-        const nextMonth = new Date(currentDate.getFullYear(), currentDate.getMonth() + 1, currentDate.getDate());
-        const nextMonthTransaction: Transaction = {
-          ...transaction,
-          id: `${Date.now()}-${Math.random()}-copy`,
-          date: nextMonth.toISOString().split('T')[0],
-          isPending: true, // Always mark as future/pending
-        };
-        saveTransaction(nextMonthTransaction);
-      }
-
-      setEditingTransaction(null);
     } else {
-      // Add new transaction
+      // New transaction OR newly automated transaction
       const newTransaction: Transaction = {
         ...transaction,
-        id: `${Date.now()}-${Math.random()}`,
+        id: finalId,
       };
       saveTransaction(newTransaction);
+    }
+
+    setEditingTransaction(null);
+
+    // copyToNextMonth logic (kept for backward compatibility, though recurring is better)
+    if (copyToNextMonth && !isAutomating) {
+      const currentDate = new Date(transaction.date);
+      const nextMonth = new Date(currentDate.getFullYear(), currentDate.getMonth() + 1, currentDate.getDate());
+      const nextMonthTransaction: Transaction = {
+        ...transaction,
+        id: `${Date.now()}-${Math.random()}-copy`,
+        date: nextMonth.toISOString().split('T')[0],
+        isPending: true,
+      };
+      saveTransaction(nextMonthTransaction);
     }
 
     addCategory(transaction.category);
@@ -99,6 +137,15 @@ const Index = () => {
   const handleDeleteTransaction = (transactionId: string) => {
     deleteTransaction(transactionId);
     setData(loadData());
+  };
+
+  const handleConfirmTransaction = (transaction: Transaction) => {
+    updateTransaction({
+      ...transaction,
+      isPending: false
+    });
+    setData(loadData());
+    toast.success(`Confirmado: ${transaction.category}`);
   };
 
   const openExpenseModal = () => {
@@ -124,8 +171,8 @@ const Index = () => {
   }));
 
   // Total balances
-  const totalBalance = calculateTotalBalance(data.accounts, data.transactions, false);
-  const totalProjectedBalance = calculateTotalBalance(data.accounts, data.transactions, true);
+  const totalBalance = calculateTotalBalance(data.accounts, data.transactions, false, balanceMonthKey);
+  const totalProjectedBalance = calculateTotalBalance(data.accounts, data.transactions, true, balanceMonthKey);
 
   // Selected account balance
   let balance = totalBalance;
@@ -252,6 +299,8 @@ const Index = () => {
                 selectedAccount={selectedAccount}
                 totalIncome={totalIncome}
                 totalExpenses={totalExpenses}
+                accounts={data.accounts}
+                categoryCatalog={data.categories}
               />
             </div>
           </div>
@@ -267,6 +316,8 @@ const Index = () => {
                 transactions={pendingTransactions}
                 onEditTransaction={handleEditTransaction}
                 onDeleteTransaction={handleDeleteTransaction}
+                onConfirmTransaction={handleConfirmTransaction}
+                categoryCatalog={data.categories}
               />
             )}
             {pendingIncomeCategories.length > 0 && (
@@ -277,17 +328,30 @@ const Index = () => {
                 transactions={pendingTransactions}
                 onEditTransaction={handleEditTransaction}
                 onDeleteTransaction={handleDeleteTransaction}
+                onConfirmTransaction={handleConfirmTransaction}
+                categoryCatalog={data.categories}
               />
             )}
 
             {/* 2. Current Expense Categories */}
             {expenseCategories.length > 0 && (
-              <CategoryBreakdown categories={expenseCategories} type="expense" isPending={false} budgets={currentBudgets} />
+              <CategoryBreakdown 
+                categories={expenseCategories} 
+                type="expense" 
+                isPending={false} 
+                budgets={currentBudgets} 
+                categoryCatalog={data.categories}
+              />
             )}
 
             {/* 3. Current Income Categories */}
             {incomeCategories.length > 0 && (
-              <CategoryBreakdown categories={incomeCategories} type="income" isPending={false} />
+              <CategoryBreakdown 
+                categories={incomeCategories} 
+                type="income" 
+                isPending={false} 
+                categoryCatalog={data.categories}
+              />
             )}
 
             {/* Empty State */}
