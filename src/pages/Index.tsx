@@ -22,14 +22,13 @@ import SummaryCards from '@/components/SummaryCards';
 import CategoryBreakdown from '@/components/CategoryBreakdown';
 import TransactionModal from '@/components/TransactionModal';
 import TransactionList from '@/components/TransactionList';
-import FloatingButtons from '@/components/FloatingButtons';
 import AccountSelector from '@/components/AccountSelector';
 import DashboardCharts from '@/components/DashboardCharts';
 import MobileNav from '@/components/MobileNav';
 import { format, parseISO, addMonths, subMonths } from 'date-fns';
 import { Wallet, Calendar, ChevronLeft, ChevronRight, Scale, BarChart3 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import { loadBudgets } from '@/lib/budgetStorage';
 import { Budget, RecurringTransaction, RecurrenceFrequency } from '@/types/finance';
 import { addRecurringTransaction } from '@/lib/storage';
@@ -44,6 +43,7 @@ const Index = () => {
   const [editingTransaction, setEditingTransaction] = useState<Transaction | null>(null);
   const [selectedMonth, setSelectedMonth] = useState<string | null>(null);
   const [selectedAccount, setSelectedAccount] = useState<string | 'total'>('total');
+  const [searchParams, setSearchParams] = useSearchParams();
 
   // Filter transactions by selected month
   const { filteredTransactions, isCurrentMonth, selectedMonthLabel, currentMonthKey } = useMonthFilter(
@@ -54,7 +54,17 @@ const Index = () => {
   useEffect(() => {
     const storedData = loadData();
     setData(storedData);
-  }, []);
+
+    // Handle quick-add from navigation
+    const action = searchParams.get('action');
+    if (action === 'add-expense') {
+      openExpenseModal();
+      setSearchParams({}, { replace: true });
+    } else if (action === 'add-income') {
+      openIncomeModal();
+      setSearchParams({}, { replace: true });
+    }
+  }, [searchParams]);
 
   const handleAddTransaction = (transaction: Omit<Transaction, 'id'>, copyToNextMonth?: boolean, recurringOptions?: { frequency: string }) => {
     let finalId = editingTransaction ? editingTransaction.id : `${Date.now()}-${Math.random()}`;
@@ -237,7 +247,7 @@ const Index = () => {
 
   return (
     <>
-      <div className="min-h-screen app-gradient-bg lg:pl-20">
+      <div className="min-h-screen app-gradient-bg lg:pl-20 pt-16">
         <div className="container max-w-6xl mx-auto px-4 py-6 sm:py-8 transition-all duration-500 pb-32">
           {/* Header */}
           <div className="mb-6 sm:mb-8">
@@ -374,12 +384,6 @@ const Index = () => {
             />
           </div>
         </div>
-
-        {/* Floating Action Buttons */}
-        <FloatingButtons
-          onAddIncome={openIncomeModal}
-          onAddExpense={openExpenseModal}
-        />
 
         {/* Transaction Modal */}
         <TransactionModal
