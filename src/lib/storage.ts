@@ -174,6 +174,19 @@ export const addTransaction = (transaction: Omit<Transaction, 'id'>): void => {
   saveData(data);
 };
 
+// Save a transaction preserving its given ID (used for recurring pattern matching)
+export const saveTransactionWithId = (transaction: Transaction): void => {
+  const data = loadData();
+  const existingIdx = data.transactions.findIndex(t => t.id === transaction.id);
+  if (existingIdx !== -1) {
+    // Overwrite existing (e.g. a pending auto-generated one)
+    data.transactions[existingIdx] = transaction;
+  } else {
+    data.transactions.push(transaction);
+  }
+  saveData(data);
+};
+
 export const updateTransaction = (updatedTransaction: Transaction): void => {
   const data = loadData();
   const index = data.transactions.findIndex(t => t.id === updatedTransaction.id);

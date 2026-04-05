@@ -1,5 +1,5 @@
 export type TransactionType = 'income' | 'expense';
-export type RecurrenceFrequency = 'daily' | 'weekly' | 'monthly' | 'yearly';
+export type RecurrenceFrequency = 'daily' | 'weekly' | 'monthly' | 'every_n_months' | 'yearly';
 
 // New Account interface for flexible account management
 export interface Account {
@@ -36,6 +36,8 @@ export interface RecurringTransaction {
   category: string;
   accountId: string;
   frequency: RecurrenceFrequency;
+  intervalMonths?: number;   // used when frequency === 'every_n_months'
+  endAfterMonths?: number;   // undefined = indefinido; N = termina después de N meses
   startDate: string;
   lastGeneratedDate?: string;
   isActive: boolean;
