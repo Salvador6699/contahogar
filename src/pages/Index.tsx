@@ -201,28 +201,29 @@ const Index = () => {
   // Load budgets for the current month view
   const currentBudgets = loadBudgets(balanceMonthKey);
 
-  // Monthly filtered calculations (all accounts combined for categories)
-  const totalIncome = calculateTotalIncome(nonTransferTransactions, undefined, false);
-  const totalExpenses = calculateTotalExpenses(nonTransferTransactions, undefined, false);
-  const expenseCategories = calculateCategorySummaries(nonTransferTransactions, 'expense', undefined, false);
-  const incomeCategories = calculateCategorySummaries(nonTransferTransactions, 'income', undefined, false);
+  // Resolve account filter (undefined = all accounts)
+  const accountFilter = selectedAccount === 'total' ? undefined : selectedAccount;
 
-  // Account-filtered expense categories for the Top Gastos chart
-  const chartExpenseCategories = selectedAccount === 'total'
-    ? calculateCategorySummaries(nonTransferTransactions, 'expense', undefined, false)
-    : calculateCategorySummaries(nonTransferTransactions, 'expense', selectedAccount, false);
+  // Monthly filtered calculations — respect selected account
+  const totalIncome = calculateTotalIncome(nonTransferTransactions, accountFilter, false);
+  const totalExpenses = calculateTotalExpenses(nonTransferTransactions, accountFilter, false);
+  const expenseCategories = calculateCategorySummaries(nonTransferTransactions, 'expense', accountFilter, false);
+  const incomeCategories = calculateCategorySummaries(nonTransferTransactions, 'income', accountFilter, false);
 
-  // Pending/future transactions (monthly filtered)
-  const pendingExpenseCategories = calculateCategorySummaries(nonTransferTransactions, 'expense', undefined, true);
-  const pendingIncomeCategories = calculateCategorySummaries(nonTransferTransactions, 'income', undefined, true);
+  // Chart categories — same filter
+  const chartExpenseCategories = calculateCategorySummaries(nonTransferTransactions, 'expense', accountFilter, false);
+
+  // Pending/future transactions — respect selected account
+  const pendingExpenseCategories = calculateCategorySummaries(nonTransferTransactions, 'expense', accountFilter, true);
+  const pendingIncomeCategories = calculateCategorySummaries(nonTransferTransactions, 'income', accountFilter, true);
 
   // Separate transactions: regular (non-pending) sorted by most recent, pending sorted by closest date
   const regularTransactions = nonTransferTransactions
-    .filter(t => !t.isPending)
+    .filter(t => !t.isPending && (!accountFilter || t.accountId === accountFilter))
     .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
 
   const pendingTransactions = nonTransferTransactions
-    .filter(t => t.isPending)
+    .filter(t => t.isPending && (!accountFilter || t.accountId === accountFilter))
     .sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
 
   const hasAnyData = expenseCategories.length > 0 || incomeCategories.length > 0 ||
