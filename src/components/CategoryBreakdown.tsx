@@ -53,14 +53,18 @@ const CategoryBreakdown = ({
     const totalPages = Math.ceil(pendingItems.length / ITEMS_PER_PAGE);
     const startIndex = (currentPage - 1) * ITEMS_PER_PAGE;
     const paginatedItems = pendingItems.slice(startIndex, startIndex + ITEMS_PER_PAGE);
+    const pendingTotal = pendingItems.reduce((sum, t) => sum + t.amount, 0);
 
     if (pendingItems.length === 0) return null;
 
     return (
       <div className="space-y-3">
-        <h3 className="text-lg font-semibold text-foreground flex items-center gap-2">
+        <h3 className="text-lg font-semibold text-foreground flex items-center gap-2 flex-wrap">
           <Tag className="w-5 h-5" />
           {title}
+          <span className={`ml-1 text-sm font-bold px-2 py-0.5 rounded-full ${type === 'expense' ? 'bg-expense-light text-expense' : 'bg-income-light text-income'}`}>
+            {formatCurrency(pendingTotal)}
+          </span>
         </h3>
         <div className="space-y-2">
           {paginatedItems.map((transaction) => (
