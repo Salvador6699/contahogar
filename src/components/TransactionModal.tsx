@@ -24,7 +24,7 @@ import { withKeyboardClose } from '@/lib/utils';
 interface TransactionModalProps {
   isOpen: boolean;
   onClose: () => void;
-  onSave: (transaction: Omit<Transaction, 'id'>, copyToNextMonth?: boolean, recurringOptions?: { frequency: string }) => void;
+  onSave: (transaction: Omit<Transaction, 'id'>, copyToNextMonth?: boolean, recurringOptions?: { frequency: string; intervalMonths?: number; endAfterMonths?: number }) => void;
   type: TransactionType;
   categories: (string | Category)[];
   editingTransaction?: Transaction | null;
@@ -47,7 +47,8 @@ const TransactionModal = ({
   const [isPending, setIsPending] = useState(false);
   const [copyToNextMonth, setCopyToNextMonth] = useState(false);
   const [isRecurring, setIsRecurring] = useState(false);
-  const [frequency, setFrequency] = useState('monthly');
+  const [intervalMonths, setIntervalMonths] = useState(1);
+  const [endAfterMonths, setEndAfterMonths] = useState<number | undefined>(undefined); // undefined = indefinido
   const [suggestions, setSuggestions] = useState<string[]>([]);
   const [showSuggestions, setShowSuggestions] = useState(false);
 
@@ -75,6 +76,9 @@ const TransactionModal = ({
         setAccountId(defaultAccountId);
         setIsPending(false);
         setCopyToNextMonth(false);
+        setIsRecurring(false);
+        setIntervalMonths(1);
+        setEndAfterMonths(undefined);
       }
     }
   }, [isOpen, editingTransaction]);
@@ -105,14 +109,13 @@ const TransactionModal = ({
     // Check for similar category and use existing one if found
     const existingCategory = findSimilarCategory(category, categories) || category;
 
-    onSave({
-      date,
-      amount: amountNum,
-      category: existingCategory,
-      type,
-      accountId,
-      isPending,
-    }, copyToNextMonth, isRecurring ? { frequency } : undefined);
+    onSave(
+      { date, amount: amountNum, category: existingCategory, type, accountId, isPending },
+      copyToNextMonth,
+      isRecurring
+        ? { frequency: 'every_n_months', intervalMonths, endAfterMonths }
+        : undefined
+    );
 
     // Reset form only if not editing
     if (!editingTransaction) {
@@ -212,19 +215,67 @@ const TransactionModal = ({
               </div>
 
               {isRecurring && (
-                <div className="pl-6 space-y-2 animate-in slide-in-from-top-2 duration-200">
-                  <Label htmlFor="frequency" className="text-xs text-muted-foreground uppercase font-bold tracking-wider">¿Cada cuánto tiempo?</Label>
-                  <Select value={frequency} onValueChange={setFrequency}>
-                    <SelectTrigger id="frequency" className="h-9">
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="daily">Diariamente</SelectItem>
-                      <SelectItem value="weekly">Semanalmente</SelectItem>
-                      <SelectItem value="monthly">Mensualmente</SelectItem>
-                      <SelectItem value="yearly">Anualmente</SelectItem>
-                    </SelectContent>
-                  </Select>
+                <div className="pl-6 space-y-3 animate-in slide-in-from-top-2 duration-200">
+                  {/* Intervalo */}
+                  <div className="space-y-1">
+                    <Label className="text-xs text-muted-foreground uppercase font-bold tracking-wider">¿Cada cuántos meses?</Label>
+                    <div className="flex items-center gap-2">
+                      <Input
+                        id="intervalMonths"
+                        type="number"
+                        min={1}
+                        max={60}
+                        value={intervalMonths}
+                        onChange={(e) => setIntervalMonths(Math.max(1, parseInt(e.target.value) || 1))}
+                        className="w-20 h-9 text-center"
+                      />
+                      <span className="text-sm text-muted-foreground">
+                        {intervalMonths === 1 ? 'mes (mensual)' : `meses (cada ${intervalMonths} meses)`}
+                      </span>
+                    </div>
+                  </div>
+
+                  {/* Duración */}
+                  <div className="space-y-1">
+                    <Label className="text-xs text-muted-foreground uppercase font-bold tracking-wider">¿Durante cuánto tiempo?</Label>
+                    <div className="flex items-center gap-3">
+                      <button
+                        type="button"
+                        onClick={() => setEndAfterMonths(undefined)}
+                        className={`text-xs px-3 py-1.5 rounded-full border font-semibold transition-all ${
+                          endAfterMonths === undefined
+                            ? 'bg-primary text-primary-foreground border-primary'
+                            : 'bg-background text-muted-foreground border-border hover:border-primary/40'
+                        }`}
+                      >
+                        Indefinido
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setEndAfterMonths(endAfterMonths ?? 12)}
+                        className={`text-xs px-3 py-1.5 rounded-full border font-semibold transition-all ${
+                          endAfterMonths !== undefined
+                            ? 'bg-primary text-primary-foreground border-primary'
+                            : 'bg-background text-muted-foreground border-border hover:border-primary/40'
+                        }`}
+                      >
+                        N meses
+                      </button>
+                      {endAfterMonths !== undefined && (
+                        <div className="flex items-center gap-1.5">
+                          <Input
+                            type="number"
+                            min={1}
+                            max={360}
+                            value={endAfterMonths}
+                            onChange={(e) => setEndAfterMonths(Math.max(1, parseInt(e.target.value) || 1))}
+                            className="w-16 h-8 text-center text-sm"
+                          />
+                          <span className="text-xs text-muted-foreground">meses</span>
+                        </div>
+                      )}
+                    </div>
+                  </div>
                 </div>
               )}
             </div>

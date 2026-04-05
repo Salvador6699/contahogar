@@ -3,6 +3,7 @@ import { Transaction, TransactionType } from '@/types/finance';
 import {
   loadData,
   addTransaction as saveTransaction,
+  saveTransactionWithId,
   addCategory,
   updateTransaction,
   deleteTransaction,
@@ -66,18 +67,17 @@ const Index = () => {
     }
   }, [searchParams]);
 
-  const handleAddTransaction = (transaction: Omit<Transaction, 'id'>, copyToNextMonth?: boolean, recurringOptions?: { frequency: string }) => {
-    let finalId = editingTransaction ? editingTransaction.id : `${Date.now()}-${Math.random()}`;
+  const handleAddTransaction = (
+    transaction: Omit<Transaction, 'id'>,
+    copyToNextMonth?: boolean,
+    recurringOptions?: { frequency: string; intervalMonths?: number; endAfterMonths?: number }
+  ) => {
     let isAutomating = !!recurringOptions;
 
     // Handle automation (Recurring Transaction creation)
     if (isAutomating) {
-      const recurringId = `rec-${Date.now()}`;
       const originalDate = transaction.date;
-      
-      // We use the "auto-" pattern ID to link this transaction to the new automation rule
-      const patternedId = `auto-${recurringId}-${originalDate}`;
-      
+
       const newRecurring: Omit<RecurringTransaction, 'id'> = {
         name: transaction.category,
         amount: transaction.amount,
@@ -85,36 +85,38 @@ const Index = () => {
         category: transaction.category,
         accountId: transaction.accountId,
         frequency: recurringOptions!.frequency as RecurrenceFrequency,
+        intervalMonths: recurringOptions!.intervalMonths,
+        endAfterMonths: recurringOptions!.endAfterMonths,
         startDate: originalDate,
-        isActive: true
+        isActive: true,
       };
 
+      // If editing, remove old transaction first
+      if (editingTransaction) {
+        deleteTransaction(editingTransaction.id);
+      }
+
+      // Save the current transaction as REAL (non-pending) with a normal UUID
+      saveTransaction({ ...transaction, isPending: false });
+
+      // Create the recurrence rule and project future (pending) occurrences starting NEXT period
       addRecurringTransaction(newRecurring);
       processRecurringTransactions();
       toast.info(`Automatización creada para "${transaction.category}"`);
 
-      // If we are automating, the transaction ID must follow the pattern to avoid duplicates
-      if (editingTransaction) {
-        // If editing, we delete the old manual one and add the new "automated-pattern" one
-        deleteTransaction(editingTransaction.id);
-      }
-      finalId = patternedId;
+      addCategory(transaction.category);
+      setEditingTransaction(null);
+      setData(loadData());
+      setIsTransactionModalOpen(false);
+      return;
     }
 
-    if (editingTransaction && !isAutomating) {
+    if (editingTransaction) {
       // Normal edit without automation
-      const updatedTransaction: Transaction = {
-        ...transaction,
-        id: editingTransaction.id,
-      };
-      updateTransaction(updatedTransaction);
+      updateTransaction({ ...transaction, id: editingTransaction.id });
     } else {
-      // New transaction OR newly automated transaction
-      const newTransaction: Transaction = {
-        ...transaction,
-        id: finalId,
-      };
-      saveTransaction(newTransaction);
+      // New plain transaction
+      saveTransaction(transaction);
     }
 
     setEditingTransaction(null);
