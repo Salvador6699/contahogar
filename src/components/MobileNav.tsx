@@ -87,6 +87,7 @@ const MobileNav = () => {
 
     const drawerNavItems: NavItem[] = [
         { icon: SearchIcon, label: 'Buscar', path: '/buscar' },
+        { icon: Calendar, label: 'Calendario', path: '/calendario' },
         { icon: History, label: 'Historial', path: '/historial' },
         { icon: BarChart3, label: 'Medias', path: '/medias' },
         { icon: Wrench, label: 'Gestión', path: '/gestion' },
@@ -275,6 +276,22 @@ const MobileNav = () => {
                         </button>
                     );
                 })}
+
+                <button
+                    onClick={() => navigate('/calendario')}
+                    className={cn(
+                        "flex flex-col items-center justify-center w-12 h-12 rounded-2xl transition-all duration-500 group relative",
+                        isActive('/calendario') 
+                            ? "bg-primary text-primary-foreground shadow-2xl shadow-primary/30 scale-110" 
+                            : "text-muted-foreground/60 hover:bg-primary/5 hover:text-primary active:scale-95"
+                    )}
+                    title="Calendario"
+                >
+                    <Calendar className="w-5 h-5" />
+                    {isActive('/calendario') && (
+                        <div className="absolute -left-1 w-1 h-8 bg-primary rounded-r-full shadow-[0_0_12px_rgba(var(--primary),0.6)]" />
+                    )}
+                </button>
                 
                 <div className="w-8 h-[1px] bg-border/20 my-2" />
 

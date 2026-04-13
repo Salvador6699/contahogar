@@ -14,6 +14,7 @@ import TransferPage from "./pages/TransferPage";
 import SearchPage from "./pages/SearchPage";
 import GuidePage from "./pages/GuidePage";
 import ManagementPage from "./pages/ManagementPage";
+import CalendarPage from "./pages/CalendarPage";
 import NotFound from "./pages/NotFound";
 import ScrollToTop from "./components/ScrollToTop";
 import SplashScreen from "./components/SplashScreen";
@@ -46,6 +47,7 @@ const App = () => {
             <Route path="/buscar" element={<SearchPage />} />
             <Route path="/guia" element={<GuidePage />} />
             <Route path="/gestion" element={<ManagementPage />} />
+            <Route path="/calendario" element={<CalendarPage />} />
             <Route path="*" element={<NotFound />} />
           </Routes>
         </BrowserRouter>
