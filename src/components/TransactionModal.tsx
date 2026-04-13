@@ -29,6 +29,7 @@ interface TransactionModalProps {
   type: TransactionType;
   categories: (string | Category)[];
   editingTransaction?: Transaction | null;
+  defaultAccountId?: string;
 }
 
 const TransactionModal = ({
@@ -38,6 +39,7 @@ const TransactionModal = ({
   type,
   categories,
   editingTransaction = null,
+  defaultAccountId = '',
 }: TransactionModalProps) => {
   const scrollOnFocus = useScrollOnFocus(240);
   const [date, setDate] = useState('');
@@ -59,7 +61,10 @@ const TransactionModal = ({
       // Load accounts from storage
       const data = loadData();
       setAccounts(data.accounts);
-      const defaultAccountId = data.accounts.length > 0 ? data.accounts[0].id : '';
+      
+      // Determine the absolute fallback account
+      const firstAvailableAccount = data.accounts.length > 0 ? data.accounts[0].id : '';
+      const contextualDefault = defaultAccountId || firstAvailableAccount;
 
       if (editingTransaction) {
         // Editing mode - populate with existing data
@@ -67,7 +72,10 @@ const TransactionModal = ({
         setAmount(editingTransaction.amount.toString());
         setCategory(editingTransaction.category);
         setDescription(editingTransaction.description || '');
-        setAccountId(editingTransaction.accountId);
+        
+        // Priority: 1. Transacc account, 2. Global Default
+        setAccountId(editingTransaction.accountId || contextualDefault);
+        
         setIsPending(editingTransaction.isPending || false);
         setCopyToNextMonth(false);
       } else {
@@ -77,7 +85,7 @@ const TransactionModal = ({
         setAmount('');
         setCategory('');
         setDescription('');
-        setAccountId(defaultAccountId);
+        setAccountId(contextualDefault);
         setIsPending(false);
         setCopyToNextMonth(false);
         setIsRecurring(false);
@@ -85,7 +93,7 @@ const TransactionModal = ({
         setEndAfterMonths(undefined);
       }
     }
-  }, [isOpen, editingTransaction]);
+  }, [isOpen, editingTransaction, defaultAccountId]);
 
   useEffect(() => {
     if (category) {

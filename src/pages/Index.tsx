@@ -561,6 +561,7 @@ const Index = () => {
           type={transactionType}
           categories={data.categories}
           editingTransaction={editingTransaction}
+          defaultAccountId={selectedAccount === 'total' ? undefined : selectedAccount}
         />
 
         {/* Mobile Navigation */}
