@@ -18,6 +18,7 @@ import {
   ArrowDownCircle,
   ArrowUpCircle,
   ShieldCheck,
+  Calendar,
   Search as SearchIcon
 } from 'lucide-react';
 import { cn, withKeyboardClose } from '@/lib/utils';
