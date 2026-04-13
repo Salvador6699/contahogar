@@ -19,7 +19,8 @@ import {
   ArrowUpCircle,
   ShieldCheck,
   Calendar,
-  Search as SearchIcon
+  Search as SearchIcon,
+  Target
 } from 'lucide-react';
 import { cn, withKeyboardClose } from '@/lib/utils';
 import {
@@ -90,6 +91,7 @@ const MobileNav = () => {
         { icon: SearchIcon, label: 'Buscar', path: '/buscar' },
         { icon: Calendar, label: 'Calendario', path: '/calendario' },
         { icon: History, label: 'Historial', path: '/historial' },
+        { icon: Target, label: 'Ahorro', path: '/ahorro' },
         { icon: BarChart3, label: 'Medias', path: '/medias' },
         { icon: Wrench, label: 'Gestión', path: '/gestion' },
         { icon: PiggyBank, label: 'Presupuestos', path: '/presupuestos' },
@@ -290,6 +292,22 @@ const MobileNav = () => {
                 >
                     <Calendar className="w-5 h-5" />
                     {isActive('/calendario') && (
+                        <div className="absolute -left-1 w-1 h-8 bg-primary rounded-r-full shadow-[0_0_12px_rgba(var(--primary),0.6)]" />
+                    )}
+                </button>
+
+                <button
+                    onClick={() => navigate('/ahorro')}
+                    className={cn(
+                        "flex flex-col items-center justify-center w-12 h-12 rounded-2xl transition-all duration-500 group relative",
+                        isActive('/ahorro') 
+                            ? "bg-primary text-primary-foreground shadow-2xl shadow-primary/30 scale-110" 
+                            : "text-muted-foreground/60 hover:bg-primary/5 hover:text-primary active:scale-95"
+                    )}
+                    title="Metas de Ahorro"
+                >
+                    <Target className="w-5 h-5" />
+                    {isActive('/ahorro') && (
                         <div className="absolute -left-1 w-1 h-8 bg-primary rounded-r-full shadow-[0_0_12px_rgba(var(--primary),0.6)]" />
                     )}
                 </button>

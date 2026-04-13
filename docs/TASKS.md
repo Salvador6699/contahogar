@@ -27,6 +27,11 @@ Este documento refleja el progreso técnico alcanzado hasta el día de hoy.
 - [x] **Mapa de Calor**: Identificación visual de días con altos gastos (rojo) o ingresos (verde).
 - [x] **Detalle al Toque**: Panel lateral/inferior que muestra las transacciones exactas del día seleccionado.
 
+### 4. Gestión de Objetivos (Ahorro)
+- [x] **Dashboard de Metas**: Visualización estática y dinámica de sueños financieros.
+- [x] **Ahorro Sugerido**: Calculadora automática de cuota mensual basada en fecha límite.
+- [x] **Barras de Progreso**: Feedback visual inmediato del estado de cada meta.
+
 ---
 
 ## 🛠️ Acciones de Mantenimiento
