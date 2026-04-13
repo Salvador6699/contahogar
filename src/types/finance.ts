@@ -56,6 +56,24 @@ export interface Budget {
   month: string; // yyyy-MM
 }
 
+export interface FavoriteExpense {
+  id: string;
+  name: string;
+  amount: number;
+  category: string;
+  accountId: string;
+  description?: string;
+  type: TransactionType;
+  icon?: string;
+  customIcon?: string;
+}
+
+export interface AlertSettings {
+  thresholdOverrides: Record<string, number>;
+  dismissedItems: string[];
+  dismissedTotal: boolean;
+}
+
 // Updated FinanceData to support multiple accounts, structured categories and automations
 export interface FinanceData {
   accounts: Account[];
@@ -63,4 +81,6 @@ export interface FinanceData {
   categories: Category[];
   budgets: Budget[];
   recurringTransactions?: RecurringTransaction[];
+  favorites?: FavoriteExpense[];
+  alertSettings?: AlertSettings;
 }

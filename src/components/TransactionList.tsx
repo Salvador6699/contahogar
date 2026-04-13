@@ -40,16 +40,18 @@ const TransactionList = ({ transactions, onEdit, onDelete }: TransactionListProp
     
     const query = searchQuery.toLowerCase().trim();
     return sortedTransactions.filter(transaction => {
-      const categoryMatch = transaction.category.toLowerCase().includes(query);
-      const amountMatch = transaction.amount.toString().includes(query);
+      const queryLower = query.toLowerCase();
+      const categoryMatch = transaction.category.toLowerCase().includes(queryLower);
+      const descriptionMatch = (transaction.description || '').toLowerCase().includes(queryLower);
+      const amountMatch = transaction.amount.toString().includes(queryLower);
       const dateMatch = new Date(transaction.date).toLocaleDateString('es-ES', {
         year: 'numeric',
         month: 'long',
         day: 'numeric',
-      }).toLowerCase().includes(query);
-      const typeMatch = (transaction.type === 'income' ? 'ingreso' : 'gasto').includes(query);
+      }).toLowerCase().includes(queryLower);
+      const typeMatch = (transaction.type === 'income' ? 'ingreso' : 'gasto').includes(queryLower);
       
-      return categoryMatch || amountMatch || dateMatch || typeMatch;
+      return categoryMatch || descriptionMatch || amountMatch || dateMatch || typeMatch;
     });
   }, [sortedTransactions, searchQuery]);
 
@@ -114,18 +116,23 @@ const TransactionList = ({ transactions, onEdit, onDelete }: TransactionListProp
                   >
                     <div className="flex items-center justify-between gap-3">
                       <div className="flex-1 min-w-0">
-                        <div className="flex items-center gap-2 mb-1">
-                          <p className="font-medium text-foreground capitalize">
+                        <div className="flex items-center gap-2 mb-0.5">
+                          <p className="font-bold text-foreground capitalize">
                             {transaction.category}
                           </p>
                           {transaction.isPending && (
-                            <span className="flex items-center gap-1 text-xs bg-muted px-2 py-0.5 rounded-full">
-                              <Clock className="w-3 h-3" />
-                              Futura
+                            <span className="flex items-center gap-1 text-[8px] font-black uppercase tracking-tighter bg-muted px-1.5 py-0.5 rounded border border-border/50">
+                              <Clock className="w-2 h-2" />
+                              Previsto
                             </span>
                           )}
                         </div>
-                        <p className="text-xs text-muted-foreground">
+                        {transaction.description && (
+                          <p className="text-[10px] text-muted-foreground italic truncate mb-1">
+                            {transaction.description}
+                          </p>
+                        )}
+                        <p className="text-[10px] font-medium text-muted-foreground/80">
                           {new Date(transaction.date).toLocaleDateString('es-ES', {
                             year: 'numeric',
                             month: 'long',

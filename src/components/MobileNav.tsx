@@ -17,7 +17,8 @@ import {
   Plus,
   ArrowDownCircle,
   ArrowUpCircle,
-  ShieldCheck
+  ShieldCheck,
+  Search as SearchIcon
 } from 'lucide-react';
 import { cn, withKeyboardClose } from '@/lib/utils';
 import {
@@ -37,10 +38,39 @@ import {
   DrawerClose,
 } from '@/components/ui/drawer';
 import { Button } from '@/components/ui/button';
+import { loadData } from '@/lib/storage';
+import { calculateCategorySummaries, calculateBudgetAlerts } from '@/lib/calculations';
+import { useMemo } from 'react';
+import { format } from 'date-fns';
 
 const MobileNav = () => {
     const navigate = useNavigate();
     const location = useLocation();
+
+    // Calculate alerts for the red badge
+    const hasBudgetAlerts = useMemo(() => {
+        try {
+            const data = loadData();
+            const currentMonth = format(new Date(), 'yyyy-MM');
+            const monthTxs = data.transactions.filter(t => t.date.startsWith(currentMonth));
+            const categorySummaries = calculateCategorySummaries(monthTxs, 'expense');
+            const budgets = (data.budgets || []).filter(b => b.month === currentMonth);
+            
+            const totalIncome = monthTxs.filter(t => t.type === 'income').reduce((sum, t) => sum + t.amount, 0);
+            const totalExpenses = monthTxs.filter(t => t.type === 'expense').reduce((sum, t) => sum + t.amount, 0);
+            
+            const { hasAlerts } = calculateBudgetAlerts(
+                budgets, 
+                categorySummaries, 
+                totalIncome, 
+                totalExpenses,
+                data.alertSettings
+            );
+            return hasAlerts;
+        } catch (e) {
+            return false;
+        }
+    }, [location.pathname]);
 
     interface NavItem {
         icon: any;
@@ -56,6 +86,7 @@ const MobileNav = () => {
     ];
 
     const drawerNavItems: NavItem[] = [
+        { icon: SearchIcon, label: 'Buscar', path: '/buscar' },
         { icon: History, label: 'Historial', path: '/historial' },
         { icon: BarChart3, label: 'Medias', path: '/medias' },
         { icon: Wrench, label: 'Gestión', path: '/gestion' },
@@ -105,9 +136,12 @@ const MobileNav = () => {
 
                 <Sheet>
                     <SheetTrigger asChild>
-                        <button className="flex flex-col items-center justify-center group active:scale-90 transition-all px-2">
+                        <button className="flex flex-col items-center justify-center group active:scale-90 transition-all px-2 relative">
                             <div className="p-2 rounded-xl text-muted-foreground/60 group-hover:text-primary transition-all duration-500">
                                 <Menu className="w-5 h-5" />
+                                {hasBudgetAlerts && (
+                                    <span className="absolute top-2 right-2 w-2.5 h-2.5 bg-destructive rounded-full border-2 border-background animate-pulse" />
+                                )}
                             </div>
                             <span className="text-[8px] font-black uppercase tracking-widest text-muted-foreground/40 -mt-1 group-hover:text-primary transition-colors">
                                 Menú
@@ -138,10 +172,13 @@ const MobileNav = () => {
                                             )}
                                         >
                                             <div className={cn(
-                                                "p-2 rounded-xl transition-colors",
+                                                "p-2 rounded-xl transition-colors relative",
                                                 active ? "bg-white/20" : "bg-primary/5 group-hover:bg-primary/10"
                                             )}>
                                                 <item.icon className={cn("w-5 h-5", active && "stroke-[2.5px]")} />
+                                                {item.label === 'Presupuestos' && hasBudgetAlerts && (
+                                                    <span className="absolute -top-1 -right-1 w-3 h-3 bg-destructive rounded-full border-2 border-background animate-pulse" />
+                                                )}
                                             </div>
                                             <span className="text-xs uppercase tracking-[0.2em]">{item.label}</span>
                                             {active && <div className="ml-auto w-2 h-2 rounded-full bg-primary-foreground animate-pulse" />}

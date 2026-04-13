@@ -17,9 +17,10 @@ import {
 } from '@/components/ui/select';
 import { Transaction, TransactionType, Account, Category } from '@/types/finance';
 import { getCategorySuggestions, findSimilarCategory, loadData } from '@/lib/storage';
-import { Calendar, DollarSign, Tag, Building2, Banknote, Clock } from 'lucide-react';
+import { Calendar, DollarSign, Tag, Building2, Banknote, Clock, MessageSquare } from 'lucide-react';
 import { useScrollOnFocus } from '@/hooks/useScrollOnFocus';
 import { withKeyboardClose } from '@/lib/utils';
+import { Textarea } from '@/components/ui/textarea';
 
 interface TransactionModalProps {
   isOpen: boolean;
@@ -42,6 +43,7 @@ const TransactionModal = ({
   const [date, setDate] = useState('');
   const [amount, setAmount] = useState('');
   const [category, setCategory] = useState('');
+  const [description, setDescription] = useState('');
   const [accountId, setAccountId] = useState('');
   const [accounts, setAccounts] = useState<Account[]>([]);
   const [isPending, setIsPending] = useState(false);
@@ -64,6 +66,7 @@ const TransactionModal = ({
         setDate(editingTransaction.date);
         setAmount(editingTransaction.amount.toString());
         setCategory(editingTransaction.category);
+        setDescription(editingTransaction.description || '');
         setAccountId(editingTransaction.accountId);
         setIsPending(editingTransaction.isPending || false);
         setCopyToNextMonth(false);
@@ -73,6 +76,7 @@ const TransactionModal = ({
         setDate(today);
         setAmount('');
         setCategory('');
+        setDescription('');
         setAccountId(defaultAccountId);
         setIsPending(false);
         setCopyToNextMonth(false);
@@ -110,7 +114,7 @@ const TransactionModal = ({
     const existingCategory = findSimilarCategory(category, categories) || category;
 
     onSave(
-      { date, amount: amountNum, category: existingCategory, type, accountId, isPending },
+      { date, amount: amountNum, category: existingCategory, type, accountId, isPending, description },
       copyToNextMonth,
       isRecurring
         ? { frequency: 'every_n_months', intervalMonths, endAfterMonths }
@@ -122,9 +126,13 @@ const TransactionModal = ({
       setDate(new Date().toISOString().split('T')[0]);
       setAmount('');
       setCategory('');
+      setDescription('');
       setAccountId(accounts.length > 0 ? accounts[0].id : '');
       setIsPending(false);
       setCopyToNextMonth(false);
+      setIsRecurring(false);
+      setIntervalMonths(1);
+      setEndAfterMonths(undefined);
     }
     setSuggestions([]);
     setShowSuggestions(false);
@@ -331,6 +339,21 @@ const TransactionModal = ({
                 ))}
               </div>
             )}
+          </div>
+
+          <div className="space-y-2">
+            <Label htmlFor="description" className="flex items-center gap-2">
+              <MessageSquare className="w-4 h-4" />
+              Notas / Detalles (Opcional)
+            </Label>
+            <Textarea
+              id="description"
+              value={description}
+              onChange={(e) => setDescription(e.target.value)}
+              placeholder="Ej: Compra del domingo..."
+              className="w-full h-20 bg-background/50"
+              onFocus={scrollOnFocus}
+            />
           </div>
 
           <div className="flex gap-3 pt-4">

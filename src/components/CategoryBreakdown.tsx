@@ -1,10 +1,12 @@
-import { useState } from 'react';
+import { useState, useMemo } from 'react';
 import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { CategorySummary, Transaction, Budget, Category } from '@/types/finance';
-import { formatCurrency } from '@/lib/calculations';
-import { Tag, Pencil, ChevronLeft, ChevronRight, Calendar, Trash2, LucideIcon, CheckCircle2 } from 'lucide-react';
+import { Tag, Pencil, ChevronLeft, ChevronRight, Calendar, Trash2, LucideIcon, CheckCircle2, TrendingUp, TrendingDown, Minus } from 'lucide-react';
 import * as Icons from 'lucide-react';
+import { Area, AreaChart, ResponsiveContainer } from 'recharts';
+import { calculateCategoryHistory, formatCurrency, calculateMonthlyAverages } from '@/lib/calculations';
+import { cn } from '@/lib/utils';
 
 interface CategoryBreakdownProps {
   categories: CategorySummary[];
@@ -16,6 +18,8 @@ interface CategoryBreakdownProps {
   onConfirmTransaction?: (transaction: Transaction) => void;
   budgets?: Budget[];
   categoryCatalog?: Category[];
+  selectedAccount?: string;
+  baseDate?: Date;
 }
 
 const ITEMS_PER_PAGE = 5;
@@ -30,6 +34,8 @@ const CategoryBreakdown = ({
   onConfirmTransaction,
   budgets = [],
   categoryCatalog = [],
+  selectedAccount,
+  baseDate = new Date(),
 }: CategoryBreakdownProps) => {
   const [currentPage, setCurrentPage] = useState(1);
 
@@ -95,30 +101,35 @@ const CategoryBreakdown = ({
                         </div>
                       );
                     })()}
-                  <div className="min-w-0">
-                    <div className="flex items-center gap-2">
-                       <p className="font-bold text-foreground capitalize truncate">{transaction.category}</p>
-                       {onConfirmTransaction && (
-                         <button 
-                           onClick={(e) => {
-                             e.stopPropagation();
-                             onConfirmTransaction(transaction);
-                           }}
-                           className="text-income hover:scale-125 transition-transform duration-200 focus:outline-none"
-                           title="Confirmar transacción (pasar a real)"
-                         >
-                           <CheckCircle2 className="w-5 h-5 fill-income/10" />
-                         </button>
-                       )}
+                    <div className="min-w-0">
+                      <div className="flex items-center gap-2">
+                        <p className="font-bold text-foreground capitalize truncate">{transaction.category}</p>
+                        {onConfirmTransaction && (
+                          <button 
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              onConfirmTransaction(transaction);
+                            }}
+                            className="text-income hover:scale-125 transition-transform duration-200 focus:outline-none"
+                            title="Confirmar transacción (pasar a real)"
+                          >
+                            <CheckCircle2 className="w-5 h-5 fill-income/10" />
+                          </button>
+                        )}
+                      </div>
+                      {transaction.description && (
+                        <p className="text-[10px] text-muted-foreground italic truncate mt-0.5">
+                          {transaction.description}
+                        </p>
+                      )}
+                      <p className="text-[10px] text-muted-foreground flex items-center gap-1 font-bold uppercase tracking-wider">
+                        <Calendar className="w-3 h-3" />
+                        {new Date(transaction.date).toLocaleDateString('es-ES', {
+                          day: 'numeric',
+                          month: 'short',
+                        })}
+                      </p>
                     </div>
-                    <p className="text-[10px] text-muted-foreground flex items-center gap-1 font-bold uppercase tracking-wider">
-                      <Calendar className="w-3 h-3" />
-                      {new Date(transaction.date).toLocaleDateString('es-ES', {
-                        day: 'numeric',
-                        month: 'short',
-                      })}
-                    </p>
-                  </div>
                 </div>
                 <div className="flex items-center gap-2">
                   <p className={`text-lg font-bold ${colorClass} whitespace-nowrap`}>
@@ -183,6 +194,95 @@ const CategoryBreakdown = ({
     ).sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
   };
 
+  const now = new Date();
+  const today = now.getDate();
+  const currentMonthKey = now.getFullYear() + '-' + String(now.getMonth() + 1).padStart(2, '0');
+  const daysInMonth = new Date(now.getFullYear(), now.getMonth() + 1, 0).getDate();
+
+  const allAverages = useMemo(() => {
+    // We calculate averages based ONLY on transactions BEFORE the current month 
+    // to have a real historical reference.
+    const pastTransactions = transactions.filter(t => !t.date.startsWith(currentMonthKey));
+    return calculateMonthlyAverages(pastTransactions);
+  }, [transactions, currentMonthKey]);
+
+  // TrendBadge sub-component for category trend
+  const TrendBadge = ({ value, isExpense = false, comparisonValue }: { value: number | null, isExpense?: boolean, comparisonValue?: number }) => {
+    if (value === null) return null;
+    const isUp = value > 0;
+    const isNeutral = Math.abs(value) < 1;
+
+    if (isNeutral) return (
+      <div className="flex flex-col items-end gap-1">
+        <span className="text-[8px] font-bold text-muted-foreground italic">
+           vs {formatCurrency(comparisonValue || 0)}
+        </span>
+        <div className="flex items-center gap-1 text-[8px] font-bold text-muted-foreground bg-muted/50 px-1.5 py-0.5 rounded-full">
+          <Minus className="w-2 h-2" />
+          <span>0%</span>
+        </div>
+      </div>
+    );
+
+    // Special case for NEW categories (value SENTINEL = 999999)
+    if (value === 999999) return (
+      <div className="flex items-center gap-1 text-[8px] font-black text-income bg-income/10 px-1.5 py-0.5 rounded-full">
+        <TrendingUp className="w-2 h-2" />
+        <span>NUEVO</span>
+      </div>
+    );
+
+    let colorClass = "";
+    let Icon = isUp ? TrendingUp : TrendingDown;
+
+    if (!isExpense) {
+      colorClass = isUp ? "text-green-500 bg-green-500/10" : "text-red-500 bg-red-500/10";
+    } else {
+      colorClass = isUp ? "text-red-500 bg-red-500/10" : "text-green-500 bg-green-500/10";
+    }
+
+    return (
+      <div className="flex flex-col items-end gap-1">
+        {comparisonValue !== undefined && (
+          <span className={cn("text-[8px] font-bold italic", colorClass.split(' ')[0])}>
+            vs {formatCurrency(comparisonValue)}
+          </span>
+        )}
+        <div className={cn("flex items-center gap-0.5 text-[8px] font-black px-1.5 py-0.5 rounded-full", colorClass)}>
+          <Icon className="w-2 h-2" />
+          <span>{Math.abs(Math.round(value))}%</span>
+        </div>
+      </div>
+    );
+  };
+
+  // Sparkline sub-component for consistency
+  const CategorySparkline = ({ data, color, type }: { data: any[], color: string, type: string }) => (
+    <div className="h-10 w-16 flex-shrink-0">
+      <ResponsiveContainer width="100%" height="100%">
+        <AreaChart data={data}>
+          <defs>
+            <linearGradient id={`grad-cat-${type}`} x1="0" y1="0" x2="0" y2="1">
+              <stop offset="5%" stopColor={color} stopOpacity={0.3}/>
+              <stop offset="95%" stopColor={color} stopOpacity={0}/>
+            </linearGradient>
+          </defs>
+          <Area
+            type="monotone"
+            dataKey="total"
+            stroke={color}
+            strokeWidth={2}
+            fillOpacity={1}
+            fill={`url(#grad-cat-${type})`}
+            isAnimationActive={false}
+            dot={false}
+            activeDot={{ r: 3, fill: color }}
+          />
+        </AreaChart>
+      </ResponsiveContainer>
+    </div>
+  );
+
   return (
     <div className="space-y-3">
       <h3 className="text-lg font-semibold text-foreground flex items-center gap-2">
@@ -193,14 +293,45 @@ const CategoryBreakdown = ({
         {paginatedCategories.map((category, index) => {
           const budget = budgets.find(b => b.category.toLowerCase() === category.category.toLowerCase());
           const budgetRemaining = budget ? budget.amount - category.total : null;
+          const catHistory = calculateCategoryHistory(transactions, category.category, type, 6, selectedAccount, baseDate);
+          const chartColor = type === 'expense' ? '#ef4444' : '#22c55e';
+          
+          const lastMonthData = catHistory.length >= 2 ? catHistory[catHistory.length - 2] : null;
+          
+          let compValue = 0;
+          let categoryTrend: number | null = null;
+          let isActuallyNew = false;
+          
+          if (lastMonthData && (lastMonthData.totalUpToDay > 0 || lastMonthData.total > 0)) {
+            // Priority 1: Use same day last month or total last month if no same-day data but month had data
+            compValue = lastMonthData.totalUpToDay > 0 ? lastMonthData.totalUpToDay : lastMonthData.total;
+            categoryTrend = ((category.total - compValue) / compValue) * 100;
+          } else {
+            // Priority 2: Use MEDIAS (Averages) scaled to today
+            const avgData = allAverages.find(a => a.category.toLowerCase() === category.category.toLowerCase());
+            if (avgData && avgData.average > 0) {
+              compValue = (avgData.average / daysInMonth) * today;
+              categoryTrend = ((category.total - compValue) / (compValue || 1)) * 100;
+            } else {
+              // Priority 3: Check if category existed before this month
+              const hasOldTransactions = transactions.some(t => 
+                t.category.toLowerCase() === category.category.toLowerCase() && 
+                !t.date.startsWith(currentMonthKey)
+              );
+              if (!hasOldTransactions && category.total > 0) {
+                isActuallyNew = true;
+                categoryTrend = 999999; 
+              }
+            }
+          }
 
           return (
             <Card
               key={index}
               className={`p-4 ${bgClass} border-2 ${borderClass} hover:shadow-md transition-all`}
             >
-              <div className="flex items-center justify-between">
-                <div className="flex-1 flex items-center gap-3">
+              <div className="flex items-center justify-between gap-4">
+                <div className="flex-1 flex items-center gap-3 min-w-0">
                   {(() => {
                     const catObj = categoryCatalog.find(c => c.name === category.category);
                     if (catObj?.customIcon) {
@@ -222,23 +353,33 @@ const CategoryBreakdown = ({
                       </div>
                     );
                   })()}
-                  <div>
-                    <p className="font-bold text-foreground capitalize">{category.category}</p>
-                    <p className="text-[10px] text-muted-foreground font-bold uppercase tracking-wider">
+                  <div className="min-w-0 overflow-hidden">
+                    <p className="font-bold text-foreground capitalize truncate">{category.category}</p>
+                    <p className="text-[10px] text-muted-foreground font-bold uppercase tracking-wider truncate">
                       {category.count} {category.count === 1 ? 'transacción' : 'transacciones'}
                     </p>
                     {budget && budgetRemaining !== null && (
-                      <p className={`text-[10px] font-bold uppercase tracking-wider ${budgetRemaining >= 0 ? 'text-income' : 'text-destructive'}`}>
+                      <p className={`text-[10px] font-bold uppercase tracking-wider truncate ${budgetRemaining >= 0 ? 'text-income' : 'text-destructive'}`}>
                         {budgetRemaining >= 0
-                          ? `${formatCurrency(budgetRemaining)} restante`
-                          : `${formatCurrency(Math.abs(budgetRemaining))} excedido`}
+                          ? `${formatCurrency(budgetRemaining)} rest.`
+                          : `${formatCurrency(Math.abs(budgetRemaining))} exc.`}
                       </p>
                     )}
                   </div>
                 </div>
-                <p className={`text-xl font-bold ${colorClass}`}>
-                  {formatCurrency(category.total)}
-                </p>
+                <div className="flex items-center gap-3">
+                  <CategorySparkline data={catHistory} color={chartColor} type={type} />
+                  <div className="flex flex-col items-end min-w-[70px]">
+                    <p className={`text-lg font-bold ${colorClass} whitespace-nowrap leading-none mb-1`}>
+                      {formatCurrency(category.total)}
+                    </p>
+                    <TrendBadge 
+                      value={categoryTrend} 
+                      isExpense={type === 'expense'} 
+                      comparisonValue={isActuallyNew ? undefined : compValue} 
+                    />
+                  </div>
+                </div>
               </div>
             </Card>
           );
