@@ -12,7 +12,7 @@ import { Checkbox } from '@/components/ui/checkbox';
 import { Budget, Transaction } from '@/types/finance';
 import { loadData } from '@/lib/storage';
 import { loadBudgets, saveBudget, updateBudget, deleteBudget } from '@/lib/budgetStorage';
-import { formatCurrency, calculateTotalIncome, calculateTotalExpenses, calculateMonthlyAverages, CategoryMonthlyAverage } from '@/lib/calculations';
+import { formatCurrency, calculateTotalIncome, calculateTotalExpenses, calculateMonthlyAverages, CategoryMonthlyAverage, calculateTotalBalance } from '@/lib/calculations';
 import { getCategorySuggestions } from '@/lib/storage';
 import MobileNav from '@/components/MobileNav';
 import { useScrollOnFocus } from '@/hooks/useScrollOnFocus';
@@ -173,6 +173,10 @@ const BudgetPage = () => {
 
   const totalBudgeted = budgets.reduce((sum, b) => sum + b.amount, 0);
   const totalBudgetSpent = budgets.reduce((sum, b) => sum + getSpentForCategory(b.category), 0);
+  
+  // Total actual liquidity across all accounts
+  const totalLiquidity = useMemo(() => calculateTotalBalance(data.accounts, data.transactions), [data.accounts, data.transactions]);
+
 
   return (
     <div className="min-h-screen app-gradient-bg pb-32 lg:pl-20 pt-24">
@@ -371,9 +375,17 @@ const BudgetPage = () => {
                     <span className="text-muted-foreground">
                       Gastado: <span className="text-expense font-medium">{formatCurrency(spent)}</span>
                     </span>
-                    <span className={`font-medium ${isOverBudget ? 'text-destructive' : 'text-income'}`}>
-                      {isOverBudget ? '-' : ''}{formatCurrency(Math.abs(remaining))} {isOverBudget ? 'excedido' : 'restante'}
-                    </span>
+                    <div className="flex flex-col items-end">
+                      <span className={`font-medium ${isOverBudget ? 'text-destructive' : 'text-income'}`}>
+                        {isOverBudget ? '-' : ''}{formatCurrency(Math.abs(remaining))} {isOverBudget ? 'excedido' : 'restante'}
+                      </span>
+                      {remaining > 0 && totalLiquidity < remaining && (
+                        <span className="text-[10px] text-amber-600 font-bold flex items-center gap-1 animate-pulse">
+                          <Info className="w-3 h-3" />
+                          Real disp.: {formatCurrency(Math.max(0, totalLiquidity))}
+                        </span>
+                      )}
+                    </div>
                   </div>
                 </CardContent>
               </Card>

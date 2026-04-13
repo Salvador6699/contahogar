@@ -22,7 +22,7 @@ export default defineConfig(({ mode }) => ({
           'vendor-charts': ['recharts'],
           'vendor-icons': ['lucide-react'],
           'vendor-utils': ['date-fns'],
-          'vendor-react': ['react', 'react-dom', 'react-router-dom', '@tanstack/react-query'],
+          'vendor-react': ['react', 'react-dom', 'react-router-dom'],
         },
       },
     },

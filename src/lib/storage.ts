@@ -52,7 +52,7 @@ export const migrateData = (data: any): FinanceData => {
 
     // Migrate categories from string[] to Category[] if necessary
     if (Array.isArray(data.categories) && data.categories.length > 0 && typeof data.categories[0] === 'string') {
-      console.log('Migrating categories from string[] to Category[]...');
+      // Migrate categories from string[] to Category[]
       data.categories = data.categories.map((name: string, index: number) => ({
         id: `cat-${index}-${Date.now()}`,
         name,
@@ -64,7 +64,7 @@ export const migrateData = (data: any): FinanceData => {
     return data as FinanceData;
   }
 
-  console.log('Migrating old data format...');
+  // Migrating old data format to multi-account structure
 
   // It's old format, let's create a new structure
   const newBank = { ...defaultBank, initialBalance: data.initialBankBalance ?? data.initialBalance ?? 0 };

@@ -61,7 +61,7 @@ export const processRecurringTransactions = (): { created: number; current: numb
 
   if (dataChanged) {
     saveData(data);
-    console.log(`Automation: ${createdCount} projections added.`);
+    // Automation complete: projections generated
   }
 
   return { created: createdCount, current: 0 };

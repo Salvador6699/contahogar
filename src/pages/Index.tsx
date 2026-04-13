@@ -3,7 +3,6 @@ import { Transaction, TransactionType } from '@/types/finance';
 import {
   loadData,
   addTransaction as saveTransaction,
-  saveTransactionWithId,
   addCategory,
   updateTransaction,
   deleteTransaction,
