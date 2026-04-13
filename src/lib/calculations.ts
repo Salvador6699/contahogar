@@ -1,4 +1,5 @@
-import { Transaction, CategorySummary, Account } from '@/types/finance';
+import { Transaction, CategorySummary, Account, Budget, AlertSettings } from '@/types/finance';
+import { format } from 'date-fns';
 
 export const calculateBalance = (
   transactions: Transaction[], 
@@ -184,3 +185,220 @@ export const calculateMonthlyAverages = (transactions: Transaction[]): CategoryM
   }).sort((a, b) => b.average - a.average);
 };
 
+
+export interface FilterCriteria {
+  query?: string;
+  startDate?: string;
+  endDate?: string;
+  categories?: string[];
+  accounts?: string[];
+  minAmount?: number;
+  maxAmount?: number;
+  type?: 'income' | 'expense' | 'all';
+  includePending?: boolean;
+}
+
+export const filterTransactions = (
+  transactions: Transaction[],
+  criteria: FilterCriteria
+): Transaction[] => {
+  return transactions.filter(t => {
+    // Filter by pending status
+    if (!criteria.includePending && t.isPending) return false;
+
+    // Filter by type
+    if (criteria.type && criteria.type !== 'all' && t.type !== criteria.type) return false;
+
+    // Filter by search query (description or category)
+    if (criteria.query) {
+      const q = criteria.query.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '');
+      const desc = (t.description || '').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '');
+      const cat = t.category.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '');
+      if (!desc.includes(q) && !cat.includes(q)) return false;
+    }
+
+    // Filter by date range
+    if (criteria.startDate && t.date < criteria.startDate) return false;
+    if (criteria.endDate && t.date > criteria.endDate) return false;
+
+    // Filter by categories
+    if (criteria.categories && criteria.categories.length > 0 && !criteria.categories.includes(t.category)) return false;
+
+    // Filter by accounts
+    if (criteria.accounts && criteria.accounts.length > 0 && !criteria.accounts.includes(t.accountId)) return false;
+
+    // Filter by amount
+    if (criteria.minAmount !== undefined && t.amount < criteria.minAmount) return false;
+    if (criteria.maxAmount !== undefined && t.amount > criteria.maxAmount) return false;
+
+    return true;
+  }).sort((a, b) => b.date.localeCompare(a.date));
+};
+
+export interface MonthlyHistory {
+  month: string;
+  income: number;
+  expense: number;
+  incomeUpToDay: number;
+  expenseUpToDay: number;
+}
+
+export const calculatePastMonthsHistory = (
+  transactions: Transaction[],
+  accountId?: string,
+  monthsCount: number = 6,
+  baseDate: Date = new Date()
+): MonthlyHistory[] => {
+  const history: MonthlyHistory[] = [];
+  const realToday = new Date();
+  const dayToCompare = baseDate.getMonth() === realToday.getMonth() && baseDate.getFullYear() === realToday.getFullYear()
+    ? realToday.getDate()
+    : 31; // For past months, we usually want full comparison, but user can specify. 
+          // However, the request said "como los de actual", let's use the same day logic if it's the current month.
+  
+  // Actually, let's just use the current day of the month for comparison as requested
+  const today = realToday.getDate();
+
+  for (let i = 0; i < monthsCount; i++) {
+    const d = new Date(baseDate.getFullYear(), baseDate.getMonth() - i, 1);
+    const monthKey = d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0');
+    
+    const monthTransactions = transactions.filter(t => 
+      t.date.startsWith(monthKey) && 
+      (!t.isPending || t.date < format(realToday, 'yyyy-MM-dd')) && 
+      t.category !== 'Transferencia' &&
+      (!accountId || t.accountId === accountId)
+    );
+    
+    // Total for the whole month
+    const totalIncome = monthTransactions
+      .filter(t => t.type === 'income')
+      .reduce((sum, t) => sum + t.amount, 0);
+      
+    const totalExpense = monthTransactions
+      .filter(t => t.type === 'expense')
+      .reduce((sum, t) => sum + t.amount, 0);
+
+    // Total up to the same day of the month (for fair comparison)
+    const incomeUpToDay = monthTransactions
+      .filter(t => t.type === 'income' && parseInt(t.date.split('-')[2]) <= today)
+      .reduce((sum, t) => sum + t.amount, 0);
+
+    const expenseUpToDay = monthTransactions
+      .filter(t => t.type === 'expense' && parseInt(t.date.split('-')[2]) <= today)
+      .reduce((sum, t) => sum + t.amount, 0);
+      
+    history.unshift({
+      month: monthKey,
+      income: totalIncome,
+      expense: totalExpense,
+      incomeUpToDay,
+      expenseUpToDay
+    });
+  }
+  
+  return history;
+};
+
+export const calculateSpendingPace = (
+  transactions: Transaction[],
+  accountId?: string
+): { pace: number, daysPassed: number, totalDays: number } => {
+  const now = new Date();
+  const currentMonthKey = now.getFullYear() + '-' + String(now.getMonth() + 1).padStart(2, '0');
+  const daysInMonth = new Date(now.getFullYear(), now.getMonth() + 1, 0).getDate();
+  const today = now.getDate();
+  
+  const currentMonthExpenses = transactions.filter(t => 
+    t.date.startsWith(currentMonthKey) && 
+    !t.isPending && 
+    t.type === 'expense' && 
+    t.category !== 'Transferencia' &&
+    (!accountId || t.accountId === accountId)
+  ).reduce((sum, t) => sum + t.amount, 0);
+  
+  // Pace is how much is expected to spend by the end of the month based on current spending
+  const pace = (currentMonthExpenses / (today || 1)) * daysInMonth;
+  
+  return {
+    pace,
+    daysPassed: today,
+    totalDays: daysInMonth
+  };
+};
+
+export const calculateCategoryHistory = (
+  transactions: Transaction[],
+  categoryName: string,
+  type: 'income' | 'expense',
+  monthsCount: number = 6,
+  accountId?: string,
+  baseDate: Date = new Date()
+): { month: string, total: number, totalUpToDay: number }[] => {
+  const history: { month: string, total: number, totalUpToDay: number }[] = [];
+  const realToday = new Date();
+  const today = realToday.getDate();
+  
+  for (let i = 0; i < monthsCount; i++) {
+    const d = new Date(baseDate.getFullYear(), baseDate.getMonth() - i, 1);
+    const monthKey = d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0');
+    
+    const monthTransactions = transactions.filter(t => 
+      t.date.startsWith(monthKey) && 
+      !t.isPending && 
+      t.type === type &&
+      t.category.toLowerCase() === categoryName.toLowerCase() &&
+      (!accountId || t.accountId === accountId)
+    );
+    
+    const total = monthTransactions.reduce((sum, t) => sum + t.amount, 0);
+    
+    const totalUpToDay = monthTransactions
+      .filter(t => parseInt(t.date.split('-')[2]) <= today)
+      .reduce((sum, t) => sum + t.amount, 0);
+      
+    history.unshift({
+      month: monthKey,
+      total,
+      totalUpToDay
+    });
+  }
+  
+  return history;
+};
+
+export const calculateBudgetAlerts = (
+  budgets: Budget[],
+  categorySummaries: CategorySummary[],
+  totalIncome: number,
+  totalExpenses: number,
+  alertSettings?: AlertSettings
+) => {
+  const overrides = alertSettings?.thresholdOverrides || {};
+  const dismissed = alertSettings?.dismissedItems || [];
+  const dismissedTotal = alertSettings?.dismissedTotal || false;
+
+  const alerts = budgets.map(budget => {
+    const summary = categorySummaries.find(s => s.category === budget.category);
+    const spent = summary ? summary.total : 0;
+    const percent = budget.amount > 0 ? (spent / budget.amount) * 100 : 0;
+    
+    // Default threshold 75% or custom override
+    const threshold = overrides[budget.id] || 75;
+
+    return {
+      ...budget,
+      spent,
+      percent,
+      isTriggered: percent >= threshold || percent >= 100
+    };
+  }).filter(b => b.isTriggered && !dismissed.includes(b.id));
+
+  const hasDeficit = totalExpenses > totalIncome && totalIncome > 0 && !dismissedTotal;
+
+  return {
+    alerts,
+    hasAlerts: alerts.length > 0 || hasDeficit,
+    hasDeficit
+  };
+};

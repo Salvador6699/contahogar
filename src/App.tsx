@@ -11,6 +11,7 @@ import AveragesPage from "./pages/AveragesPage";
 import SettingsPage from "./pages/SettingsPage";
 import BackupPage from "./pages/BackupPage";
 import TransferPage from "./pages/TransferPage";
+import SearchPage from "./pages/SearchPage";
 import GuidePage from "./pages/GuidePage";
 import ManagementPage from "./pages/ManagementPage";
 import NotFound from "./pages/NotFound";
@@ -42,6 +43,7 @@ const App = () => {
             <Route path="/ajustes" element={<SettingsPage />} />
             <Route path="/backup" element={<BackupPage />} />
             <Route path="/transferir" element={<TransferPage />} />
+            <Route path="/buscar" element={<SearchPage />} />
             <Route path="/guia" element={<GuidePage />} />
             <Route path="/gestion" element={<ManagementPage />} />
             <Route path="*" element={<NotFound />} />

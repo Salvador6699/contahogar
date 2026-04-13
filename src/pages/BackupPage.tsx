@@ -1,10 +1,11 @@
 import { useState, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Download, Upload, AlertTriangle, ShieldCheck, FileJson } from 'lucide-react';
+import { Download, Upload, AlertTriangle, ShieldCheck, FileJson, FileSpreadsheet } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Separator } from '@/components/ui/separator';
 import { loadData, saveData, migrateData } from '@/lib/storage';
+import { exportTransactionsToCSV } from '@/lib/exportUtils';
 import { FinanceData } from '@/types/finance';
 import { toast } from 'sonner';
 import MobileNav from '@/components/MobileNav';
@@ -33,6 +34,17 @@ const BackupPage = () => {
         } catch (error) {
             console.error('Error exporting data:', error);
             toast.error('Error al exportar los datos');
+        }
+    };
+
+    const handleExportCSV = () => {
+        try {
+            const data = loadData();
+            exportTransactionsToCSV(data.transactions, data.accounts);
+            toast.success('Excel (CSV) exportado correctamente');
+        } catch (error) {
+            console.error('Error exporting CSV:', error);
+            toast.error('Error al generar el Excel');
         }
     };
 
@@ -89,6 +101,25 @@ const BackupPage = () => {
                             </CardDescription>
                         </CardHeader>
                         <CardContent className="space-y-6">
+                            {/* Export CSV Section */}
+                            <div className="space-y-3">
+                                <div className="flex items-center gap-3">
+                                    <div className="p-2 bg-emerald-500/5 rounded-lg shrink-0">
+                                        <FileSpreadsheet className="w-5 h-5 text-emerald-600" />
+                                    </div>
+                                    <div>
+                                        <h3 className="text-sm font-bold uppercase tracking-wider">Análisis en Excel</h3>
+                                        <p className="text-xs text-muted-foreground">Exporta tus transacciones a un archivo CSV para abrirlos en Excel o Sheets.</p>
+                                    </div>
+                                </div>
+                                <Button onClick={handleExportCSV} className="w-full h-12 gap-2 border-emerald-200 hover:bg-emerald-50 hover:text-emerald-700 hover:border-emerald-300 transition-all" variant="outline">
+                                    <FileSpreadsheet className="w-4 h-4" />
+                                    Exportar a Excel (CSV)
+                                </Button>
+                            </div>
+
+                            <Separator />
+
                             {/* Export Section */}
                             <div className="space-y-3">
                                 <div className="flex items-center gap-3">
@@ -96,13 +127,13 @@ const BackupPage = () => {
                                         <Download className="w-5 h-5 text-primary" />
                                     </div>
                                     <div>
-                                        <h3 className="text-sm font-bold uppercase tracking-wider">Exportar Datos</h3>
-                                        <p className="text-xs text-muted-foreground">Descarga un archivo JSON con toda tu información.</p>
+                                        <h3 className="text-sm font-bold uppercase tracking-wider">Copia de Seguridad (JSON)</h3>
+                                        <p className="text-xs text-muted-foreground">Descarga un archivo técnico para restaurar tus datos en otro dispositivo.</p>
                                     </div>
                                 </div>
                                 <Button onClick={handleExport} className="w-full h-12 gap-2" variant="outline">
                                     <FileJson className="w-4 h-4" />
-                                    Descargar Copia de Seguridad
+                                    Descargar Backup Completo
                                 </Button>
                             </div>
 

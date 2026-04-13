@@ -1,11 +1,17 @@
-import { useState, useEffect } from 'react';
-import { Transaction, TransactionType } from '@/types/finance';
+import { useState, useEffect, useMemo } from 'react';
+import { Transaction, TransactionType, FavoriteExpense, RecurringTransaction, RecurrenceFrequency } from '@/types/finance';
 import {
   loadData,
+  saveData,
   addTransaction as saveTransaction,
   addCategory,
   updateTransaction,
   deleteTransaction,
+  loadFavorites,
+  addFavorite as saveFavorite,
+  updateFavorite as modifyFavorite,
+  deleteFavorite as removeFavorite,
+  updateAlertSettings,
 } from '@/lib/storage';
 import {
   calculateBalance,
@@ -15,11 +21,17 @@ import {
   calculateTotalExpenses,
   calculateCategorySummaries,
   formatCurrency,
+  calculatePastMonthsHistory,
+  calculateSpendingPace,
+  calculateBudgetAlerts,
 } from '@/lib/calculations';
 import { useMonthFilter } from '@/hooks/useMonthFilter';
 import BalanceCard from '@/components/BalanceCard';
 import SummaryCards from '@/components/SummaryCards';
 import CategoryBreakdown from '@/components/CategoryBreakdown';
+import QuickExpenses from '@/components/QuickExpenses';
+import BudgetAlerts from '@/components/BudgetAlerts';
+import FavoriteExpenseModal from '@/components/FavoriteExpenseModal';
 import TransactionModal from '@/components/TransactionModal';
 import TransactionList from '@/components/TransactionList';
 import AccountSelector from '@/components/AccountSelector';
@@ -30,7 +42,6 @@ import { Wallet, Calendar, ChevronLeft, ChevronRight, Scale, BarChart3 } from 'l
 import { Button } from '@/components/ui/button';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { loadBudgets } from '@/lib/budgetStorage';
-import { Budget, RecurringTransaction, RecurrenceFrequency } from '@/types/finance';
 import { addRecurringTransaction } from '@/lib/storage';
 import { processRecurringTransactions } from '@/lib/automation';
 import { toast } from 'sonner';
@@ -43,13 +54,29 @@ const Index = () => {
   const [editingTransaction, setEditingTransaction] = useState<Transaction | null>(null);
   const [selectedMonth, setSelectedMonth] = useState<string | null>(null);
   const [selectedAccount, setSelectedAccount] = useState<string | 'total'>('total');
+  const [isFavoriteModalOpen, setIsFavoriteModalOpen] = useState(false);
+  const [editingFavorite, setEditingFavorite] = useState<FavoriteExpense | null>(null);
+  const [favorites, setFavorites] = useState<FavoriteExpense[]>([]);
   const [searchParams, setSearchParams] = useSearchParams();
 
-  // Filter transactions by selected month
+  useEffect(() => {
+    setFavorites(loadFavorites());
+  }, []);
+
   const { filteredTransactions, isCurrentMonth, selectedMonthLabel, currentMonthKey } = useMonthFilter(
     data.transactions,
     selectedMonth
   );
+
+  const history = useMemo(() => {
+    const baseDate = selectedMonth ? parseISO(selectedMonth + "-01") : new Date();
+    return calculatePastMonthsHistory(
+      data.transactions, 
+      selectedAccount === 'total' ? undefined : selectedAccount, 
+      6, 
+      baseDate
+    );
+  }, [data.transactions, selectedAccount, selectedMonth]);
 
   useEffect(() => {
     const storedData = loadData();
@@ -72,6 +99,9 @@ const Index = () => {
     recurringOptions?: { frequency: string; intervalMonths?: number; endAfterMonths?: number }
   ) => {
     let isAutomating = !!recurringOptions;
+
+    // Save previous state for Undo
+    const previousTransactions = [...data.transactions];
 
     // Handle automation (Recurring Transaction creation)
     if (isAutomating) {
@@ -101,12 +131,23 @@ const Index = () => {
       // Create the recurrence rule and project future (pending) occurrences starting NEXT period
       addRecurringTransaction(newRecurring);
       processRecurringTransactions();
-      toast.info(`Automatización creada para "${transaction.category}"`);
-
+      
       addCategory(transaction.category);
       setEditingTransaction(null);
-      setData(loadData());
+      const newData = loadData();
+      setData(newData);
       setIsTransactionModalOpen(false);
+
+      toast.success(`Automatización creada para "${transaction.category}"`, {
+        action: {
+          label: 'Deshacer',
+          onClick: () => {
+            saveData({ ...newData, transactions: previousTransactions });
+            setData({ ...newData, transactions: previousTransactions });
+            toast.info('Automatización revertida');
+          }
+        }
+      });
       return;
     }
 
@@ -134,10 +175,63 @@ const Index = () => {
     }
 
     addCategory(transaction.category);
-    setData(loadData());
+    const newData = loadData();
+    setData(newData);
     setIsTransactionModalOpen(false);
+
+    toast.success(editingTransaction ? 'Transacción actualizada' : 'Transacción guardada', {
+      action: {
+        label: 'Deshacer',
+        onClick: () => {
+          saveData({ ...newData, transactions: previousTransactions });
+          setData({ ...newData, transactions: previousTransactions });
+          toast.info('Cambios revertidos');
+        }
+      }
+    });
   };
 
+  const handleQuickAdd = (fav: FavoriteExpense) => {
+    const previousTransactions = [...data.transactions];
+    const newTransaction: Omit<Transaction, 'id'> = {
+      date: format(new Date(), 'yyyy-MM-dd'),
+      amount: fav.amount,
+      category: fav.category,
+      type: fav.type,
+      accountId: fav.accountId,
+      description: fav.description || `Gasto rápido: ${fav.name}`,
+    };
+    saveTransaction(newTransaction);
+    const newData = loadData();
+    setData(newData);
+    
+    toast.success(`${fav.name} registrado: ${formatCurrency(fav.amount)}`, {
+      action: {
+        label: 'Deshacer',
+        onClick: () => {
+          saveData({ ...newData, transactions: previousTransactions });
+          setData({ ...newData, transactions: previousTransactions });
+          toast.info('Registro eliminado');
+        }
+      }
+    });
+  };
+
+  const handleSaveFavorite = (favData: Omit<FavoriteExpense, 'id'> | FavoriteExpense) => {
+    if ('id' in favData) {
+      modifyFavorite(favData as FavoriteExpense);
+    } else {
+      saveFavorite(favData);
+    }
+    setFavorites(loadFavorites());
+    toast.success('Favorito guardado correctamente');
+  };
+
+  const handleDeleteFavorite = (id: string) => {
+    removeFavorite(id);
+    setFavorites(loadFavorites());
+    toast.success('Favorito eliminado');
+  };
 
   const handleEditTransaction = (transaction: Transaction) => {
     setEditingTransaction(transaction);
@@ -145,18 +239,45 @@ const Index = () => {
     setIsTransactionModalOpen(true);
   };
 
-  const handleDeleteTransaction = (transactionId: string) => {
-    deleteTransaction(transactionId);
+  const handleDeleteTransaction = (id: string) => {
+    const previousTransactions = [...data.transactions];
+    deleteTransaction(id);
+    const newData = loadData();
+    setData(newData);
+    
+    toast.success('Transacción eliminada', {
+      action: {
+        label: 'Deshacer',
+        onClick: () => {
+          saveData({ ...newData, transactions: previousTransactions });
+          setData({ ...newData, transactions: previousTransactions });
+          toast.info('Transacción restaurada');
+        }
+      }
+    });
+  };
+
+  const handleUpdateAlertSettings = (newSettings: any) => {
+    updateAlertSettings(newSettings);
     setData(loadData());
   };
 
   const handleConfirmTransaction = (transaction: Transaction) => {
-    updateTransaction({
-      ...transaction,
-      isPending: false
+    const previousTransactions = [...data.transactions];
+    updateTransaction({ ...transaction, isPending: false });
+    const newData = loadData();
+    setData(newData);
+    
+    toast.success('Gasto confirmado', {
+      action: {
+        label: 'Deshacer',
+        onClick: () => {
+          saveData({ ...newData, transactions: previousTransactions });
+          setData({ ...newData, transactions: previousTransactions });
+          toast.info('Gasto vuelto a pendiente');
+        }
+      }
     });
-    setData(loadData());
-    toast.success(`Confirmado: ${transaction.category}`);
   };
 
   const openExpenseModal = () => {
@@ -230,6 +351,10 @@ const Index = () => {
   const hasAnyData = expenseCategories.length > 0 || incomeCategories.length > 0 ||
     pendingExpenseCategories.length > 0 || pendingIncomeCategories.length > 0;
 
+  // History and Pace for trends
+  const baseDate = useMemo(() => selectedMonth ? parseISO(selectedMonth + "-01") : new Date(), [selectedMonth]);
+  const spendingPace = isCurrentMonth ? calculateSpendingPace(data.transactions, accountFilter) : undefined;
+
 
   const handlePrevMonth = () => {
     const current = parseISO((selectedMonth || currentMonthKey) + '-01');
@@ -289,13 +414,41 @@ const Index = () => {
             />
           </div>
 
-          {/* Summary Cards and Charts */}
+          <BudgetAlerts 
+            budgets={currentBudgets}
+            categorySummaries={expenseCategories}
+            totalIncome={totalIncome}
+            totalExpenses={totalExpenses}
+            alertSettings={data.alertSettings || { thresholdOverrides: {}, dismissedItems: [], dismissedTotal: false }}
+            onUpdateSettings={handleUpdateAlertSettings}
+          />
+
           <div className="grid grid-cols-1 xl:grid-cols-12 gap-6 lg:gap-8 mb-8">
             <div className="col-span-1 xl:col-span-4 space-y-6">
               <BalanceCard balance={balance} projectedBalance={projectedBalance} />
-              <SummaryCards totalIncome={totalIncome} totalExpenses={totalExpenses} />
+              <SummaryCards 
+                totalIncome={totalIncome} 
+                totalExpenses={totalExpenses} 
+                history={history}
+                spendingPace={spendingPace}
+              />
             </div>
-            <div className="col-span-1 xl:col-span-8">
+            <div className="col-span-1 xl:col-span-8 space-y-6">
+              <QuickExpenses 
+                favorites={favorites}
+                categories={data.categories}
+                accounts={data.accounts}
+                onAddTransaction={handleQuickAdd}
+                onManageFavorites={() => {
+                  setEditingFavorite(null);
+                  setIsFavoriteModalOpen(true);
+                }}
+                onEditFavorite={(fav) => {
+                  setEditingFavorite(fav);
+                  setIsFavoriteModalOpen(true);
+                }}
+                onDeleteFavorite={handleDeleteFavorite}
+              />
               <DashboardCharts
                 expenseCategories={chartExpenseCategories}
                 selectedAccount={selectedAccount}
@@ -306,6 +459,20 @@ const Index = () => {
               />
             </div>
           </div>
+
+          <FavoriteExpenseModal 
+            isOpen={isFavoriteModalOpen}
+            onClose={() => {
+              setIsFavoriteModalOpen(false);
+              setEditingFavorite(null);
+            }}
+            favorites={favorites}
+            categories={data.categories}
+            accounts={data.accounts}
+            onSave={handleSaveFavorite}
+            onDelete={handleDeleteFavorite}
+            editingFavorite={editingFavorite}
+          />
 
           {/* Content Sections */}
           <div className="space-y-8 pb-24">
@@ -343,6 +510,9 @@ const Index = () => {
                 isPending={false} 
                 budgets={currentBudgets} 
                 categoryCatalog={data.categories}
+                transactions={data.transactions}
+                selectedAccount={accountFilter}
+                baseDate={baseDate}
               />
             )}
 
@@ -353,6 +523,9 @@ const Index = () => {
                 type="income" 
                 isPending={false} 
                 categoryCatalog={data.categories}
+                transactions={data.transactions}
+                selectedAccount={accountFilter}
+                baseDate={baseDate}
               />
             )}
 

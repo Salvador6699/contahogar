@@ -12,9 +12,10 @@ import { Checkbox } from '@/components/ui/checkbox';
 import { Budget, Transaction } from '@/types/finance';
 import { loadData } from '@/lib/storage';
 import { loadBudgets, saveBudget, updateBudget, deleteBudget } from '@/lib/budgetStorage';
-import { formatCurrency, calculateTotalIncome, calculateTotalExpenses, calculateMonthlyAverages, CategoryMonthlyAverage, calculateTotalBalance } from '@/lib/calculations';
-import { getCategorySuggestions } from '@/lib/storage';
+import { formatCurrency, calculateTotalIncome, calculateTotalExpenses, calculateMonthlyAverages, CategoryMonthlyAverage, calculateTotalBalance, calculateCategorySummaries } from '@/lib/calculations';
+import { getCategorySuggestions, updateAlertSettings } from '@/lib/storage';
 import MobileNav from '@/components/MobileNav';
+import BudgetAlerts from '@/components/BudgetAlerts';
 import { useScrollOnFocus } from '@/hooks/useScrollOnFocus';
 import { withKeyboardClose } from '@/lib/utils';
 
@@ -139,6 +140,11 @@ const BudgetPage = () => {
     setSuggestions([]);
   };
 
+  const handleUpdateAlertSettings = (newSettings: any) => {
+    updateAlertSettings(newSettings);
+    setData(loadData());
+  };
+
   const formRef = useRef<HTMLDivElement>(null);
 
   const handleEdit = (budget: Budget) => {
@@ -249,6 +255,17 @@ const BudgetPage = () => {
             />
           </CardContent>
         </Card>
+
+        {/* Dynamic Alerts Management */}
+        <BudgetAlerts 
+          budgets={budgets}
+          categorySummaries={calculateCategorySummaries(monthTransactions, 'expense', undefined, false)}
+          totalIncome={totalIncome}
+          totalExpenses={totalExpenses}
+          alertSettings={data.alertSettings || { thresholdOverrides: {}, dismissedItems: [], dismissedTotal: false }}
+          onUpdateSettings={handleUpdateAlertSettings}
+          ignoreDismissals={true}
+        />
 
         {/* Add Budget Button and Autocomplete */}
         {!showForm && (
