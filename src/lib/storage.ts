@@ -35,7 +35,8 @@ const getDefaultData = (): FinanceData => ({
     thresholdOverrides: {},
     dismissedItems: [],
     dismissedTotal: false
-  }
+  },
+  savingsGoals: []
 });
 
 export const migrateData = (data: any): FinanceData => {
@@ -59,6 +60,8 @@ export const migrateData = (data: any): FinanceData => {
     if (data.alertSettings.dismissedItems === undefined) data.alertSettings.dismissedItems = [];
     if (data.alertSettings.dismissedTotal === undefined) data.alertSettings.dismissedTotal = false;
   }
+  
+  if (data.savingsGoals === undefined) data.savingsGoals = [];
 
   // If accounts array exists, assume it's new format or already partially migrated
   if (Array.isArray(data.accounts)) {
@@ -78,7 +81,8 @@ export const migrateData = (data: any): FinanceData => {
       : defaultCategories,
     budgets: Array.isArray(data.budgets) ? data.budgets : [],
     recurringTransactions: [],
-    alertSettings: data.alertSettings
+    alertSettings: data.alertSettings,
+    savingsGoals: Array.isArray(data.savingsGoals) ? data.savingsGoals : []
   };
   
   if (Array.isArray(data.transactions)) {
@@ -347,4 +351,36 @@ export const getCategorySuggestions = (input: string, categories: (string | Cate
   return (categories.map(c => typeof c === 'string' ? c : c.name)).filter(name => 
     normalizeCategory(name).includes(normalized)
   );
+};
+
+// Savings Goal Management
+export const addSavingsGoal = (goal: Omit<SavingsGoal, 'id'>): SavingsGoal => {
+  const data = loadData();
+  const newGoal: SavingsGoal = { ...goal, id: uuidv4() };
+  if (!data.savingsGoals) data.savingsGoals = [];
+  data.savingsGoals.push(newGoal);
+  saveData(data);
+  return newGoal;
+};
+
+export const updateSavingsGoal = (updated: SavingsGoal): void => {
+  const data = loadData();
+  if (!data.savingsGoals) return;
+  const index = data.savingsGoals.findIndex(g => g.id === updated.id);
+  if (index !== -1) {
+    data.savingsGoals[index] = updated;
+    saveData(data);
+  }
+};
+
+export const deleteSavingsGoal = (id: string): void => {
+  const data = loadData();
+  if (!data.savingsGoals) return;
+  data.savingsGoals = data.savingsGoals.filter(g => g.id !== id);
+  saveData(data);
+};
+
+export const loadSavingsGoals = (): SavingsGoal[] => {
+  const data = loadData();
+  return data.savingsGoals || [];
 };

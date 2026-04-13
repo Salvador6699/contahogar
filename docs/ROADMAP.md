@@ -12,18 +12,17 @@ Transforma ContaHogar en una aplicación nativa en tu móvil.
 - Funcionamiento offline total.
 - Sin barras del navegador.
 
-### 2. 🎯 Metas de Ahorro
-Crea objetivos financieros específicos (ej: "Fondo de Emergencia", "Vacaciones").
-- Barra de progreso visual.
-- Ahorro mensual sugerido para llegar a la meta.
+### 1. 📱 Instalar como App (PWA)
+Transforma ContaHogar en una aplicación nativa en tu móvil.
 
-### 3. 🔐 Seguridad Extra (PIN)
+### 2. 🔐 Seguridad Extra (PIN)
 Protege tus datos con un código de acceso de 4 dígitos para que nadie más pueda ver tus cuentas.
 
 ---
 
 ## ✅ Mejoras Ya Implementadas (Histórico)
 
+- [x] **Metas de Ahorro**: Sistema de objetivos con calculadora de ahorro mensual y progreso visual.
 - [x] **Vista de Calendario**: Visualización mensual con mapa de colores e interacción diaria.
 - [x] **Búsqueda Global**: Localiza cualquier transacción con filtros avanzados.
 - [x] **Dashboard de Tendencias**: Comparativa mes a mes y ritmo de gasto.

@@ -74,6 +74,17 @@ export interface AlertSettings {
   dismissedTotal: boolean;
 }
 
+export interface SavingsGoal {
+  id: string;
+  name: string;
+  targetAmount: number;
+  currentAmount: number;
+  deadline?: string; // yyyy-MM-dd
+  accountId?: string; // Optional: Link to a specific account
+  color?: string;
+  category?: string; // e.g. "Viajes", "Vivienda"
+}
+
 // Updated FinanceData to support multiple accounts, structured categories and automations
 export interface FinanceData {
   accounts: Account[];
@@ -83,4 +94,5 @@ export interface FinanceData {
   recurringTransactions?: RecurringTransaction[];
   favorites?: FavoriteExpense[];
   alertSettings?: AlertSettings;
+  savingsGoals?: SavingsGoal[];
 }
