@@ -36,7 +36,7 @@ import TransactionModal from '@/components/TransactionModal';
 import TransactionList from '@/components/TransactionList';
 import AccountSelector from '@/components/AccountSelector';
 import DashboardCharts from '@/components/DashboardCharts';
-import MobileNav from '@/components/MobileNav';
+import QuickAmountModal from '@/components/QuickAmountModal';
 import { format, parseISO, addMonths, subMonths } from 'date-fns';
 import { Wallet, Calendar, ChevronLeft, ChevronRight, Scale, BarChart3 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
@@ -45,6 +45,7 @@ import { loadBudgets } from '@/lib/budgetStorage';
 import { addRecurringTransaction } from '@/lib/storage';
 import { processRecurringTransactions } from '@/lib/automation';
 import { toast } from 'sonner';
+import { v4 as uuidv4 } from 'uuid';
 
 const Index = () => {
   const navigate = useNavigate();
@@ -58,6 +59,8 @@ const Index = () => {
   const [editingFavorite, setEditingFavorite] = useState<FavoriteExpense | null>(null);
   const [favorites, setFavorites] = useState<FavoriteExpense[]>([]);
   const [searchParams, setSearchParams] = useSearchParams();
+  const [isQuickAmountModalOpen, setIsQuickAmountModalOpen] = useState(false);
+  const [activeQuickFavorite, setActiveQuickFavorite] = useState<FavoriteExpense | null>(null);
 
   useEffect(() => {
     setFavorites(loadFavorites());
@@ -167,7 +170,7 @@ const Index = () => {
       const nextMonth = new Date(currentDate.getFullYear(), currentDate.getMonth() + 1, currentDate.getDate());
       const nextMonthTransaction: Transaction = {
         ...transaction,
-        id: `${Date.now()}-${Math.random()}-copy`,
+        id: uuidv4(),
         date: nextMonth.toISOString().split('T')[0],
         isPending: true,
       };
@@ -192,20 +195,27 @@ const Index = () => {
   };
 
   const handleQuickAdd = (fav: FavoriteExpense) => {
+    setActiveQuickFavorite(fav);
+    setIsQuickAmountModalOpen(true);
+  };
+
+  const handleSaveQuickAmount = (amount: number, accountId: string) => {
+    if (!activeQuickFavorite) return;
+    
     const previousTransactions = [...data.transactions];
     const newTransaction: Omit<Transaction, 'id'> = {
       date: format(new Date(), 'yyyy-MM-dd'),
-      amount: fav.amount,
-      category: fav.category,
-      type: fav.type,
-      accountId: fav.accountId,
-      description: fav.description || `Gasto rápido: ${fav.name}`,
+      amount: amount,
+      category: activeQuickFavorite.category,
+      type: activeQuickFavorite.type,
+      accountId: accountId,
+      description: activeQuickFavorite.description || `Gasto rápido: ${activeQuickFavorite.name}`,
     };
     saveTransaction(newTransaction);
     const newData = loadData();
     setData(newData);
     
-    toast.success(`${fav.name} registrado: ${formatCurrency(fav.amount)}`, {
+    toast.success(`${activeQuickFavorite.name} registrado: ${formatCurrency(amount)}`, {
       action: {
         label: 'Deshacer',
         onClick: () => {
@@ -215,6 +225,8 @@ const Index = () => {
         }
       }
     });
+    setIsQuickAmountModalOpen(false);
+    setActiveQuickFavorite(null);
   };
 
   const handleSaveFavorite = (favData: Omit<FavoriteExpense, 'id'> | FavoriteExpense) => {
@@ -264,7 +276,15 @@ const Index = () => {
 
   const handleConfirmTransaction = (transaction: Transaction) => {
     const previousTransactions = [...data.transactions];
-    updateTransaction({ ...transaction, isPending: false });
+    
+    // Check for linked account
+    const account = data.accounts.find(a => a.id === transaction.accountId);
+    let finalAccountId = transaction.accountId;
+    if (account && account.linkedAccountId) {
+      finalAccountId = account.linkedAccountId;
+    }
+
+    updateTransaction({ ...transaction, isPending: false, accountId: finalAccountId });
     const newData = loadData();
     setData(newData);
     
@@ -378,8 +398,8 @@ const Index = () => {
         <div className="container max-w-6xl mx-auto px-4 py-6 sm:py-8 transition-all duration-500 pb-32">
           <div className="mb-6 sm:mb-8">
             {/* Month Navigator Header */}
-            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 p-4 bg-white dark:bg-card rounded-2xl shadow-sm border border-border/50 mb-8">
-              <div className="flex items-center gap-2">
+            <div className="flex items-center justify-between p-4 bg-white dark:bg-card rounded-2xl shadow-sm border border-border/50 mb-8 overflow-hidden">
+              <div className="flex items-center gap-2 mx-auto">
                 <Button variant="outline" size="icon" className="h-9 w-9 rounded-full" onClick={handlePrevMonth}>
                   <ChevronLeft className="w-4 h-4" />
                 </Button>
@@ -431,6 +451,9 @@ const Index = () => {
                 totalExpenses={totalExpenses} 
                 history={history}
                 spendingPace={spendingPace}
+                transactions={regularTransactions}
+                onEditTransaction={handleEditTransaction}
+                onDeleteTransaction={handleDeleteTransaction}
               />
             </div>
             <div className="col-span-1 xl:col-span-8 space-y-6">
@@ -448,14 +471,6 @@ const Index = () => {
                   setIsFavoriteModalOpen(true);
                 }}
                 onDeleteFavorite={handleDeleteFavorite}
-              />
-              <DashboardCharts
-                expenseCategories={chartExpenseCategories}
-                selectedAccount={selectedAccount}
-                totalIncome={totalIncome}
-                totalExpenses={totalExpenses}
-                accounts={data.accounts}
-                categoryCatalog={data.categories}
               />
             </div>
           </div>
@@ -476,7 +491,14 @@ const Index = () => {
 
           {/* Content Sections */}
           <div className="space-y-8 pb-24">
-            {/* 1. Pending/Future Categories FIRST */}
+            {/* 1. Transaction List - regular transactions only (excluding pending) */}
+            <TransactionList
+              transactions={regularTransactions}
+              onEdit={handleEditTransaction}
+              onDelete={handleDeleteTransaction}
+            />
+
+            {/* 2. Pending/Future Categories */}
             {pendingExpenseCategories.length > 0 && (
               <CategoryBreakdown
                 categories={pendingExpenseCategories}
@@ -487,6 +509,7 @@ const Index = () => {
                 onDeleteTransaction={handleDeleteTransaction}
                 onConfirmTransaction={handleConfirmTransaction}
                 categoryCatalog={data.categories}
+                accounts={data.accounts}
               />
             )}
             {pendingIncomeCategories.length > 0 && (
@@ -499,6 +522,7 @@ const Index = () => {
                 onDeleteTransaction={handleDeleteTransaction}
                 onConfirmTransaction={handleConfirmTransaction}
                 categoryCatalog={data.categories}
+                accounts={data.accounts}
               />
             )}
 
@@ -541,12 +565,17 @@ const Index = () => {
               </div>
             )}
 
-            {/* 4. Transaction List - regular transactions only (excluding pending) */}
-            <TransactionList
-              transactions={regularTransactions}
-              onEdit={handleEditTransaction}
-              onDelete={handleDeleteTransaction}
-            />
+            {/* Dashboard Charts at the end */}
+            {hasAnyData && (
+              <DashboardCharts
+                expenseCategories={chartExpenseCategories}
+                selectedAccount={selectedAccount}
+                totalIncome={totalIncome}
+                totalExpenses={totalExpenses}
+                accounts={data.accounts}
+                categoryCatalog={data.categories}
+              />
+            )}
           </div>
         </div>
 
@@ -564,8 +593,25 @@ const Index = () => {
           defaultAccountId={selectedAccount === 'total' ? undefined : selectedAccount}
         />
 
+        {/* Quick Amount Modal */}
+        {activeQuickFavorite && (
+          <QuickAmountModal
+            isOpen={isQuickAmountModalOpen}
+            onClose={() => {
+              setIsQuickAmountModalOpen(false);
+              setActiveQuickFavorite(null);
+            }}
+            onSave={handleSaveQuickAmount}
+            categoryName={activeQuickFavorite.category}
+            accountId={activeQuickFavorite.accountId}
+            type={activeQuickFavorite.type}
+            accounts={data.accounts}
+            categories={data.categories}
+            favoriteName={activeQuickFavorite.name}
+          />
+        )}
+
         {/* Mobile Navigation */}
-        <MobileNav />
       </div>
     </>
   );

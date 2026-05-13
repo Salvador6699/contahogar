@@ -6,6 +6,8 @@ export interface Account {
   id: string;
   name: string;
   initialBalance: number;
+  linkedAccountId?: string;
+  logo?: string;
 }
 
 export interface Transaction {

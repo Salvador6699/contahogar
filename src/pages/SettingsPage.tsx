@@ -2,7 +2,6 @@ import { useTheme } from "next-themes"
 import { Sun, Moon, Laptop } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
-import MobileNav from '@/components/MobileNav';
 import { AccountManager } from '@/components/AccountManager';
 
 const SettingsPage = () => {
@@ -47,7 +46,6 @@ const SettingsPage = () => {
                     </div>
                 </div>
             </div>
-            <MobileNav />
         </div>
     );
 };

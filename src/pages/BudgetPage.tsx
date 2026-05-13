@@ -14,8 +14,8 @@ import { loadData } from '@/lib/storage';
 import { loadBudgets, saveBudget, updateBudget, deleteBudget } from '@/lib/budgetStorage';
 import { formatCurrency, calculateTotalIncome, calculateTotalExpenses, calculateMonthlyAverages, CategoryMonthlyAverage, calculateTotalBalance, calculateCategorySummaries } from '@/lib/calculations';
 import { getCategorySuggestions, updateAlertSettings } from '@/lib/storage';
-import MobileNav from '@/components/MobileNav';
 import BudgetAlerts from '@/components/BudgetAlerts';
+import { v4 as uuidv4 } from 'uuid';
 import { useScrollOnFocus } from '@/hooks/useScrollOnFocus';
 import { withKeyboardClose } from '@/lib/utils';
 
@@ -89,7 +89,7 @@ const BudgetPage = () => {
     filteredAverages.forEach(avg => {
       if (!existingCategories.has(avg.category.toLowerCase().trim())) {
         const newBudget: Budget = {
-          id: `${Date.now()}-${Math.random()}`,
+          id: uuidv4(),
           category: avg.category.trim(),
           amount: avg.average,
           month: monthParam,
@@ -125,7 +125,7 @@ const BudgetPage = () => {
       setEditingBudget(null);
     } else {
       const budget: Budget = {
-        id: `${Date.now()}-${Math.random()}`,
+        id: uuidv4(),
         category: category.trim(),
         amount: parseFloat(amount),
         month: monthParam,
@@ -374,11 +374,11 @@ const BudgetPage = () => {
                       </p>
                     </div>
                     <div className="flex gap-1">
-                      <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => handleEdit(budget)}>
-                        <Pencil className="h-4 w-4" />
+                      <Button variant="ghost" size="icon" className="min-h-[44px] min-w-[44px] p-2" onClick={() => handleEdit(budget)}>
+                        <Pencil className="h-5 w-5" />
                       </Button>
-                      <Button variant="ghost" size="icon" className="h-8 w-8 text-destructive" onClick={() => handleDelete(budget.id)}>
-                        <Trash2 className="h-4 w-4" />
+                      <Button variant="ghost" size="icon" className="min-h-[44px] min-w-[44px] p-2 text-destructive" onClick={() => handleDelete(budget.id)}>
+                        <Trash2 className="h-5 w-5" />
                       </Button>
                     </div>
                   </div>
@@ -418,7 +418,6 @@ const BudgetPage = () => {
           )}
         </div>
       </div>
-      <MobileNav />
     </div>
   );
 };

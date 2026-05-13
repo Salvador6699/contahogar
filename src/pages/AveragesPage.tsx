@@ -1,18 +1,51 @@
 import { useState, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { BarChart3, TrendingUp, TrendingDown, Info } from 'lucide-react';
-import { Button } from '@/components/ui/button';
+
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Transaction } from '@/types/finance';
 import { loadData } from '@/lib/storage';
 import { formatCurrency, calculateMonthlyAverages, CategoryMonthlyAverage } from '@/lib/calculations';
 import MobileNav from '@/components/MobileNav';
 import { BarChart, Bar, XAxis, YAxis, ResponsiveContainer, Cell, LabelList, CartesianGrid } from 'recharts';
-import { Checkbox } from '@/components/ui/checkbox';
-import { Label } from '@/components/ui/label';
+
 import { useEffect } from 'react';
 
 const STORAGE_KEY = 'contahogar_selected_averages';
+
+const capitalize = (s: string) => s ? s.charAt(0).toUpperCase() + s.slice(1) : s;
+
+const CustomYAxisTick = (props: any) => {
+    const { x, y, payload, selectedCategories, toggleCategory } = props;
+    const category = payload.value;
+    const isChecked = selectedCategories[category];
+
+    return (
+        <g transform={`translate(${x},${y})`}>
+            <foreignObject x="-140" y="-12" width="140" height="24" style={{ overflow: 'visible' }}>
+                <div 
+                    className="flex items-center gap-2 h-full pr-2"
+                    onClick={(e) => {
+                        e.stopPropagation();
+                        toggleCategory(category);
+                    }}
+                >
+                    <div className={`w-4 h-4 shrink-0 rounded-[4px] border shadow-sm flex items-center justify-center ${isChecked ? 'bg-primary border-primary text-primary-foreground' : 'border-primary opacity-50'}`}>
+                        {isChecked && (
+                            <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="4" strokeLinecap="round" strokeLinejoin="round"><polyline points="20 6 9 17 4 12"></polyline></svg>
+                        )}
+                    </div>
+                    <span 
+                        className={`text-[13px] font-medium truncate cursor-pointer ${!isChecked ? 'opacity-40 text-muted-foreground' : ''}`}
+                        title={capitalize(category)}
+                    >
+                        {capitalize(category)}
+                    </span>
+                </div>
+            </foreignObject>
+        </g>
+    );
+};
 
 const AveragesPage = () => {
     const navigate = useNavigate();
@@ -89,43 +122,12 @@ const AveragesPage = () => {
         }));
     };
 
-    const capitalize = (s: string) => s ? s.charAt(0).toUpperCase() + s.slice(1) : s;
+
 
     const hasData = expenseAverages.length > 0 || incomeAverages.length > 0;
     const getChartHeight = (count: number) => Math.max(200, count * 45);
 
-    const CustomYAxisTick = (props: any) => {
-        const { x, y, payload } = props;
-        const category = payload.value;
-        const isChecked = selectedCategories[category];
 
-        return (
-            <g transform={`translate(${x},${y})`}>
-                <foreignObject x="-140" y="-12" width="140" height="24" style={{ overflow: 'visible' }}>
-                    <div 
-                        className="flex items-center gap-2 h-full pr-2"
-                        onClick={(e) => {
-                            e.stopPropagation();
-                            toggleCategory(category);
-                        }}
-                    >
-                        <Checkbox
-                            checked={isChecked}
-                            onCheckedChange={() => toggleCategory(category)}
-                            onClick={(e) => e.stopPropagation()}
-                            className="shrink-0"
-                        />
-                        <span 
-                            className={`text-[13px] font-medium truncate cursor-pointer ${!isChecked ? 'opacity-40 text-muted-foreground' : ''}`}
-                            title={capitalize(category)}
-                        >
-                            {capitalize(category)}
-                        </span>
-                    </div>
-                </foreignObject>
-            </g>
-        );
-    };
 
     return (
         <div className="min-h-screen app-gradient-bg pb-20 lg:pl-20 pt-24">
@@ -203,11 +205,11 @@ const AveragesPage = () => {
                                                         type="category"
                                                         dataKey="category"
                                                         width={140}
-                                                        tick={<CustomYAxisTick />}
+                                                        tick={<CustomYAxisTick selectedCategories={selectedCategories} toggleCategory={toggleCategory} />}
                                                         axisLine={false}
                                                         tickLine={false}
                                                     />
-                                                    <Bar dataKey="average" radius={[0, 6, 6, 0]} barSize={28} onClick={(data) => toggleCategory(data.category)}>
+                                                    <Bar dataKey="average" radius={[0, 6, 6, 0]} barSize={28} onClick={(data) => toggleCategory(data.category)} isAnimationActive={false} animationDuration={0}>
                                                         {expenseAverages.map((a, index) => (
                                                             <Cell 
                                                                 key={`expense-${index}`} 
@@ -254,11 +256,11 @@ const AveragesPage = () => {
                                                         type="category"
                                                         dataKey="category"
                                                         width={140}
-                                                        tick={<CustomYAxisTick />}
+                                                        tick={<CustomYAxisTick selectedCategories={selectedCategories} toggleCategory={toggleCategory} />}
                                                         axisLine={false}
                                                         tickLine={false}
                                                     />
-                                                    <Bar dataKey="average" radius={[0, 6, 6, 0]} barSize={28} onClick={(data) => toggleCategory(data.category)}>
+                                                    <Bar dataKey="average" radius={[0, 6, 6, 0]} barSize={28} onClick={(data) => toggleCategory(data.category)} isAnimationActive={false} animationDuration={0}>
                                                         {incomeAverages.map((a, index) => (
                                                             <Cell 
                                                                 key={`income-${index}`} 

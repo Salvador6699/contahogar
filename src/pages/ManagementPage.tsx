@@ -68,7 +68,6 @@ import {
 import { processRecurringTransactions } from '@/lib/automation';
 import { Category, RecurringTransaction, RecurrenceFrequency, Account } from '@/types/finance';
 import { toast } from 'sonner';
-import MobileNav from '@/components/MobileNav';
 import { cn } from '@/lib/utils';
 import { format, addMonths } from 'date-fns';
 
@@ -122,9 +121,16 @@ const ManagementPage = () => {
   };
 
   const ICON_LIST = [
-    'Tag', 'Wallet', 'CreditCard', 'ShoppingBag', 'Utensils', 'Car', 'Home', 
-    'Smartphone', 'Zap', 'Heart', 'Gamepad2', 'Gift', 'Briefcase', 
-    'GraduationCap', 'Plane', 'Music', 'Coffee', 'Film', 'Stethoscope', 'Dog', 'Dumbbell'
+    'Tag', 'Wallet', 'CreditCard', 'Banknote', 'PiggyBank', 'ShoppingCart', 'ShoppingBag', 'ShoppingBasket',
+    'Store', 'Utensils', 'Coffee', 'Pizza', 'Beer', 'Wine', 'Apple', 'Beef', 'Car', 'Bus', 'Train', 'Plane',
+    'Bike', 'Fuel', 'Home', 'Smartphone', 'Laptop', 'Tv', 'Zap', 'Lightbulb', 'Droplet', 'Flame', 'Heart',
+    'Stethoscope', 'Activity', 'Dumbbell', 'Gamepad2', 'Music', 'Film', 'Dog', 'Cat', 'Baby', 'Briefcase',
+    'GraduationCap', 'Ship', 'Gift', 'Wrench', 'Hammer', 'Settings', 'Target', 'Trophy', 'Star',
+    'Search', 'Calendar', 'Clock', 'ShieldCheck', 'Lock', 'Bell', 'Mail', 'Phone', 'Camera', 'Map',
+    'Headphones', 'Wifi', 'Thermometer', 'Navigation', 'Tree', 'Flower', 'Sun', 'Moon', 'Cloud', 'HardDrive',
+    'Monitor', 'Tablet', 'Watch', 'Video', 'Inbox', 'Unlock', 'Key', 'Tool', 'Trash', 'Eye', 'Image',
+    'File', 'Folder', 'User', 'Users', 'Layout', 'PieChart', 'BarChart', 'TrendingUp', 'TrendingDown',
+    'DollarSign', 'Euro', 'Award', 'CheckCircle', 'AlertTriangle'
   ];
   
   // Recurring Form State
@@ -574,8 +580,6 @@ const ManagementPage = () => {
           </DialogFooter>
         </DialogContent>
       </Dialog>
-
-      <MobileNav />
     </div>
   );
 };

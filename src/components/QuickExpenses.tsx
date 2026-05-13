@@ -97,9 +97,6 @@ const QuickExpenses = ({
                   <p className="text-[11px] font-black uppercase tracking-tight truncate leading-tight">
                     {fav.name}
                   </p>
-                  <p className="text-sm font-bold text-foreground">
-                    {formatCurrency(fav.amount)}
-                  </p>
                   <p className="text-[9px] font-bold text-muted-foreground uppercase opacity-70 truncate">
                     {acc?.name || 'Cuenta'}
                   </p>

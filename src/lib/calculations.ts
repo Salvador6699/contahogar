@@ -303,11 +303,22 @@ export const calculatePastMonthsHistory = (
 export const calculateSpendingPace = (
   transactions: Transaction[],
   accountId?: string
-): { pace: number, daysPassed: number, totalDays: number } => {
+): { 
+  pace: number, 
+  daysPassed: number, 
+  totalDays: number,
+  currentMonthExpenses: number,
+  previousMonthRemainingExpenses: number,
+  previousMonthRemainingCategories: { category: string, amount: number }[]
+} => {
   const now = new Date();
   const currentMonthKey = now.getFullYear() + '-' + String(now.getMonth() + 1).padStart(2, '0');
   const daysInMonth = new Date(now.getFullYear(), now.getMonth() + 1, 0).getDate();
   const today = now.getDate();
+  
+  // Get previous month key
+  const prevMonthDate = new Date(now.getFullYear(), now.getMonth() - 1, 1);
+  const prevMonthKey = prevMonthDate.getFullYear() + '-' + String(prevMonthDate.getMonth() + 1).padStart(2, '0');
   
   const currentMonthExpenses = transactions.filter(t => 
     t.date.startsWith(currentMonthKey) && 
@@ -317,13 +328,37 @@ export const calculateSpendingPace = (
     (!accountId || t.accountId === accountId)
   ).reduce((sum, t) => sum + t.amount, 0);
   
-  // Pace is how much is expected to spend by the end of the month based on current spending
-  const pace = (currentMonthExpenses / (today || 1)) * daysInMonth;
+  const previousMonthRemainingTransactions = transactions.filter(t => {
+    if (!t.date.startsWith(prevMonthKey) || t.isPending || t.type !== 'expense' || t.category === 'Transferencia') {
+      return false;
+    }
+    if (accountId && t.accountId !== accountId) {
+      return false;
+    }
+    const transactionDay = parseInt(t.date.split('-')[2], 10);
+    return transactionDay >= today;
+  });
+
+  const previousMonthRemainingExpenses = previousMonthRemainingTransactions.reduce((sum, t) => sum + t.amount, 0);
+  
+  const categoryMap = new Map<string, number>();
+  previousMonthRemainingTransactions.forEach(t => {
+    categoryMap.set(t.category, (categoryMap.get(t.category) || 0) + t.amount);
+  });
+  
+  const previousMonthRemainingCategories = Array.from(categoryMap.entries())
+    .map(([category, amount]) => ({ category, amount }))
+    .sort((a, b) => b.amount - a.amount);
+  
+  const pace = currentMonthExpenses + previousMonthRemainingExpenses;
   
   return {
     pace,
     daysPassed: today,
-    totalDays: daysInMonth
+    totalDays: daysInMonth,
+    currentMonthExpenses,
+    previousMonthRemainingExpenses,
+    previousMonthRemainingCategories
   };
 };
 

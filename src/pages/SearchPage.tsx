@@ -15,7 +15,6 @@ import {
 import { loadData, updateTransaction, deleteTransaction } from '@/lib/storage';
 import { Transaction, Account, Category } from '@/types/finance';
 import { filterTransactions, FilterCriteria, formatCurrency } from '@/lib/calculations';
-import MobileNav from '@/components/MobileNav';
 import TransactionList from '@/components/TransactionList';
 import TransactionModal from '@/components/TransactionModal';
 import { Button } from '@/components/ui/button';
@@ -117,7 +116,6 @@ const SearchPage = () => {
 
   return (
     <div className="min-h-screen bg-background pb-32 pt-20 px-4 md:px-8 max-w-5xl mx-auto">
-      <MobileNav />
       
       <div className="flex flex-col gap-6">
         {/* Search Header */}

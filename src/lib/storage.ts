@@ -1,4 +1,4 @@
-import { FinanceData, Transaction, Account, Category, RecurringTransaction, FavoriteExpense } from '@/types/finance';
+import { FinanceData, Transaction, Account, Category, RecurringTransaction, FavoriteExpense, SavingsGoal } from '@/types/finance';
 import { v4 as uuidv4 } from 'uuid';
 
 const STORAGE_KEY = 'finance_app_data';
@@ -107,6 +107,27 @@ export const updateAlertSettings = (settings: Partial<FinanceData['alertSettings
 };
 
 
+// Utility functions for safe base64 encoding/decoding of UTF-8 strings
+const encodeBase64 = (str: string) => {
+  try {
+    return btoa(encodeURIComponent(str).replace(/%([0-9A-F]{2})/g, (match, p1) => String.fromCharCode(parseInt(p1, 16))));
+  } catch (e) {
+    return btoa(str);
+  }
+};
+
+const decodeBase64 = (str: string) => {
+  try {
+    return decodeURIComponent(Array.prototype.map.call(atob(str), (c: string) => '%' + ('00' + c.charCodeAt(0).toString(16)).slice(-2)).join(''));
+  } catch (e) {
+    try {
+      return atob(str);
+    } catch {
+      return str; // Fallback
+    }
+  }
+};
+
 export const loadData = (): FinanceData => {
   try {
     const stored = localStorage.getItem(STORAGE_KEY);
@@ -115,7 +136,18 @@ export const loadData = (): FinanceData => {
       saveData(defaultData);
       return defaultData;
     }
-    const data = JSON.parse(stored);
+    
+    // Try to decode base64, fallback to plain text if it fails (backward compatibility)
+    let jsonString = stored;
+    if (!stored.startsWith('{') && !stored.startsWith('[')) {
+      try {
+        jsonString = decodeBase64(stored);
+      } catch (e) {
+        jsonString = stored;
+      }
+    }
+    
+    const data = JSON.parse(jsonString);
     return migrateData(data);
   } catch (error) {
     console.error('Error loading data:', error);
@@ -125,19 +157,93 @@ export const loadData = (): FinanceData => {
 
 export const saveData = (data: FinanceData): void => {
   try {
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(data));
+    const jsonString = JSON.stringify(data);
+    const obfuscated = encodeBase64(jsonString);
+    localStorage.setItem(STORAGE_KEY, obfuscated);
   } catch (error) {
     console.error('Error saving data:', error);
   }
 };
 
+// --- BACKUP HISTORIAL LOGIC ---
+const BACKUPS_KEY = 'contahogar_backups_history';
+
+export interface DataSnapshot {
+  id: string;
+  date: string;
+  name: string;
+  data: FinanceData;
+  summary: {
+    totalAccounts: number;
+    totalTransactions: number;
+    totalBalance: number;
+  };
+}
+
+export const getLocalSnapshots = (): DataSnapshot[] => {
+  const saved = localStorage.getItem(BACKUPS_KEY);
+  if (!saved) return [];
+  try {
+    return JSON.parse(saved);
+  } catch (e) {
+    return [];
+  }
+};
+
+export const saveLocalSnapshot = (data: FinanceData, name: string = 'Copia Automática') => {
+  const snapshots = getLocalSnapshots();
+  
+  // Defensive checks to ensure data is valid
+  const accounts = Array.isArray(data.accounts) ? data.accounts : [];
+  const transactions = Array.isArray(data.transactions) ? data.transactions : [];
+
+  const totalBalance = accounts.reduce((sum, acc) => {
+    // Calculate current balance for this account
+    const accTransactions = transactions.filter(t => t.accountId === acc.id && !t.isPending);
+    const balance = accTransactions.reduce((accSum, t) => 
+      t.type === 'income' ? accSum + t.amount : accSum - t.amount, 
+      acc.initialBalance
+    );
+    return sum + balance;
+  }, 0);
+
+  // Use a more compatible ID generation for non-secure contexts (HTTP/Mobile IP)
+  const snapshotId = uuidv4();
+
+  const newSnapshot: DataSnapshot = {
+    id: snapshotId,
+    date: new Date().toISOString(),
+    name,
+    data,
+    summary: {
+      totalAccounts: accounts.length,
+      totalTransactions: transactions.length,
+      totalBalance,
+    }
+  };
+
+  // Keep only the last 10 snapshots to save space
+  const updatedSnapshots = [newSnapshot, ...snapshots].slice(0, 10);
+  localStorage.setItem(BACKUPS_KEY, JSON.stringify(updatedSnapshots));
+  return updatedSnapshots;
+};
+
+export const deleteLocalSnapshot = (id: string) => {
+  const snapshots = getLocalSnapshots();
+  const updated = snapshots.filter(s => s.id !== id);
+  localStorage.setItem(BACKUPS_KEY, JSON.stringify(updated));
+  return updated;
+};
+
 // Account Management
-export const addAccount = (name: string, initialBalance: number): Account => {
+export const addAccount = (name: string, initialBalance: number, linkedAccountId?: string, logo?: string): Account => {
     const data = loadData();
     const newAccount: Account = {
         id: uuidv4(),
         name,
         initialBalance,
+        linkedAccountId,
+        logo
     };
     data.accounts.push(newAccount);
     saveData(data);

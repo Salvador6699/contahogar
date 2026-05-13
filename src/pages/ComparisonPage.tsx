@@ -9,9 +9,9 @@ import { Transaction } from '@/types/finance';
 import { loadData, saveData, getCategorySuggestions, addTransaction } from '@/lib/storage';
 import { formatCurrency, calculateAccountBalance } from '@/lib/calculations';
 import { toast } from 'sonner';
-import MobileNav from '@/components/MobileNav';
 import { useScrollOnFocus } from '@/hooks/useScrollOnFocus';
 import { withKeyboardClose } from '@/lib/utils';
+import { v4 as uuidv4 } from 'uuid';
 
 interface Adjustment {
     id: string;
@@ -70,7 +70,7 @@ const ComparisonPage = () => {
         const amount = parseFloat(newAmount);
         if (amount > 0 && newCategory.trim() && activeAccountId) {
             const adjustment: Adjustment = {
-                id: `${Date.now()}-${Math.random()}`,
+                id: uuidv4(),
                 type,
                 amount,
                 category: newCategory.trim(),
@@ -99,7 +99,7 @@ const ComparisonPage = () => {
         Object.entries(adjustments).forEach(([accountId, accts]) => {
             accts.forEach(adj => {
                 allAdjustments.push({
-                    id: `${Date.now()}-${Math.random()}`,
+                    id: uuidv4(),
                     date: today,
                     amount: adj.amount,
                     category: adj.category,
@@ -356,7 +356,6 @@ const ComparisonPage = () => {
                     </div>
                 </div>
             </div>
-            <MobileNav />
         </div>
     );
 };

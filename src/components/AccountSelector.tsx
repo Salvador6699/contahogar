@@ -48,11 +48,16 @@ const AccountSelector = ({
             onClick={() => onSelectAccount(ab.account.id)}
             className="flex items-center justify-between sm:justify-center gap-2 h-11 sm:h-9 px-3 min-w-0"
           >
-            <span className="text-[10px] font-black uppercase tracking-wider truncate mr-1">
-              {ab.account.name}
-            </span>
+            <div className="flex items-center gap-1.5 overflow-hidden">
+              {ab.account.logo && (
+                <img src={ab.account.logo} alt="" className="w-4 h-4 rounded-full object-cover flex-shrink-0 bg-white" />
+              )}
+              <span className="text-[10px] font-black uppercase tracking-wider truncate mr-1">
+                {ab.account.name}
+              </span>
+            </div>
             <span className="font-bold tabular-nums text-xs whitespace-nowrap">
-              {formatCurrency(ab.balance)}
+              {formatCurrency(ab.account.linkedAccountId ? ab.projectedBalance : ab.balance)}
             </span>
           </Button>
         ))}

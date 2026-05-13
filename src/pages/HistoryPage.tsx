@@ -102,6 +102,8 @@ const HistoryPage = () => {
                                         <Tooltip
                                             content={<ChartTooltipContent />}
                                             formatter={(value: number) => formatCurrency(value)}
+                                            isAnimationActive={false}
+                                            animationDuration={0}
                                         />
                                         <Legend verticalAlign="top" height={36} />
                                         <Bar
@@ -109,12 +111,16 @@ const HistoryPage = () => {
                                             name="Ingresos"
                                             fill="hsl(142, 76%, 36%)"
                                             radius={[4, 4, 0, 0]}
+                                            isAnimationActive={false}
+                                            animationDuration={0}
                                         />
                                         <Bar
                                             dataKey="expenses"
                                             name="Gastos"
                                             fill="hsl(25, 95%, 53%)"
                                             radius={[4, 4, 0, 0]}
+                                            isAnimationActive={false}
+                                            animationDuration={0}
                                         />
                                     </BarChart>
                                 </ResponsiveContainer>

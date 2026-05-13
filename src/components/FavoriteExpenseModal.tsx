@@ -17,9 +17,16 @@ import { toast } from 'sonner';
 import { cn } from '@/lib/utils';
 
 const ICON_LIST = [
-  'Tag', 'Wallet', 'CreditCard', 'ShoppingBag', 'Utensils', 'Car', 'Home', 
-  'Smartphone', 'Zap', 'Heart', 'Gamepad2', 'Gift', 'Briefcase', 
-  'GraduationCap', 'Plane', 'Music', 'Coffee', 'Film', 'Stethoscope', 'Dog', 'Dumbbell'
+  'Tag', 'Wallet', 'CreditCard', 'Banknote', 'PiggyBank', 'ShoppingCart', 'ShoppingBag', 'ShoppingBasket',
+  'Store', 'Utensils', 'Coffee', 'Pizza', 'Beer', 'Wine', 'Apple', 'Beef', 'Car', 'Bus', 'Train', 'Plane',
+  'Bike', 'Fuel', 'Home', 'Smartphone', 'Laptop', 'Tv', 'Zap', 'Lightbulb', 'Droplet', 'Flame', 'Heart',
+  'Stethoscope', 'Activity', 'Dumbbell', 'Gamepad2', 'Music', 'Film', 'Dog', 'Cat', 'Baby', 'Briefcase',
+  'GraduationCap', 'Ship', 'Gift', 'Wrench', 'Hammer', 'Settings', 'Target', 'Trophy', 'Star',
+  'Search', 'Calendar', 'Clock', 'ShieldCheck', 'Lock', 'Bell', 'Mail', 'Phone', 'Camera', 'Map',
+  'Headphones', 'Wifi', 'Thermometer', 'Navigation', 'Tree', 'Flower', 'Sun', 'Moon', 'Cloud', 'HardDrive',
+  'Monitor', 'Tablet', 'Watch', 'Video', 'Inbox', 'Unlock', 'Key', 'Tool', 'Trash', 'Eye', 'Image',
+  'File', 'Folder', 'User', 'Users', 'Layout', 'PieChart', 'BarChart', 'TrendingUp', 'TrendingDown',
+  'DollarSign', 'Euro', 'Award', 'CheckCircle', 'AlertTriangle'
 ];
 
 interface FavoriteExpenseModalProps {
@@ -144,23 +151,28 @@ const FavoriteExpenseModal = ({
 
     if (editingId) {
       onSave({ ...favoriteData, id: editingId });
+      onClose(); // Volver a inicio al editar
     } else {
       onSave(favoriteData);
+      if (window.confirm("Favorito guardado correctamente. ¿Deseas añadir otro favorito?")) {
+        resetForm();
+      } else {
+        onClose(); // Volver a inicio al crear si no quiere otro
+      }
     }
-    resetForm();
   };
 
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
-      <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
-        <DialogHeader>
+      <DialogContent className="max-w-2xl max-h-[90vh] overflow-hidden flex flex-col p-0" aria-describedby={undefined}>
+        <DialogHeader className="px-6 pt-6 pb-2 shrink-0">
           <DialogTitle className="flex items-center gap-2">
             <Zap className="w-5 h-5 text-primary" />
             Gestionar Gastos Rápidos
           </DialogTitle>
         </DialogHeader>
 
-        <div className="space-y-6 py-4">
+        <div className="flex-1 overflow-y-auto px-6 custom-scrollbar flex flex-col space-y-6">
           {/* List of existing favorites */}
           <div className="space-y-3">
             <Label className="text-[10px] font-black uppercase tracking-widest text-muted-foreground">
@@ -352,25 +364,30 @@ const FavoriteExpenseModal = ({
               />
             </div>
 
-            <div className="flex gap-2 justify-end pt-2">
-              {editingId && (
-                <Button variant="ghost" onClick={resetForm}>
-                  Cancelar
-                </Button>
-              )}
-              <Button onClick={handleSave} className="font-bold rounded-full px-6">
+            <div className="flex gap-3 justify-end pt-4 mt-auto border-t border-border/20 sticky bottom-0 bg-background pb-4 z-10">
+              <Button variant="ghost" onClick={onClose} className="h-12 flex-1 sm:flex-none">
+                Cancelar
+              </Button>
+              <Button 
+                onClick={handleSave} 
+                onPointerDown={(e) => {
+                  e.preventDefault();
+                  e.currentTarget.click();
+                }}
+                className="font-bold rounded-xl h-12 flex-1 sm:flex-none"
+              >
                 {editingId ? 'Guardar Cambios' : 'Añadir Favorito'}
               </Button>
             </div>
           </div>
-        </div>
 
-        <DialogFooter className="sm:justify-start">
-          <div className="flex items-center gap-2 text-[10px] text-muted-foreground bg-muted p-2 rounded-lg w-full">
-            <AlertCircle className="w-3 h-3" />
-            <span>Los gastos rápidos se registrarán con la fecha del día actual automáticamente.</span>
-          </div>
-        </DialogFooter>
+          <DialogFooter className="sm:justify-start pb-6 shrink-0 mt-auto">
+            <div className="flex items-center gap-2 text-[10px] text-muted-foreground bg-muted p-2 rounded-lg w-full mt-4">
+              <AlertCircle className="w-3 h-3 shrink-0" />
+              <span>Los gastos rápidos se registrarán con la fecha del día actual automáticamente.</span>
+            </div>
+          </DialogFooter>
+        </div>
       </DialogContent>
     </Dialog>
   );

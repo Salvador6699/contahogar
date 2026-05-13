@@ -4,7 +4,6 @@ import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Separator } from '@/components/ui/separator';
 import { Book, Home, Plus, Minus, PiggyBank, BarChart3, Scale, History, Settings, Wallet, CreditCard, TrendingUp, TrendingDown, AlertCircle, CheckCircle, Lightbulb, HelpCircle, FileText, Download, Upload, Palette, Calculator, Target, Calendar, Eye, EyeOff } from 'lucide-react';
-import MobileNav from "@/components/MobileNav";
 
 const GuidePage = () => {
   const navigate = useNavigate();
@@ -806,7 +805,6 @@ const GuidePage = () => {
           </CardContent>
         </Card>
       </div>
-      <MobileNav />
     </div>
   );
 };
