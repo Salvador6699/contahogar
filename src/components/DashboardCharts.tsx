@@ -92,6 +92,8 @@ const DashboardCharts = ({ expenseCategories, totalIncome, totalExpenses, select
                                         outerRadius={90}
                                         paddingAngle={5}
                                         dataKey="value"
+                                        isAnimationActive={false}
+                                        animationDuration={0}
                                     >
                                         {pieData.map((entry, index) => {
                                             const catObj = categoryCatalog.find(c => c.name === entry.name);
@@ -102,6 +104,8 @@ const DashboardCharts = ({ expenseCategories, totalIncome, totalExpenses, select
                                     <Tooltip
                                         formatter={(value: number) => formatCurrency(value)}
                                         contentStyle={{ borderRadius: '8px', border: 'none', boxShadow: '0 4px 6px -1px rgb(0 0 0 / 0.1)' }}
+                                        isAnimationActive={false}
+                                        animationDuration={0}
                                     />
                                 </PieChart>
                             </ResponsiveContainer>

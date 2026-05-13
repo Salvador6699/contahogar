@@ -1,12 +1,13 @@
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useEffect } from 'react';
 import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { CategorySummary, Transaction, Budget, Category } from '@/types/finance';
-import { Tag, Pencil, ChevronLeft, ChevronRight, Calendar, Trash2, LucideIcon, CheckCircle2, TrendingUp, TrendingDown, Minus } from 'lucide-react';
+import { CategorySummary, Transaction, Budget, Category, Account } from '@/types/finance';
+import { Tag, Pencil, ChevronLeft, ChevronRight, Calendar, Trash2, LucideIcon, CheckCircle2, TrendingUp, TrendingDown, Minus, Wallet } from 'lucide-react';
 import * as Icons from 'lucide-react';
 import { Area, AreaChart, ResponsiveContainer } from 'recharts';
 import { calculateCategoryHistory, formatCurrency, calculateMonthlyAverages } from '@/lib/calculations';
 import { cn } from '@/lib/utils';
+import { SmartPagination } from '@/components/SmartPagination';
 
 interface CategoryBreakdownProps {
   categories: CategorySummary[];
@@ -20,9 +21,88 @@ interface CategoryBreakdownProps {
   categoryCatalog?: Category[];
   selectedAccount?: string;
   baseDate?: Date;
+  accounts?: Account[];
 }
 
 const ITEMS_PER_PAGE = 5;
+
+// TrendBadge sub-component for category trend
+const TrendBadge = ({ value, isExpense = false, comparisonValue }: { value: number | null, isExpense?: boolean, comparisonValue?: number }) => {
+  if (value === null) return null;
+  const isUp = value > 0;
+  const isNeutral = Math.abs(value) < 1;
+
+  if (isNeutral) return (
+    <div className="flex flex-col items-end gap-1">
+      <span className="text-[8px] font-bold text-muted-foreground italic">
+         vs {formatCurrency(comparisonValue || 0)}
+      </span>
+      <div className="flex items-center gap-1 text-[8px] font-bold text-muted-foreground bg-muted/50 px-1.5 py-0.5 rounded-full">
+        <Minus className="w-2 h-2" />
+        <span>0%</span>
+      </div>
+    </div>
+  );
+
+  // Special case for NEW categories (value SENTINEL = 999999)
+  if (value === 999999) return (
+    <div className="flex items-center gap-1 text-[8px] font-black text-income bg-income/10 px-1.5 py-0.5 rounded-full">
+      <TrendingUp className="w-2 h-2" />
+      <span>NUEVO</span>
+    </div>
+  );
+
+  let colorClass = "";
+  let Icon = isUp ? TrendingUp : TrendingDown;
+
+  if (!isExpense) {
+    colorClass = isUp ? "text-green-500 bg-green-500/10" : "text-red-500 bg-red-500/10";
+  } else {
+    colorClass = isUp ? "text-red-500 bg-red-500/10" : "text-green-500 bg-green-500/10";
+  }
+
+  return (
+    <div className="flex flex-col items-end gap-1">
+      {comparisonValue !== undefined && (
+        <span className={cn("text-[8px] font-bold italic", colorClass.split(' ')[0])}>
+          vs {formatCurrency(comparisonValue)}
+        </span>
+      )}
+      <div className={cn("flex items-center gap-0.5 text-[8px] font-black px-1.5 py-0.5 rounded-full", colorClass)}>
+        <Icon className="w-2 h-2" />
+        <span>{Math.abs(Math.round(value))}%</span>
+      </div>
+    </div>
+  );
+};
+
+// Sparkline sub-component for consistency
+const CategorySparkline = ({ data, color, type }: { data: any[], color: string, type: string }) => (
+  <div className="h-10 w-16 flex-shrink-0">
+    <ResponsiveContainer width="100%" height="100%">
+      <AreaChart data={data}>
+        <defs>
+          <linearGradient id={`grad-cat-${type}`} x1="0" y1="0" x2="0" y2="1">
+            <stop offset="5%" stopColor={color} stopOpacity={0.3}/>
+            <stop offset="95%" stopColor={color} stopOpacity={0}/>
+          </linearGradient>
+        </defs>
+        <Area
+          type="monotone"
+          dataKey="total"
+          stroke={color}
+          strokeWidth={2}
+          fillOpacity={1}
+          fill={`url(#grad-cat-${type})`}
+          isAnimationActive={false}
+          animationDuration={0}
+          dot={false}
+          activeDot={{ r: 3, fill: color }}
+        />
+      </AreaChart>
+    </ResponsiveContainer>
+  </div>
+);
 
 const CategoryBreakdown = ({
   categories,
@@ -36,6 +116,7 @@ const CategoryBreakdown = ({
   categoryCatalog = [],
   selectedAccount,
   baseDate = new Date(),
+  accounts = [],
 }: CategoryBreakdownProps) => {
   const [currentPage, setCurrentPage] = useState(1);
 
@@ -78,7 +159,7 @@ const CategoryBreakdown = ({
               key={transaction.id}
               className={`p-4 ${bgClass} border-2 ${borderClass} hover:shadow-md transition-all`}
             >
-              <div className="flex items-center justify-between gap-3">
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
                 <div className="flex-1 min-w-0 flex items-center gap-3">
                     {(() => {
                       const catObj = categoryCatalog.find(c => c.name === transaction.category);
@@ -122,12 +203,23 @@ const CategoryBreakdown = ({
                           {transaction.description}
                         </p>
                       )}
-                      <p className="text-[10px] text-muted-foreground flex items-center gap-1 font-bold uppercase tracking-wider">
+                      <p className="text-[10px] text-muted-foreground flex items-center gap-1 font-bold uppercase tracking-wider flex-wrap">
                         <Calendar className="w-3 h-3" />
                         {new Date(transaction.date).toLocaleDateString('es-ES', {
                           day: 'numeric',
                           month: 'short',
                         })}
+                        <span className="opacity-40">|</span>
+                        {(() => {
+                           const account = accounts.find(a => a.id === transaction.accountId);
+                           if (account?.logo) {
+                             return <img src={account.logo} alt="" className="w-3 h-3 ml-0.5 rounded-full object-cover bg-white" />;
+                           }
+                           return <Wallet className="w-3 h-3 ml-0.5" />;
+                        })()}
+                        <span className="truncate max-w-[80px]">
+                          {accounts.find(a => a.id === transaction.accountId)?.name || 'Cuenta'}
+                        </span>
                       </p>
                     </div>
                 </div>
@@ -141,10 +233,10 @@ const CategoryBreakdown = ({
                         variant="ghost"
                         size="icon"
                         onClick={() => onEditTransaction(transaction)}
-                        className="h-8 w-8 hover:bg-background/50"
+                        className="min-h-[44px] min-w-[44px] p-2 hover:bg-background/50"
                         aria-label={`Editar ${transaction.category}`}
                       >
-                        <Pencil className="h-4 w-4" />
+                        <Pencil className="h-5 w-5" />
                       </Button>
                     )}
                     {onDeleteTransaction && (
@@ -152,10 +244,10 @@ const CategoryBreakdown = ({
                         variant="ghost"
                         size="icon"
                         onClick={() => onDeleteTransaction(transaction.id)}
-                        className="h-8 w-8 hover:bg-destructive/10 hover:text-destructive"
+                        className="min-h-[44px] min-w-[44px] p-2 hover:bg-destructive/10 hover:text-destructive"
                         aria-label={`Eliminar ${transaction.category}`}
                       >
-                        <Trash2 className="h-4 w-4" />
+                        <Trash2 className="h-5 w-5" />
                       </Button>
                     )}
                   </div>
@@ -165,17 +257,11 @@ const CategoryBreakdown = ({
           ))}
         </div>
 
-        {totalPages > 1 && (
-          <div className="flex items-center justify-center gap-2 pt-2">
-            <Button variant="outline" size="icon" onClick={() => setCurrentPage(p => Math.max(1, p - 1))} disabled={currentPage === 1} className="h-8 w-8">
-              <ChevronLeft className="h-4 w-4" />
-            </Button>
-            <span className="text-sm text-muted-foreground">{currentPage} / {totalPages}</span>
-            <Button variant="outline" size="icon" onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))} disabled={currentPage === totalPages} className="h-8 w-8">
-              <ChevronRight className="h-4 w-4" />
-            </Button>
-          </div>
-        )}
+        <SmartPagination 
+          currentPage={currentPage}
+          totalPages={totalPages}
+          onPageChange={setCurrentPage}
+        />
       </div>
     );
   }
@@ -199,89 +285,20 @@ const CategoryBreakdown = ({
   const currentMonthKey = now.getFullYear() + '-' + String(now.getMonth() + 1).padStart(2, '0');
   const daysInMonth = new Date(now.getFullYear(), now.getMonth() + 1, 0).getDate();
 
-  const allAverages = useMemo(() => {
-    // We calculate averages based ONLY on transactions BEFORE the current month 
-    // to have a real historical reference.
-    const pastTransactions = transactions.filter(t => !t.date.startsWith(currentMonthKey));
-    return calculateMonthlyAverages(pastTransactions);
+  const [allAverages, setAllAverages] = useState<{category: string, average: number}[]>([]);
+  const [isCalculatingAverages, setIsCalculatingAverages] = useState(true);
+
+  useEffect(() => {
+    setIsCalculatingAverages(true);
+    const timeoutId = setTimeout(() => {
+      const pastTransactions = transactions.filter(t => !t.date.startsWith(currentMonthKey));
+      setAllAverages(calculateMonthlyAverages(pastTransactions));
+      setIsCalculatingAverages(false);
+    }, 0);
+    return () => clearTimeout(timeoutId);
   }, [transactions, currentMonthKey]);
 
-  // TrendBadge sub-component for category trend
-  const TrendBadge = ({ value, isExpense = false, comparisonValue }: { value: number | null, isExpense?: boolean, comparisonValue?: number }) => {
-    if (value === null) return null;
-    const isUp = value > 0;
-    const isNeutral = Math.abs(value) < 1;
 
-    if (isNeutral) return (
-      <div className="flex flex-col items-end gap-1">
-        <span className="text-[8px] font-bold text-muted-foreground italic">
-           vs {formatCurrency(comparisonValue || 0)}
-        </span>
-        <div className="flex items-center gap-1 text-[8px] font-bold text-muted-foreground bg-muted/50 px-1.5 py-0.5 rounded-full">
-          <Minus className="w-2 h-2" />
-          <span>0%</span>
-        </div>
-      </div>
-    );
-
-    // Special case for NEW categories (value SENTINEL = 999999)
-    if (value === 999999) return (
-      <div className="flex items-center gap-1 text-[8px] font-black text-income bg-income/10 px-1.5 py-0.5 rounded-full">
-        <TrendingUp className="w-2 h-2" />
-        <span>NUEVO</span>
-      </div>
-    );
-
-    let colorClass = "";
-    let Icon = isUp ? TrendingUp : TrendingDown;
-
-    if (!isExpense) {
-      colorClass = isUp ? "text-green-500 bg-green-500/10" : "text-red-500 bg-red-500/10";
-    } else {
-      colorClass = isUp ? "text-red-500 bg-red-500/10" : "text-green-500 bg-green-500/10";
-    }
-
-    return (
-      <div className="flex flex-col items-end gap-1">
-        {comparisonValue !== undefined && (
-          <span className={cn("text-[8px] font-bold italic", colorClass.split(' ')[0])}>
-            vs {formatCurrency(comparisonValue)}
-          </span>
-        )}
-        <div className={cn("flex items-center gap-0.5 text-[8px] font-black px-1.5 py-0.5 rounded-full", colorClass)}>
-          <Icon className="w-2 h-2" />
-          <span>{Math.abs(Math.round(value))}%</span>
-        </div>
-      </div>
-    );
-  };
-
-  // Sparkline sub-component for consistency
-  const CategorySparkline = ({ data, color, type }: { data: any[], color: string, type: string }) => (
-    <div className="h-10 w-16 flex-shrink-0">
-      <ResponsiveContainer width="100%" height="100%">
-        <AreaChart data={data}>
-          <defs>
-            <linearGradient id={`grad-cat-${type}`} x1="0" y1="0" x2="0" y2="1">
-              <stop offset="5%" stopColor={color} stopOpacity={0.3}/>
-              <stop offset="95%" stopColor={color} stopOpacity={0}/>
-            </linearGradient>
-          </defs>
-          <Area
-            type="monotone"
-            dataKey="total"
-            stroke={color}
-            strokeWidth={2}
-            fillOpacity={1}
-            fill={`url(#grad-cat-${type})`}
-            isAnimationActive={false}
-            dot={false}
-            activeDot={{ r: 3, fill: color }}
-          />
-        </AreaChart>
-      </ResponsiveContainer>
-    </div>
-  );
 
   return (
     <div className="space-y-3">
@@ -330,7 +347,7 @@ const CategoryBreakdown = ({
               key={index}
               className={`p-4 ${bgClass} border-2 ${borderClass} hover:shadow-md transition-all`}
             >
-              <div className="flex items-center justify-between gap-4">
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
                 <div className="flex-1 flex items-center gap-3 min-w-0">
                   {(() => {
                     const catObj = categoryCatalog.find(c => c.name === category.category);
@@ -367,7 +384,7 @@ const CategoryBreakdown = ({
                     )}
                   </div>
                 </div>
-                <div className="flex items-center gap-3">
+                <div className="flex items-center justify-between sm:justify-end gap-3 w-full sm:w-auto mt-3 sm:mt-0 pt-3 sm:pt-0 border-t sm:border-t-0 border-border/10">
                   <CategorySparkline data={catHistory} color={chartColor} type={type} />
                   <div className="flex flex-col items-end min-w-[70px]">
                     <p className={`text-lg font-bold ${colorClass} whitespace-nowrap leading-none mb-1`}>
@@ -386,17 +403,11 @@ const CategoryBreakdown = ({
         })}
       </div>
 
-      {totalPages > 1 && (
-        <div className="flex items-center justify-center gap-2 pt-2">
-          <Button variant="outline" size="icon" onClick={() => setCurrentPage(p => Math.max(1, p - 1))} disabled={currentPage === 1} className="h-8 w-8">
-            <ChevronLeft className="h-4 w-4" />
-          </Button>
-          <span className="text-sm text-muted-foreground">{currentPage} / {totalPages}</span>
-          <Button variant="outline" size="icon" onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))} disabled={currentPage === totalPages} className="h-8 w-8">
-            <ChevronRight className="h-4 w-4" />
-          </Button>
-        </div>
-      )}
+      <SmartPagination 
+        currentPage={currentPage}
+        totalPages={totalPages}
+        onPageChange={setCurrentPage}
+      />
     </div>
   );
 };

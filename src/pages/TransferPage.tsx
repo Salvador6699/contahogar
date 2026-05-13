@@ -16,9 +16,9 @@ import { Transaction } from '@/types/finance';
 import { loadData, addTransaction, deleteTransaction } from '@/lib/storage';
 import { formatCurrency, calculateAccountBalance } from '@/lib/calculations';
 import { toast } from 'sonner';
-import MobileNav from '@/components/MobileNav';
 import { useScrollOnFocus } from '@/hooks/useScrollOnFocus';
 import { withKeyboardClose } from '@/lib/utils';
+import { v4 as uuidv4 } from 'uuid';
 
 const TransferPage = () => {
     const navigate = useNavigate();
@@ -73,7 +73,7 @@ const TransferPage = () => {
 
         // Create expense from source account
         const expenseTransaction: Transaction = {
-            id: `${Date.now()}-${Math.random()}-transfer-out`,
+            id: `${uuidv4()}-transfer-out`,
             date: today,
             amount: amountNum,
             category: 'Transferencia',
@@ -84,7 +84,7 @@ const TransferPage = () => {
 
         // Create income to destination account
         const incomeTransaction: Transaction = {
-            id: `${Date.now()}-${Math.random()}-transfer-in`,
+            id: `${uuidv4()}-transfer-in`,
             date: today,
             amount: amountNum,
             category: 'Transferencia',
@@ -309,7 +309,6 @@ const TransferPage = () => {
                     </div>
                 </div>
             </div>
-            <MobileNav />
         </div>
     );
 };

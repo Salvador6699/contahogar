@@ -32,7 +32,6 @@ import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Progress } from '@/components/ui/progress';
 import { Badge } from '@/components/ui/badge';
-import MobileNav from '@/components/MobileNav';
 import SavingsGoalModal from '@/components/SavingsGoalModal';
 import { SavingsGoal } from '@/types/finance';
 import { toast } from 'sonner';
@@ -248,8 +247,6 @@ const SavingsPage = () => {
         editingGoal={editingGoal}
         accounts={data.accounts}
       />
-
-      <MobileNav />
     </div>
   );
 };

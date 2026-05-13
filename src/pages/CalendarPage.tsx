@@ -27,7 +27,6 @@ import { loadData } from '@/lib/storage';
 import { formatCurrency } from '@/lib/calculations';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import MobileNav from '@/components/MobileNav';
 
 const CalendarPage = () => {
   const [currentMonth, setCurrentMonth] = useState(new Date());
@@ -251,7 +250,6 @@ const CalendarPage = () => {
 
         </div>
       </div>
-      <MobileNav />
     </div>
   );
 };

@@ -87,11 +87,14 @@ const MobileNav = () => {
         { icon: ArrowLeftRight, label: 'Transf.', path: '/transferir' },
     ];
 
-    const drawerNavItems: NavItem[] = [
-        { icon: SearchIcon, label: 'Buscar', path: '/buscar' },
+    const allDrawerNavItems: NavItem[] = [
+        { icon: Home, label: 'Inicio', path: '/', exact: true },
+        { icon: Scale, label: 'Balance', path: '/comparativa' },
+        { icon: ArrowLeftRight, label: 'Transf.', path: '/transferir' },
         { icon: Calendar, label: 'Calendario', path: '/calendario' },
-        { icon: History, label: 'Historial', path: '/historial' },
         { icon: Target, label: 'Ahorro', path: '/ahorro' },
+        { icon: SearchIcon, label: 'Buscar', path: '/buscar' },
+        { icon: History, label: 'Historial', path: '/historial' },
         { icon: BarChart3, label: 'Medias', path: '/medias' },
         { icon: Wrench, label: 'Gestión', path: '/gestion' },
         { icon: PiggyBank, label: 'Presupuestos', path: '/presupuestos' },
@@ -106,8 +109,7 @@ const MobileNav = () => {
     };
 
     const getPageDetails = () => {
-        const allItems = [...bottomNavItems, ...drawerNavItems];
-        const current = allItems.find(item => {
+        const current = allDrawerNavItems.find(item => {
             if (item.exact) return location.pathname === item.path;
             return location.pathname.startsWith(item.path);
         });
@@ -137,124 +139,116 @@ const MobileNav = () => {
                         {title}
                     </h2>
                 </div>
-
-                <Sheet>
-                    <SheetTrigger asChild>
-                        <button className="flex flex-col items-center justify-center group active:scale-90 transition-all px-2 relative">
-                            <div className="p-2 rounded-xl text-muted-foreground/60 group-hover:text-primary transition-all duration-500">
-                                <Menu className="w-5 h-5" />
-                                {hasBudgetAlerts && (
-                                    <span className="absolute top-2 right-2 w-2.5 h-2.5 bg-destructive rounded-full border-2 border-background animate-pulse" />
-                                )}
-                            </div>
-                            <span className="text-[8px] font-black uppercase tracking-widest text-muted-foreground/40 -mt-1 group-hover:text-primary transition-colors">
-                                Menú
-                            </span>
-                        </button>
-                    </SheetTrigger>
-                    <SheetContent side="right" className="w-[85%] sm:w-[380px] border-l border-border/20 bg-background/95 backdrop-blur-3xl p-0">
-                        <SheetHeader className="p-8 border-b border-border/10">
-                            <SheetTitle className="text-2xl font-black flex items-center gap-3 tracking-tighter">
-                                <div className="p-2 bg-primary/10 rounded-xl">
-                                    <Menu className="w-6 h-6 text-primary" />
-                                </div>
-                                <span className="bg-clip-text text-transparent bg-gradient-to-br from-foreground to-foreground/60">ContaHogar</span>
-                            </SheetTitle>
-                        </SheetHeader>
-                        <div className="flex flex-col py-6 px-3 gap-2">
-                            {drawerNavItems.map((item) => {
-                                const active = isActive(item.path);
-                                return (
-                                    <SheetClose asChild key={item.path}>
-                                        <button
-                                            onClick={() => navigate(item.path)}
-                                            className={cn(
-                                                "flex items-center gap-4 p-4 rounded-2xl transition-all duration-300 font-bold group",
-                                                active 
-                                                    ? "bg-primary text-primary-foreground shadow-xl shadow-primary/25 scale-[1.02]" 
-                                                    : "text-muted-foreground hover:bg-primary/5 hover:text-primary active:scale-95"
-                                            )}
-                                        >
-                                            <div className={cn(
-                                                "p-2 rounded-xl transition-colors relative",
-                                                active ? "bg-white/20" : "bg-primary/5 group-hover:bg-primary/10"
-                                            )}>
-                                                <item.icon className={cn("w-5 h-5", active && "stroke-[2.5px]")} />
-                                                {item.label === 'Presupuestos' && hasBudgetAlerts && (
-                                                    <span className="absolute -top-1 -right-1 w-3 h-3 bg-destructive rounded-full border-2 border-background animate-pulse" />
-                                                )}
-                                            </div>
-                                            <span className="text-xs uppercase tracking-[0.2em]">{item.label}</span>
-                                            {active && <div className="ml-auto w-2 h-2 rounded-full bg-primary-foreground animate-pulse" />}
-                                        </button>
-                                    </SheetClose>
-                                );
-                            })}
-                        </div>
-                        <div className="mt-auto p-8 border-t border-border/10 bg-muted/30">
-                            <p className="text-[10px] text-center font-black uppercase tracking-[0.3em] text-muted-foreground/40 italic">
-                                ContaHogar • Premium Experience
-                            </p>
-                        </div>
-                    </SheetContent>
-                </Sheet>
             </header>
 
-            {/* BARRA INFERIOR MODERNA - Compacta & Glassmorphism */}
-            <nav className="fixed bottom-0 left-0 right-0 z-50 h-[68px] bg-gradient-to-t from-background/95 via-background/85 to-transparent nav-blur-fade px-4 pb-safe lg:hidden transition-all duration-300">
-                <div className="grid h-full grid-cols-5 max-w-lg mx-auto">
-                    {bottomNavItems.map((item) => {
-                        const active = isActive(item.path, item.exact);
-                        return (
-                            <button
-                                key={item.path}
-                                onClick={() => withKeyboardClose(() => navigate(item.path))}
-                                className="flex flex-col items-center justify-center relative group"
-                            >
-                                <div className={cn(
-                                    "p-2 rounded-xl transition-all duration-500",
-                                    active 
-                                        ? "text-primary scale-110" 
-                                        : "text-muted-foreground/60 group-hover:text-primary"
-                                )}>
-                                    <item.icon className={cn("w-5 h-5", active && "stroke-[2.5px]")} />
+            {/* BARRA INFERIOR MODERNA - Menú Accesible con Pulgar */}
+            <Sheet>
+                <nav className="fixed bottom-0 left-0 right-0 z-50 h-[72px] bg-gradient-to-t from-background/95 via-background/85 to-transparent nav-blur-fade px-2 pb-safe lg:hidden transition-all duration-300 border-t border-border/10">
+                    <div className="grid h-full grid-cols-5 max-w-lg mx-auto items-center">
+                        <button onClick={() => navigate('/')} className="flex flex-col items-center justify-center relative group h-full">
+                            <div className={cn("p-2 rounded-xl transition-all duration-500", isActive('/', true) ? "text-primary scale-110" : "text-muted-foreground/60 group-hover:text-primary")}>
+                                <Home className={cn("w-5 h-5", isActive('/', true) && "stroke-[2.5px]")} />
+                            </div>
+                            <span className={cn("text-[10px] font-bold mt-0.5", isActive('/', true) ? "text-primary" : "text-muted-foreground/50")}>Inicio</span>
+                        </button>
+                        
+                        <button onClick={() => navigate('/comparativa')} className="flex flex-col items-center justify-center relative group h-full">
+                            <div className={cn("p-2 rounded-xl transition-all duration-500", isActive('/comparativa') ? "text-primary scale-110" : "text-muted-foreground/60 group-hover:text-primary")}>
+                                <Scale className={cn("w-5 h-5", isActive('/comparativa') && "stroke-[2.5px]")} />
+                            </div>
+                            <span className={cn("text-[10px] font-bold mt-0.5", isActive('/comparativa') ? "text-primary" : "text-muted-foreground/50")}>Balance</span>
+                        </button>
+
+                        {/* BOTÓN GIGANTE CENTRAL */}
+                        <Drawer>
+                            <DrawerTrigger asChild>
+                                <div className="flex flex-col items-center justify-center h-full -mt-6">
+                                    <button className="bg-primary text-primary-foreground rounded-full p-4 shadow-xl shadow-primary/30 active:scale-95 transition-transform">
+                                        <Plus className="w-8 h-8 stroke-[3px]" />
+                                    </button>
                                 </div>
-                                <span className={cn(
-                                    "text-[8px] font-black uppercase tracking-widest transition-all duration-300",
-                                    active ? "text-primary opacity-100 mt-0.5" : "text-muted-foreground/40 mt-0.5"
-                                )}>
-                                    {item.label}
-                                </span>
-                                {active && (
-                                    <div className="absolute top-0 w-10 h-0.5 bg-primary rounded-full shadow-[0_0_8px_rgba(var(--primary),0.5)]" />
-                                )}
+                            </DrawerTrigger>
+                            <DrawerContent>
+                                <DrawerHeader>
+                                    <DrawerTitle className="text-center text-xl">¿Qué quieres añadir?</DrawerTitle>
+                                </DrawerHeader>
+                                <div className="p-4 flex gap-4 pb-12">
+                                    <button 
+                                        onClick={() => { document.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape' })); navigate('/?action=add-expense'); }}
+                                        className="flex-1 bg-expense/10 hover:bg-expense/20 border-2 border-expense/20 rounded-2xl p-6 flex flex-col items-center gap-3 transition-colors active:scale-95"
+                                    >
+                                        <ArrowDownCircle className="w-12 h-12 text-expense stroke-[2px]" />
+                                        <span className="font-bold text-expense text-lg">Gasto</span>
+                                    </button>
+                                    <button 
+                                        onClick={() => { document.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape' })); navigate('/?action=add-income'); }}
+                                        className="flex-1 bg-income/10 hover:bg-income/20 border-2 border-income/20 rounded-2xl p-6 flex flex-col items-center gap-3 transition-colors active:scale-95"
+                                    >
+                                        <ArrowUpCircle className="w-12 h-12 text-income stroke-[2px]" />
+                                        <span className="font-bold text-income text-lg">Ingreso</span>
+                                    </button>
+                                </div>
+                            </DrawerContent>
+                        </Drawer>
+
+                        <button onClick={() => navigate('/calendario')} className="flex flex-col items-center justify-center relative group h-full">
+                            <div className={cn("p-2 rounded-xl transition-all duration-500", isActive('/calendario') ? "text-primary scale-110" : "text-muted-foreground/60 group-hover:text-primary")}>
+                                <Calendar className={cn("w-5 h-5", isActive('/calendario') && "stroke-[2.5px]")} />
+                            </div>
+                            <span className={cn("text-[10px] font-bold mt-0.5", isActive('/calendario') ? "text-primary" : "text-muted-foreground/50")}>Fechas</span>
+                        </button>
+
+                        <SheetTrigger asChild>
+                            <button className="flex flex-col items-center justify-center relative group h-full">
+                                <div className="p-2 rounded-xl text-muted-foreground/60 group-hover:text-primary transition-all duration-500 relative">
+                                    <Menu className="w-5 h-5" />
+                                    {hasBudgetAlerts && (
+                                        <span className="absolute top-1.5 right-1.5 w-2.5 h-2.5 bg-destructive rounded-full border-2 border-background animate-pulse" />
+                                    )}
+                                </div>
+                                <span className="text-[10px] font-bold mt-0.5 text-muted-foreground/50">Menú</span>
                             </button>
-                        );
-                    })}
+                        </SheetTrigger>
+                    </div>
+                </nav>
 
-                    {/* BOTÓN GASTO DIRECTO */}
-                    <button
-                        onClick={() => navigate('/?action=add-expense')}
-                        className="flex flex-col items-center justify-center group"
-                    >
-                        <div className="p-2.5 rounded-xl text-expense bg-expense/5 group-hover:bg-expense/20 transition-all duration-300 active:scale-90">
-                            <ArrowDownCircle className="w-5 h-5 stroke-[2.5px]" />
-                        </div>
-                        <span className="text-[8px] font-black uppercase tracking-widest text-expense mt-0.5">Gasto</span>
-                    </button>
-
-                    {/* BOTÓN INGRESO DIRECTO */}
-                    <button
-                        onClick={() => navigate('/?action=add-income')}
-                        className="flex flex-col items-center justify-center group"
-                    >
-                        <div className="p-2.5 rounded-xl text-income bg-income/5 group-hover:bg-income/20 transition-all duration-300 active:scale-90">
-                            <ArrowUpCircle className="w-5 h-5 stroke-[2.5px]" />
-                        </div>
-                        <span className="text-[8px] font-black uppercase tracking-widest text-income mt-0.5">Ingreso</span>
-                    </button>
-                </div>
-            </nav>
+                <SheetContent side="bottom" className="h-[85vh] rounded-t-3xl border-t border-border/20 bg-background/95 backdrop-blur-3xl p-0 flex flex-col">
+                    <SheetHeader className="p-6 border-b border-border/10 shrink-0">
+                        <SheetTitle className="text-2xl font-black flex items-center justify-center gap-3 tracking-tighter">
+                            <div className="p-2 bg-primary/10 rounded-xl">
+                                <Menu className="w-6 h-6 text-primary" />
+                            </div>
+                            <span className="bg-clip-text text-transparent bg-gradient-to-br from-foreground to-foreground/60">Menú Principal</span>
+                        </SheetTitle>
+                    </SheetHeader>
+                    <div className="flex-1 overflow-y-auto py-4 px-4 custom-scrollbar grid grid-cols-2 gap-3 content-start">
+                        {allDrawerNavItems.map((item) => {
+                            const active = isActive(item.path, item.exact);
+                            return (
+                                <SheetClose asChild key={item.path}>
+                                    <button
+                                        onClick={() => navigate(item.path)}
+                                        className={cn(
+                                            "flex flex-col items-center justify-center gap-2 p-4 rounded-2xl transition-all duration-300 font-bold group w-full text-center border",
+                                            active 
+                                                ? "bg-primary/10 text-primary border-primary/20 shadow-sm" 
+                                                : "bg-card text-muted-foreground hover:bg-primary/5 hover:text-primary border-border/50 active:scale-95"
+                                        )}
+                                    >
+                                        <div className="relative">
+                                            <item.icon className={cn("w-6 h-6", active && "stroke-[2.5px]")} />
+                                            {item.label === 'Presupuestos' && hasBudgetAlerts && (
+                                                <span className="absolute -top-1 -right-1 w-3 h-3 bg-destructive rounded-full border-2 border-background animate-pulse" />
+                                            )}
+                                        </div>
+                                        <span className="text-xs uppercase tracking-[0.1em]">{item.label}</span>
+                                    </button>
+                                </SheetClose>
+                            );
+                        })}
+                    </div>
+                </SheetContent>
+            </Sheet>
 
             {/* SIDEBAR ESCRITORIO CON ACCESO DIRECTO */}
             <aside className="hidden lg:flex fixed left-0 top-0 z-50 h-screen w-20 flex-col bg-gradient-to-r from-background/95 to-background/60 backdrop-blur-3xl border-r border-border/10 py-10 items-center gap-8 shadow-[4px_0_30px_rgba(0,0,0,0.02)] pt-28">

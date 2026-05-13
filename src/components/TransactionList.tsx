@@ -15,6 +15,7 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from '@/components/ui/alert-dialog';
+import { SmartPagination } from '@/components/SmartPagination';
 
 interface TransactionListProps {
   transactions: Transaction[];
@@ -114,7 +115,7 @@ const TransactionList = ({ transactions, onEdit, onDelete }: TransactionListProp
                     key={transaction.id}
                     className={`p-4 ${bgClass} border-2 ${borderClass} hover:shadow-md transition-all`}
                   >
-                    <div className="flex items-center justify-between gap-3">
+                    <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 min-w-0">
                       <div className="flex-1 min-w-0">
                         <div className="flex items-center gap-2 mb-0.5">
                           <p className="font-bold text-foreground capitalize">
@@ -172,41 +173,11 @@ const TransactionList = ({ transactions, onEdit, onDelete }: TransactionListProp
             </div>
 
             {/* Pagination */}
-            {totalPages > 1 && (
-              <div className="flex items-center justify-center gap-2 pt-4">
-                <Button
-                  variant="outline"
-                  size="icon"
-                  onClick={() => setCurrentPage(p => Math.max(1, p - 1))}
-                  disabled={currentPage === 1}
-                  className="h-9 w-9"
-                >
-                  <ChevronLeft className="h-4 w-4" />
-                </Button>
-                <div className="flex items-center gap-1">
-                  {Array.from({ length: totalPages }, (_, i) => i + 1).map(page => (
-                    <Button
-                      key={page}
-                      variant={currentPage === page ? "default" : "outline"}
-                      size="icon"
-                      onClick={() => setCurrentPage(page)}
-                      className="h-9 w-9"
-                    >
-                      {page}
-                    </Button>
-                  ))}
-                </div>
-                <Button
-                  variant="outline"
-                  size="icon"
-                  onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))}
-                  disabled={currentPage === totalPages}
-                  className="h-9 w-9"
-                >
-                  <ChevronRight className="h-4 w-4" />
-                </Button>
-              </div>
-            )}
+            <SmartPagination 
+              currentPage={currentPage}
+              totalPages={totalPages}
+              onPageChange={setCurrentPage}
+            />
             
             <p className="text-center text-xs text-muted-foreground">
               Mostrando {startIndex + 1}-{Math.min(startIndex + ITEMS_PER_PAGE, filteredTransactions.length)} de {filteredTransactions.length} transacciones
