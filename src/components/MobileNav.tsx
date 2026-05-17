@@ -251,78 +251,130 @@ const MobileNav = () => {
             </Sheet>
 
             {/* SIDEBAR ESCRITORIO CON ACCESO DIRECTO */}
-            <aside className="hidden lg:flex fixed left-0 top-0 z-50 h-screen w-20 flex-col bg-gradient-to-r from-background/95 to-background/60 backdrop-blur-3xl border-r border-border/10 py-10 items-center gap-8 shadow-[4px_0_30px_rgba(0,0,0,0.02)] pt-28">
-                {bottomNavItems.map((item) => {
-                    const active = isActive(item.path, item.exact);
-                    return (
-                        <button
-                            key={item.path}
-                            onClick={() => navigate(item.path)}
-                            className={cn(
-                                "flex flex-col items-center justify-center w-12 h-12 rounded-2xl transition-all duration-500 group relative",
-                                active 
-                                    ? "bg-primary text-primary-foreground shadow-2xl shadow-primary/30 scale-110" 
-                                    : "text-muted-foreground/60 hover:bg-primary/5 hover:text-primary active:scale-95"
-                            )}
-                            title={item.label}
-                        >
-                            <item.icon className={cn("w-5 h-5", active && "stroke-[2.5px]")} />
-                            {active && (
-                                <div className="absolute -left-1 w-1 h-8 bg-primary rounded-r-full shadow-[0_0_12px_rgba(var(--primary),0.6)]" />
-                            )}
+            <Sheet>
+                <aside className="hidden lg:flex fixed left-0 top-0 z-50 h-screen w-20 flex-col bg-gradient-to-r from-background/95 to-background/60 backdrop-blur-3xl border-r border-border/10 py-10 items-center gap-6 shadow-[4px_0_30px_rgba(0,0,0,0.02)] pt-28 overflow-y-auto custom-scrollbar">
+                    {bottomNavItems.map((item) => {
+                        const active = isActive(item.path, item.exact);
+                        return (
+                            <button
+                                key={item.path}
+                                onClick={() => navigate(item.path)}
+                                className={cn(
+                                    "flex flex-col items-center justify-center w-12 h-12 rounded-2xl transition-all duration-500 group relative shrink-0",
+                                    active 
+                                        ? "bg-primary text-primary-foreground shadow-2xl shadow-primary/30 scale-110" 
+                                        : "text-muted-foreground/60 hover:bg-primary/5 hover:text-primary active:scale-95"
+                                )}
+                                title={item.label}
+                            >
+                                <item.icon className={cn("w-5 h-5", active && "stroke-[2.5px]")} />
+                                {active && (
+                                    <div className="absolute -left-1 w-1 h-8 bg-primary rounded-r-full shadow-[0_0_12px_rgba(var(--primary),0.6)]" />
+                                )}
+                            </button>
+                        );
+                    })}
+
+                    <button
+                        onClick={() => navigate('/calendario')}
+                        className={cn(
+                            "flex flex-col items-center justify-center w-12 h-12 rounded-2xl transition-all duration-500 group relative shrink-0",
+                            isActive('/calendario') 
+                                ? "bg-primary text-primary-foreground shadow-2xl shadow-primary/30 scale-110" 
+                                : "text-muted-foreground/60 hover:bg-primary/5 hover:text-primary active:scale-95"
+                        )}
+                        title="Calendario"
+                    >
+                        <Calendar className="w-5 h-5" />
+                        {isActive('/calendario') && (
+                            <div className="absolute -left-1 w-1 h-8 bg-primary rounded-r-full shadow-[0_0_12px_rgba(var(--primary),0.6)]" />
+                        )}
+                    </button>
+
+                    <button
+                        onClick={() => navigate('/ahorro')}
+                        className={cn(
+                            "flex flex-col items-center justify-center w-12 h-12 rounded-2xl transition-all duration-500 group relative shrink-0",
+                            isActive('/ahorro') 
+                                ? "bg-primary text-primary-foreground shadow-2xl shadow-primary/30 scale-110" 
+                                : "text-muted-foreground/60 hover:bg-primary/5 hover:text-primary active:scale-95"
+                        )}
+                        title="Metas de Ahorro"
+                    >
+                        <Target className="w-5 h-5" />
+                        {isActive('/ahorro') && (
+                            <div className="absolute -left-1 w-1 h-8 bg-primary rounded-r-full shadow-[0_0_12px_rgba(var(--primary),0.6)]" />
+                        )}
+                    </button>
+                    
+                    <div className="w-8 h-[1px] bg-border/20 my-2 shrink-0" />
+
+                    <button
+                        onClick={() => navigate('/?action=add-expense')}
+                        className="flex items-center justify-center w-12 h-12 rounded-2xl bg-expense/10 text-expense hover:bg-expense hover:text-white transition-all duration-300 shadow-xl shadow-expense/5 active:scale-90 shrink-0"
+                        title="Añadir Gasto"
+                    >
+                        <ArrowDownCircle className="w-6 h-6 stroke-[2px]" />
+                    </button>
+                    <button
+                        onClick={() => navigate('/?action=add-income')}
+                        className="flex items-center justify-center w-12 h-12 rounded-2xl bg-income/10 text-income hover:bg-income hover:text-white transition-all duration-300 shadow-xl shadow-income/5 active:scale-90 shrink-0"
+                        title="Añadir Ingreso"
+                    >
+                        <ArrowUpCircle className="w-6 h-6 stroke-[2px]" />
+                    </button>
+
+                    <div className="flex-1" />
+
+                    <SheetTrigger asChild>
+                        <button className="flex flex-col items-center justify-center w-12 h-12 rounded-2xl transition-all duration-500 group relative text-muted-foreground/60 hover:bg-primary/5 hover:text-primary active:scale-95 shrink-0 mt-auto" title="Menú">
+                            <div className="relative">
+                                <Menu className="w-5 h-5" />
+                                {hasBudgetAlerts && (
+                                    <span className="absolute -top-1 -right-1 w-2.5 h-2.5 bg-destructive rounded-full border-2 border-background animate-pulse" />
+                                )}
+                            </div>
                         </button>
-                    );
-                })}
+                    </SheetTrigger>
+                </aside>
 
-                <button
-                    onClick={() => navigate('/calendario')}
-                    className={cn(
-                        "flex flex-col items-center justify-center w-12 h-12 rounded-2xl transition-all duration-500 group relative",
-                        isActive('/calendario') 
-                            ? "bg-primary text-primary-foreground shadow-2xl shadow-primary/30 scale-110" 
-                            : "text-muted-foreground/60 hover:bg-primary/5 hover:text-primary active:scale-95"
-                    )}
-                    title="Calendario"
-                >
-                    <Calendar className="w-5 h-5" />
-                    {isActive('/calendario') && (
-                        <div className="absolute -left-1 w-1 h-8 bg-primary rounded-r-full shadow-[0_0_12px_rgba(var(--primary),0.6)]" />
-                    )}
-                </button>
-
-                <button
-                    onClick={() => navigate('/ahorro')}
-                    className={cn(
-                        "flex flex-col items-center justify-center w-12 h-12 rounded-2xl transition-all duration-500 group relative",
-                        isActive('/ahorro') 
-                            ? "bg-primary text-primary-foreground shadow-2xl shadow-primary/30 scale-110" 
-                            : "text-muted-foreground/60 hover:bg-primary/5 hover:text-primary active:scale-95"
-                    )}
-                    title="Metas de Ahorro"
-                >
-                    <Target className="w-5 h-5" />
-                    {isActive('/ahorro') && (
-                        <div className="absolute -left-1 w-1 h-8 bg-primary rounded-r-full shadow-[0_0_12px_rgba(var(--primary),0.6)]" />
-                    )}
-                </button>
-                
-                <div className="w-8 h-[1px] bg-border/20 my-2" />
-
-                <button
-                    onClick={() => navigate('/?action=add-expense')}
-                    className="flex items-center justify-center w-12 h-12 rounded-2xl bg-expense/10 text-expense hover:bg-expense hover:text-white transition-all duration-300 shadow-xl shadow-expense/5 active:scale-90"
-                    title="Añadir Gasto"
-                >
-                    <ArrowDownCircle className="w-6 h-6 stroke-[2px]" />
-                </button>
-                <button
-                    onClick={() => navigate('/?action=add-income')}
-                    className="flex items-center justify-center w-12 h-12 rounded-2xl bg-income/10 text-income hover:bg-income hover:text-white transition-all duration-300 shadow-xl shadow-income/5 active:scale-90"
-                    title="Añadir Ingreso"
-                >
-                    <ArrowUpCircle className="w-6 h-6 stroke-[2px]" />
-                </button>
-            </aside>
+                <SheetContent side="left" className="w-[300px] border-r border-border/20 bg-background/95 backdrop-blur-3xl p-0 flex flex-col hidden lg:flex">
+                    <SheetHeader className="p-6 border-b border-border/10 shrink-0">
+                        <SheetTitle className="text-2xl font-black flex items-center gap-3 tracking-tighter">
+                            <div className="p-2 bg-primary/10 rounded-xl">
+                                <Menu className="w-6 h-6 text-primary" />
+                            </div>
+                            <span className="bg-clip-text text-transparent bg-gradient-to-br from-foreground to-foreground/60">Menú Principal</span>
+                        </SheetTitle>
+                    </SheetHeader>
+                    <div className="flex-1 overflow-y-auto py-4 px-4 custom-scrollbar flex flex-col gap-2">
+                        {allDrawerNavItems.map((item) => {
+                            const active = isActive(item.path, item.exact);
+                            return (
+                                <SheetClose asChild key={item.path}>
+                                    <button
+                                        onClick={() => navigate(item.path)}
+                                        className={cn(
+                                            "flex items-center gap-4 p-4 rounded-2xl transition-all duration-300 font-bold group w-full border",
+                                            active 
+                                                ? "bg-primary/10 text-primary border-primary/20 shadow-sm" 
+                                                : "bg-transparent text-muted-foreground hover:bg-primary/5 hover:text-primary border-transparent active:scale-95"
+                                        )}
+                                    >
+                                        <div className="relative">
+                                            <item.icon className={cn("w-6 h-6", active && "stroke-[2.5px]")} />
+                                            {item.label === 'Presupuestos' && hasBudgetAlerts && (
+                                                <span className="absolute -top-1 -right-1 w-3 h-3 bg-destructive rounded-full border-2 border-background animate-pulse" />
+                                            )}
+                                        </div>
+                                        <span className="text-sm tracking-wide">{item.label}</span>
+                                    </button>
+                                </SheetClose>
+                            );
+                        })}
+                    </div>
+                </SheetContent>
+            </Sheet>
         </>
     );
 };

@@ -149,7 +149,7 @@ export function ResponsiveDialogContent({
   }
 
   return (
-    <DialogContent className={cn("sm:max-w-[425px] modal-gradient-bg", className)}>
+    <DialogContent className={cn("sm:max-w-[425px] modal-gradient-bg max-h-[85vh] flex flex-col", className)}>
       {children}
     </DialogContent>
   );

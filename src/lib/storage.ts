@@ -48,7 +48,7 @@ export const migrateData = (data: any): FinanceData => {
   if (data.recurringTransactions === undefined) data.recurringTransactions = [];
   if (data.favorites === undefined) data.favorites = [];
   if (data.budgets === undefined) data.budgets = [];
-  if (data.alertSettings === undefined) {
+  if (!data.alertSettings) {
     data.alertSettings = {
       thresholdOverrides: {},
       dismissedItems: [],
@@ -160,9 +160,93 @@ export const saveData = (data: FinanceData): void => {
     const jsonString = JSON.stringify(data);
     const obfuscated = encodeBase64(jsonString);
     localStorage.setItem(STORAGE_KEY, obfuscated);
+
+    // Construir URL absoluta sin credenciales para evitar el error de Fetch
+    const getApiUrl = () => {
+      if (import.meta.env.DEV) return 'http://localhost/backend/api.php';
+      const url = new URL(window.location.href);
+      return `${url.protocol}//${url.host}/backend/api.php`;
+    };
+    const API_URL = getApiUrl();
+
+    // Sync con el backend en segundo plano
+    fetch(`${API_URL}?action=save`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: jsonString
+    })
+    .then(async res => {
+      const text = await res.text();
+      if (!res.ok) {
+        alert('❌ Error del servidor al guardar (HTTP ' + res.status + '):\n' + text);
+        return null;
+      }
+      if (!text || text.trim() === '') {
+        alert('❌ El servidor no devolvió respuesta al guardar (Posible bloqueo de CDmon).');
+        return null;
+      }
+      try {
+        return JSON.parse(text);
+      } catch (e: any) {
+        alert('❌ Respuesta inválida del servidor al guardar:\n' + text + '\n\nError JSON: ' + e.message);
+        return null;
+      }
+    })
+    .then(result => {
+      if (result && result.success === false) {
+        alert('❌ Error guardando en Base de Datos:\n\n' + result.message);
+      }
+    })
+    .catch(err => {
+      console.error('Error de red al guardar:', err);
+      alert('❌ Error de red/servidor al contactar con api.php:\n' + err.message);
+    });
   } catch (error) {
     console.error('Error saving data:', error);
   }
+};
+
+export const syncFromBackend = async (): Promise<boolean> => {
+  try {
+    const getApiUrl = () => {
+      if (import.meta.env.DEV) return 'http://localhost/backend/api.php';
+      const url = new URL(window.location.href);
+      return `${url.protocol}//${url.host}/backend/api.php`;
+    };
+    const API_URL = getApiUrl();
+    const response = await fetch(`${API_URL}?action=load`);
+    
+    // Si la respuesta no es OK (ej. Error 500)
+    if (!response.ok) {
+       const text = await response.text();
+       alert('❌ Error del servidor al cargar datos:\n' + text);
+       return false;
+    }
+
+    const result = await response.json();
+    
+    if (result.success === false) {
+       alert('❌ Error de Base de Datos al cargar:\n' + result.message);
+       return false;
+    }
+
+    if (result.success && result.data) {
+      // Validar si la base de datos está vacía (por ejemplo, cuentas vacías)
+      // Si está vacía, no sobrescribimos el local storage para no perder los datos iniciales.
+      if (result.data.accounts && result.data.accounts.length > 0) {
+        const jsonString = JSON.stringify(result.data);
+        const obfuscated = encodeBase64(jsonString);
+        localStorage.setItem(STORAGE_KEY, obfuscated);
+        return true;
+      }
+    }
+  } catch (err: any) {
+    console.error('Error loading from backend:', err);
+    alert('❌ Error de Red / Fetch:\n' + err.message + '\n\nComprueba si CDmon bloquea la petición.');
+  }
+  return false;
 };
 
 // --- BACKUP HISTORIAL LOGIC ---

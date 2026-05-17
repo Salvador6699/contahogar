@@ -7,6 +7,7 @@ import ScrollToTop from "./components/ScrollToTop";
 import SplashScreen from "./components/SplashScreen";
 import AppLayout from "./components/AppLayout";
 import { processRecurringTransactions } from "@/lib/automation";
+import { syncFromBackend } from "@/lib/storage";
 
 import Index from "./pages/Index";
 import BudgetPage from "./pages/BudgetPage";
@@ -25,10 +26,20 @@ import NotFound from "./pages/NotFound";
 
 const App = () => {
   const [showSplash, setShowSplash] = useState(true);
+  const [isReady, setIsReady] = useState(false);
 
   useEffect(() => {
-    // Run automation on start
-    processRecurringTransactions();
+    const initApp = async () => {
+      // Intentar sincronizar con el backend antes de arrancar
+      await syncFromBackend();
+      
+      // Run automation on start
+      processRecurringTransactions();
+      
+      setIsReady(true);
+    };
+    
+    initApp();
   }, []);
 
   return (
@@ -36,27 +47,30 @@ const App = () => {
       <TooltipProvider>
         <Sonner />
         {showSplash && <SplashScreen onFinish={() => setShowSplash(false)} />}
-        <BrowserRouter>
-          <ScrollToTop />
-          <Routes>
-            <Route element={<AppLayout />}>
-              <Route path="/" element={<Index />} />
-              <Route path="/presupuestos" element={<BudgetPage />} />
-              <Route path="/historial" element={<HistoryPage />} />
-              <Route path="/comparativa" element={<ComparisonPage />} />
-              <Route path="/medias" element={<AveragesPage />} />
-              <Route path="/ajustes" element={<SettingsPage />} />
-              <Route path="/backup" element={<BackupPage />} />
-              <Route path="/transferir" element={<TransferPage />} />
-              <Route path="/buscar" element={<SearchPage />} />
-              <Route path="/guia" element={<GuidePage />} />
-              <Route path="/gestion" element={<ManagementPage />} />
-              <Route path="/calendario" element={<CalendarPage />} />
-              <Route path="/ahorro" element={<SavingsPage />} />
-              <Route path="*" element={<NotFound />} />
-            </Route>
-          </Routes>
-        </BrowserRouter>
+        
+        {isReady && (
+          <BrowserRouter>
+            <ScrollToTop />
+            <Routes>
+              <Route element={<AppLayout />}>
+                <Route path="/" element={<Index />} />
+                <Route path="/presupuestos" element={<BudgetPage />} />
+                <Route path="/historial" element={<HistoryPage />} />
+                <Route path="/comparativa" element={<ComparisonPage />} />
+                <Route path="/medias" element={<AveragesPage />} />
+                <Route path="/ajustes" element={<SettingsPage />} />
+                <Route path="/backup" element={<BackupPage />} />
+                <Route path="/transferir" element={<TransferPage />} />
+                <Route path="/buscar" element={<SearchPage />} />
+                <Route path="/guia" element={<GuidePage />} />
+                <Route path="/gestion" element={<ManagementPage />} />
+                <Route path="/calendario" element={<CalendarPage />} />
+                <Route path="/ahorro" element={<SavingsPage />} />
+                <Route path="*" element={<NotFound />} />
+              </Route>
+            </Routes>
+          </BrowserRouter>
+        )}
       </TooltipProvider>
     </ThemeProvider>
   );
