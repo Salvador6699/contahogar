@@ -95,7 +95,7 @@ const TransactionModal = ({
       const firstAvailableAccount = data.accounts.length > 0 ? data.accounts[0].id : '';
       const contextualDefault = defaultAccountId || firstAvailableAccount;
 
-      if (data.accounts.length <= 1) {
+      if (data.accounts.length <= 1 || editingTransaction) {
         setStep('form');
       } else {
         setStep('account');
@@ -217,7 +217,7 @@ const TransactionModal = ({
 
   return (
     <ResponsiveDialog open={isOpen} onOpenChange={onClose}>
-      <ResponsiveDialogContent>
+      <ResponsiveDialogContent className="sm:max-w-[800px] w-full">
         <ResponsiveDialogHeader>
           <ResponsiveDialogTitle className="text-2xl">{title}</ResponsiveDialogTitle>
         </ResponsiveDialogHeader>
@@ -257,7 +257,7 @@ const TransactionModal = ({
             )}
           </div>
         ) : (
-          <form onSubmit={handleSubmit} className="flex flex-col max-h-[80vh]">
+          <form onSubmit={handleSubmit} className="flex flex-col max-h-[80vh] min-h-0">
             {accounts.length > 1 && (
               <div className="flex justify-between items-center bg-muted/30 px-4 py-3 rounded-xl border border-border/50 mb-4 mx-1">
                 <div className="flex items-center gap-2">
@@ -279,126 +279,132 @@ const TransactionModal = ({
                 </button>
               </div>
             )}
-            <div className="overflow-y-auto px-1 space-y-5 custom-scrollbar pb-4 flex-1">
-            <div className="space-y-2">
-              <Label htmlFor="amount" className="flex items-center gap-2 text-lg font-bold">
-                <DollarSign className="w-5 h-5 text-primary" />
-                Importe
-              </Label>
-              <Input
-                id="amount"
-                type="number"
-                step="0.01"
-                min="0.01"
-                value={amount}
-                onChange={(e) => setAmount(e.target.value)}
-                placeholder="0.00"
-                required
-                className="w-full text-2xl h-14"
-                onFocus={scrollOnFocus}
-              />
-            </div>
+            <div className="overflow-y-auto px-1 custom-scrollbar pb-4 flex-1 min-h-0 sm:overflow-y-visible">
+              <div className="flex flex-col sm:grid sm:grid-cols-2 sm:gap-8 space-y-5 sm:space-y-0">
+                {/* Columna Izquierda */}
+                <div className="space-y-5">
+                  <div className="space-y-2">
+                    <Label htmlFor="amount" className="flex items-center gap-2 text-lg font-bold">
+                      <DollarSign className="w-5 h-5 text-primary" />
+                      Importe
+                    </Label>
+                    <Input
+                      id="amount"
+                      type="number"
+                      step="0.01"
+                      min="0.01"
+                      value={amount}
+                      onChange={(e) => setAmount(e.target.value)}
+                      placeholder="0.00"
+                      required
+                      className="w-full text-2xl h-14"
+                      onFocus={scrollOnFocus}
+                    />
+                  </div>
 
-            <div className="space-y-2 relative">
-              <Label htmlFor="category" className="flex items-center gap-2">
-                <Tag className="w-4 h-4" />
-                Categoría
-              </Label>
-              <div className="relative">
-                <Input
-                  id="category"
-                  type="text"
-                  value={category}
-                  onChange={(e) => {
-                    setCategory(e.target.value);
-                    if (showAllCategories) setShowAllCategories(false);
-                  }}
-                  placeholder="Ej: Supermercado"
-                  required
-                  className="w-full h-12 pr-12"
-                  autoComplete="off"
-                  onFocus={scrollOnFocus}
-                />
-                <button
-                  type="button"
-                  onClick={() => {
-                    setShowAllCategories(!showAllCategories);
-                    setShowSuggestions(false);
-                  }}
-                  className="absolute right-1 top-1/2 -translate-y-1/2 p-2 text-muted-foreground hover:text-primary transition-colors bg-background rounded-full"
-                >
-                  <ChevronDown className={cn("w-6 h-6 transition-transform", showAllCategories ? "rotate-180" : "")} />
-                </button>
-              </div>
-
-              {showAllCategories && categories.length > 0 && (
-                <div className="flex flex-wrap gap-2 mt-2 max-h-48 overflow-y-auto custom-scrollbar p-3 border border-border/50 rounded-xl bg-muted/10 animate-in fade-in zoom-in-95 duration-200">
-                  {categories.map((cat, index) => {
-                    const catName = typeof cat === 'string' ? cat : cat.name;
-                    return (
+                  <div className="space-y-2 relative">
+                    <Label htmlFor="category" className="flex items-center gap-2">
+                      <Tag className="w-4 h-4" />
+                      Categoría
+                    </Label>
+                    <div className="relative">
+                      <Input
+                        id="category"
+                        type="text"
+                        value={category}
+                        onChange={(e) => {
+                          setCategory(e.target.value);
+                          if (showAllCategories) setShowAllCategories(false);
+                        }}
+                        placeholder="Ej: Supermercado"
+                        required
+                        className="w-full h-12 pr-12"
+                        autoComplete="off"
+                        onFocus={scrollOnFocus}
+                      />
                       <button
-                        key={index}
                         type="button"
-                        onClick={() => withKeyboardClose(() => {
-                          selectSuggestion(catName);
-                          setShowAllCategories(false);
-                        })}
-                        className="px-4 py-2 text-sm font-medium rounded-xl bg-background border border-border hover:border-primary hover:text-primary transition-all shadow-sm active:scale-95"
+                        onClick={() => {
+                          setShowAllCategories(!showAllCategories);
+                          setShowSuggestions(false);
+                        }}
+                        className="absolute right-1 top-1/2 -translate-y-1/2 p-2 text-muted-foreground hover:text-primary transition-colors bg-background rounded-full"
                       >
-                        {catName}
+                        <ChevronDown className={cn("w-6 h-6 transition-transform", showAllCategories ? "rotate-180" : "")} />
                       </button>
-                    );
-                  })}
+                    </div>
+
+                    {showAllCategories && categories.length > 0 && (
+                      <div className="flex flex-wrap gap-2 mt-2 max-h-48 overflow-y-auto custom-scrollbar p-3 border border-border/50 rounded-xl bg-muted/10 animate-in fade-in zoom-in-95 duration-200">
+                        {categories.map((cat, index) => {
+                          const catName = typeof cat === 'string' ? cat : cat.name;
+                          return (
+                            <button
+                              key={index}
+                              type="button"
+                              onClick={() => withKeyboardClose(() => {
+                                selectSuggestion(catName);
+                                setShowAllCategories(false);
+                              })}
+                              className="px-4 py-2 text-sm font-medium rounded-xl bg-background border border-border hover:border-primary hover:text-primary transition-all shadow-sm active:scale-95"
+                            >
+                              {catName}
+                            </button>
+                          );
+                        })}
+                      </div>
+                    )}
+
+                    {!showAllCategories && suggestions.length > 0 && (
+                      <div className="flex flex-wrap gap-2 mt-2">
+                        {suggestions.slice(0, 6).map((suggestion, index) => (
+                          <button
+                            key={index}
+                            type="button"
+                            onClick={() => withKeyboardClose(() => selectSuggestion(suggestion))}
+                            className="min-h-[44px] px-4 py-2 text-sm rounded-full bg-secondary text-secondary-foreground hover:bg-primary hover:text-primary-foreground transition-all border border-border font-medium shadow-sm"
+                          >
+                            {suggestion}
+                          </button>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+
+                  <div className="space-y-2">
+                    <Label htmlFor="date" className="flex items-center gap-2">
+                      <Calendar className="w-4 h-4" />
+                      Fecha
+                    </Label>
+                    <Input
+                      id="date"
+                      type="date"
+                      value={date}
+                      onChange={(e) => setDate(e.target.value)}
+                      required
+                      className="w-full h-12"
+                    />
+                  </div>
                 </div>
-              )}
 
-              {!showAllCategories && suggestions.length > 0 && (
-                <div className="flex flex-wrap gap-2 mt-2">
-                  {suggestions.slice(0, 6).map((suggestion, index) => (
-                    <button
-                      key={index}
-                      type="button"
-                      onClick={() => withKeyboardClose(() => selectSuggestion(suggestion))}
-                      className="min-h-[44px] px-4 py-2 text-sm rounded-full bg-secondary text-secondary-foreground hover:bg-primary hover:text-primary-foreground transition-all border border-border font-medium shadow-sm"
-                    >
-                      {suggestion}
-                    </button>
-                  ))}
-                </div>
-              )}
-            </div>
+                {/* Columna Derecha */}
+                <div className="space-y-5 flex flex-col">
+                  <div className="space-y-2 flex-1 flex flex-col">
+                    <Label htmlFor="description" className="flex items-center gap-2">
+                      <MessageSquare className="w-4 h-4" />
+                      Notas / Detalles (Opcional)
+                    </Label>
+                    <Textarea
+                      id="description"
+                      value={description}
+                      onChange={(e) => setDescription(e.target.value)}
+                      placeholder="Ej: Compra del domingo..."
+                      className="w-full h-20 sm:h-full sm:min-h-[120px] bg-background/50"
+                      onFocus={scrollOnFocus}
+                    />
+                  </div>
 
-            <div className="space-y-2">
-              <Label htmlFor="description" className="flex items-center gap-2">
-                <MessageSquare className="w-4 h-4" />
-                Notas / Detalles (Opcional)
-              </Label>
-              <Textarea
-                id="description"
-                value={description}
-                onChange={(e) => setDescription(e.target.value)}
-                placeholder="Ej: Compra del domingo..."
-                className="w-full h-20 bg-background/50"
-                onFocus={scrollOnFocus}
-              />
-            </div>
-
-            <div className="space-y-2">
-              <Label htmlFor="date" className="flex items-center gap-2">
-                <Calendar className="w-4 h-4" />
-                Fecha
-              </Label>
-              <Input
-                id="date"
-                type="date"
-                value={date}
-                onChange={(e) => setDate(e.target.value)}
-                required
-                className="w-full h-12"
-              />
-            </div>
-
-            <div className="pt-2">
+                  <div className="pt-2">
               <button
                 type="button"
                 onClick={() => setShowAdvancedOptions(!showAdvancedOptions)}
@@ -508,6 +514,8 @@ const TransactionModal = ({
               </div>
             )}
           </div>
+        </div>
+      </div>
 
           <div className="flex gap-3 pt-4 pb-2 mt-auto border-t border-border/30 bg-background/95 backdrop-blur-sm sticky bottom-0 z-20">
             <Button

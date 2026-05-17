@@ -1,9 +1,15 @@
 <IfModule mod_rewrite.c>
   RewriteEngine On
   RewriteBase /
-  RewriteRule ^index\.html$ - [L]
+  
+  # Si la petición es al directorio del backend, no hacer nada (dejar que PHP lo maneje)
+  RewriteCond %{REQUEST_URI} ^/backend/ [NC]
+  RewriteRule ^ - [L]
+
+  # Si el archivo o directorio existe, servirlo directamente
   RewriteCond %{REQUEST_FILENAME} !-f
   RewriteCond %{REQUEST_FILENAME} !-d
-  RewriteCond %{REQUEST_FILENAME} !-l
-  RewriteRule . /index.html [L]
+  
+  # Si no existe, redirigir a index.html (para React Router)
+  RewriteRule ^ index.html [QSA,L]
 </IfModule>

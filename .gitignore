@@ -27,3 +27,8 @@ dist-ssr
 backup/
 scratch.*
 replace.*
+
+# Ignored directories
+archivos/
+ContaHogarV1/
+docs/
