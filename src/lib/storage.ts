@@ -46,8 +46,8 @@ export const migrateData = (data: any): FinanceData => {
 
   // Ensure recurringTransactions, favorites, and alertSettings exist
   if (data.recurringTransactions === undefined) data.recurringTransactions = [];
-  if (data.favorites === undefined) data.favorites = [];
   if (data.budgets === undefined) data.budgets = [];
+  if (data.favorites === undefined) data.favorites = [];
   if (!data.alertSettings) {
     data.alertSettings = {
       thresholdOverrides: {},

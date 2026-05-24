@@ -10,7 +10,6 @@ import { processRecurringTransactions } from "@/lib/automation";
 import { syncFromBackend } from "@/lib/storage";
 
 import Index from "./pages/Index";
-import BudgetPage from "./pages/BudgetPage";
 import HistoryPage from "./pages/HistoryPage";
 import ComparisonPage from "./pages/ComparisonPage";
 import AveragesPage from "./pages/AveragesPage";
@@ -22,6 +21,7 @@ import GuidePage from "./pages/GuidePage";
 import ManagementPage from "./pages/ManagementPage";
 import CalendarPage from "./pages/CalendarPage";
 import SavingsPage from "./pages/SavingsPage";
+import BudgetPage from "./pages/BudgetPage";
 import NotFound from "./pages/NotFound";
 
 const App = () => {
@@ -54,7 +54,6 @@ const App = () => {
             <Routes>
               <Route element={<AppLayout />}>
                 <Route path="/" element={<Index />} />
-                <Route path="/presupuestos" element={<BudgetPage />} />
                 <Route path="/historial" element={<HistoryPage />} />
                 <Route path="/comparativa" element={<ComparisonPage />} />
                 <Route path="/medias" element={<AveragesPage />} />
@@ -66,6 +65,7 @@ const App = () => {
                 <Route path="/gestion" element={<ManagementPage />} />
                 <Route path="/calendario" element={<CalendarPage />} />
                 <Route path="/ahorro" element={<SavingsPage />} />
+                <Route path="/presupuestos" element={<BudgetPage />} />
                 <Route path="*" element={<NotFound />} />
               </Route>
             </Routes>

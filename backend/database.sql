@@ -51,8 +51,11 @@ CREATE TABLE IF NOT EXISTS budgets (
     id VARCHAR(100) PRIMARY KEY,
     category VARCHAR(100) NOT NULL,
     amount DECIMAL(12,2) NOT NULL,
-    month VARCHAR(7) NOT NULL -- yyyy-MM
+    month VARCHAR(7) NOT NULL,
+    createdAt VARCHAR(30) NULL
 );
+
+
 
 CREATE TABLE IF NOT EXISTS favorites (
     id VARCHAR(100) PRIMARY KEY,

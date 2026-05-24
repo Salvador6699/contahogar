@@ -5,11 +5,10 @@ import {
   History, 
   Scale, 
   BarChart3, 
-  PiggyBank, 
-  Settings, 
   ArrowLeftRight, 
   Book, 
   Wrench, 
+  Settings,
   Menu,
   PlusCircle,
   X,
@@ -20,7 +19,8 @@ import {
   ShieldCheck,
   Calendar,
   Search as SearchIcon,
-  Target
+  Target,
+  PiggyBank
 } from 'lucide-react';
 import { cn, withKeyboardClose } from '@/lib/utils';
 import {
@@ -41,7 +41,7 @@ import {
 } from '@/components/ui/drawer';
 import { Button } from '@/components/ui/button';
 import { loadData } from '@/lib/storage';
-import { calculateCategorySummaries, calculateBudgetAlerts } from '@/lib/calculations';
+import { calculateCategorySummaries } from '@/lib/calculations';
 import { useMemo } from 'react';
 import { format } from 'date-fns';
 
@@ -49,30 +49,6 @@ const MobileNav = () => {
     const navigate = useNavigate();
     const location = useLocation();
 
-    // Calculate alerts for the red badge
-    const hasBudgetAlerts = useMemo(() => {
-        try {
-            const data = loadData();
-            const currentMonth = format(new Date(), 'yyyy-MM');
-            const monthTxs = data.transactions.filter(t => t.date.startsWith(currentMonth));
-            const categorySummaries = calculateCategorySummaries(monthTxs, 'expense');
-            const budgets = (data.budgets || []).filter(b => b.month === currentMonth);
-            
-            const totalIncome = monthTxs.filter(t => t.type === 'income').reduce((sum, t) => sum + t.amount, 0);
-            const totalExpenses = monthTxs.filter(t => t.type === 'expense').reduce((sum, t) => sum + t.amount, 0);
-            
-            const { hasAlerts } = calculateBudgetAlerts(
-                budgets, 
-                categorySummaries, 
-                totalIncome, 
-                totalExpenses,
-                data.alertSettings
-            );
-            return hasAlerts;
-        } catch (e) {
-            return false;
-        }
-    }, [location.pathname]);
 
     interface NavItem {
         icon: any;
@@ -83,8 +59,8 @@ const MobileNav = () => {
 
     const bottomNavItems: NavItem[] = [
         { icon: Home, label: 'Inicio', path: '/', exact: true },
+        { icon: PiggyBank, label: 'Presupuestos', path: '/presupuestos' },
         { icon: Scale, label: 'Cuadrar', path: '/comparativa' },
-        { icon: ArrowLeftRight, label: 'Transf.', path: '/transferir' },
     ];
 
     const allDrawerNavItems: NavItem[] = [
@@ -94,10 +70,10 @@ const MobileNav = () => {
         { icon: Calendar, label: 'Calendario', path: '/calendario' },
         { icon: Target, label: 'Ahorro', path: '/ahorro' },
         { icon: SearchIcon, label: 'Buscar', path: '/buscar' },
+        { icon: PiggyBank, label: 'Presupuestos', path: '/presupuestos' },
         { icon: History, label: 'Historial', path: '/historial' },
         { icon: BarChart3, label: 'Medias', path: '/medias' },
         { icon: Wrench, label: 'Gestión', path: '/gestion' },
-        { icon: PiggyBank, label: 'Presupuestos', path: '/presupuestos' },
         { icon: Settings, label: 'Ajustes', path: '/ajustes' },
         { icon: ShieldCheck, label: 'Seguridad', path: '/backup' },
         { icon: Book, label: 'Guía', path: '/guia' },
@@ -152,11 +128,11 @@ const MobileNav = () => {
                             <span className={cn("text-[10px] font-bold mt-0.5", isActive('/', true) ? "text-primary" : "text-muted-foreground/50")}>Inicio</span>
                         </button>
                         
-                        <button onClick={() => navigate('/comparativa')} className="flex flex-col items-center justify-center relative group h-full">
-                            <div className={cn("p-2 rounded-xl transition-all duration-500", isActive('/comparativa') ? "text-primary scale-110" : "text-muted-foreground/60 group-hover:text-primary")}>
-                                <Scale className={cn("w-5 h-5", isActive('/comparativa') && "stroke-[2.5px]")} />
+                        <button onClick={() => navigate('/presupuestos')} className="flex flex-col items-center justify-center relative group h-full">
+                            <div className={cn("p-2 rounded-xl transition-all duration-500", isActive('/presupuestos') ? "text-primary scale-110" : "text-muted-foreground/60 group-hover:text-primary")}>
+                                <PiggyBank className={cn("w-5 h-5", isActive('/presupuestos') && "stroke-[2.5px]")} />
                             </div>
-                            <span className={cn("text-[10px] font-bold mt-0.5", isActive('/comparativa') ? "text-primary" : "text-muted-foreground/50")}>Balance</span>
+                            <span className={cn("text-[10px] font-bold mt-0.5", isActive('/presupuestos') ? "text-primary" : "text-muted-foreground/50")}>Presup.</span>
                         </button>
 
                         {/* BOTÓN GIGANTE CENTRAL */}
@@ -191,20 +167,17 @@ const MobileNav = () => {
                             </DrawerContent>
                         </Drawer>
 
-                        <button onClick={() => navigate('/calendario')} className="flex flex-col items-center justify-center relative group h-full">
-                            <div className={cn("p-2 rounded-xl transition-all duration-500", isActive('/calendario') ? "text-primary scale-110" : "text-muted-foreground/60 group-hover:text-primary")}>
-                                <Calendar className={cn("w-5 h-5", isActive('/calendario') && "stroke-[2.5px]")} />
+                        <button onClick={() => navigate('/comparativa')} className="flex flex-col items-center justify-center relative group h-full">
+                            <div className={cn("p-2 rounded-xl transition-all duration-500", isActive('/comparativa') ? "text-primary scale-110" : "text-muted-foreground/60 group-hover:text-primary")}>
+                                <Scale className={cn("w-5 h-5", isActive('/comparativa') && "stroke-[2.5px]")} />
                             </div>
-                            <span className={cn("text-[10px] font-bold mt-0.5", isActive('/calendario') ? "text-primary" : "text-muted-foreground/50")}>Fechas</span>
+                            <span className={cn("text-[10px] font-bold mt-0.5", isActive('/comparativa') ? "text-primary" : "text-muted-foreground/50")}>Cuadrar</span>
                         </button>
 
                         <SheetTrigger asChild>
                             <button className="flex flex-col items-center justify-center relative group h-full">
                                 <div className="p-2 rounded-xl text-muted-foreground/60 group-hover:text-primary transition-all duration-500 relative">
                                     <Menu className="w-5 h-5" />
-                                    {hasBudgetAlerts && (
-                                        <span className="absolute top-1.5 right-1.5 w-2.5 h-2.5 bg-destructive rounded-full border-2 border-background animate-pulse" />
-                                    )}
                                 </div>
                                 <span className="text-[10px] font-bold mt-0.5 text-muted-foreground/50">Menú</span>
                             </button>
@@ -237,9 +210,6 @@ const MobileNav = () => {
                                     >
                                         <div className="relative">
                                             <item.icon className={cn("w-6 h-6", active && "stroke-[2.5px]")} />
-                                            {item.label === 'Presupuestos' && hasBudgetAlerts && (
-                                                <span className="absolute -top-1 -right-1 w-3 h-3 bg-destructive rounded-full border-2 border-background animate-pulse" />
-                                            )}
                                         </div>
                                         <span className="text-xs uppercase tracking-[0.1em]">{item.label}</span>
                                     </button>
@@ -276,17 +246,17 @@ const MobileNav = () => {
                     })}
 
                     <button
-                        onClick={() => navigate('/calendario')}
+                        onClick={() => navigate('/comparativa')}
                         className={cn(
                             "flex flex-col items-center justify-center w-12 h-12 rounded-2xl transition-all duration-500 group relative shrink-0",
-                            isActive('/calendario') 
+                            isActive('/comparativa') 
                                 ? "bg-primary text-primary-foreground shadow-2xl shadow-primary/30 scale-110" 
                                 : "text-muted-foreground/60 hover:bg-primary/5 hover:text-primary active:scale-95"
                         )}
-                        title="Calendario"
+                        title="Cuadrar"
                     >
-                        <Calendar className="w-5 h-5" />
-                        {isActive('/calendario') && (
+                        <Scale className="w-5 h-5" />
+                        {isActive('/comparativa') && (
                             <div className="absolute -left-1 w-1 h-8 bg-primary rounded-r-full shadow-[0_0_12px_rgba(var(--primary),0.6)]" />
                         )}
                     </button>
@@ -306,6 +276,8 @@ const MobileNav = () => {
                             <div className="absolute -left-1 w-1 h-8 bg-primary rounded-r-full shadow-[0_0_12px_rgba(var(--primary),0.6)]" />
                         )}
                     </button>
+
+
                     
                     <div className="w-8 h-[1px] bg-border/20 my-2 shrink-0" />
 
@@ -330,9 +302,6 @@ const MobileNav = () => {
                         <button className="flex flex-col items-center justify-center w-12 h-12 rounded-2xl transition-all duration-500 group relative text-muted-foreground/60 hover:bg-primary/5 hover:text-primary active:scale-95 shrink-0 mt-auto" title="Menú">
                             <div className="relative">
                                 <Menu className="w-5 h-5" />
-                                {hasBudgetAlerts && (
-                                    <span className="absolute -top-1 -right-1 w-2.5 h-2.5 bg-destructive rounded-full border-2 border-background animate-pulse" />
-                                )}
                             </div>
                         </button>
                     </SheetTrigger>
@@ -363,9 +332,6 @@ const MobileNav = () => {
                                     >
                                         <div className="relative">
                                             <item.icon className={cn("w-6 h-6", active && "stroke-[2.5px]")} />
-                                            {item.label === 'Presupuestos' && hasBudgetAlerts && (
-                                                <span className="absolute -top-1 -right-1 w-3 h-3 bg-destructive rounded-full border-2 border-background animate-pulse" />
-                                            )}
                                         </div>
                                         <span className="text-sm tracking-wide">{item.label}</span>
                                     </button>

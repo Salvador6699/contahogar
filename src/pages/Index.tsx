@@ -22,15 +22,13 @@ import {
   calculateCategorySummaries,
   formatCurrency,
   calculatePastMonthsHistory,
-  calculateSpendingPace,
-  calculateBudgetAlerts,
+  calculateSpendingPace
 } from '@/lib/calculations';
 import { useMonthFilter } from '@/hooks/useMonthFilter';
 import BalanceCard from '@/components/BalanceCard';
 import SummaryCards from '@/components/SummaryCards';
 import CategoryBreakdown from '@/components/CategoryBreakdown';
 import QuickExpenses from '@/components/QuickExpenses';
-import BudgetAlerts from '@/components/BudgetAlerts';
 import FavoriteExpenseModal from '@/components/FavoriteExpenseModal';
 import TransactionModal from '@/components/TransactionModal';
 import TransactionList from '@/components/TransactionList';
@@ -41,7 +39,6 @@ import { format, parseISO, addMonths, subMonths } from 'date-fns';
 import { Wallet, Calendar, ChevronLeft, ChevronRight, Scale, BarChart3 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { useNavigate, useSearchParams } from 'react-router-dom';
-import { loadBudgets } from '@/lib/budgetStorage';
 import { addRecurringTransaction } from '@/lib/storage';
 import { processRecurringTransactions } from '@/lib/automation';
 import { toast } from 'sonner';
@@ -340,8 +337,6 @@ const Index = () => {
   // Exclude transfers from summaries and lists
   const nonTransferTransactions = filteredTransactions.filter(t => t.category !== 'Transferencia');
 
-  // Load budgets for the current month view
-  const currentBudgets = loadBudgets(balanceMonthKey);
 
   // Resolve account filter (undefined = all accounts)
   const accountFilter = selectedAccount === 'total' ? undefined : selectedAccount;
@@ -434,14 +429,6 @@ const Index = () => {
             />
           </div>
 
-          <BudgetAlerts 
-            budgets={currentBudgets}
-            categorySummaries={expenseCategories}
-            totalIncome={totalIncome}
-            totalExpenses={totalExpenses}
-            alertSettings={data.alertSettings || { thresholdOverrides: {}, dismissedItems: [], dismissedTotal: false }}
-            onUpdateSettings={handleUpdateAlertSettings}
-          />
 
           <div className="grid grid-cols-1 xl:grid-cols-12 gap-6 lg:gap-8 mb-8">
             <div className="col-span-1 xl:col-span-4 space-y-6">
@@ -523,6 +510,7 @@ const Index = () => {
                 onConfirmTransaction={handleConfirmTransaction}
                 categoryCatalog={data.categories}
                 accounts={data.accounts}
+                budgets={data.budgets}
               />
             )}
 
@@ -532,11 +520,11 @@ const Index = () => {
                 categories={expenseCategories} 
                 type="expense" 
                 isPending={false} 
-                budgets={currentBudgets} 
                 categoryCatalog={data.categories}
                 transactions={data.transactions}
                 selectedAccount={accountFilter}
                 baseDate={baseDate}
+                budgets={data.budgets}
               />
             )}
 

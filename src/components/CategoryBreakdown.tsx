@@ -1,8 +1,8 @@
 import { useState, useMemo, useEffect } from 'react';
 import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { CategorySummary, Transaction, Budget, Category, Account } from '@/types/finance';
-import { Tag, Pencil, ChevronLeft, ChevronRight, Calendar, Trash2, LucideIcon, CheckCircle2, TrendingUp, TrendingDown, Minus, Wallet } from 'lucide-react';
+import { CategorySummary, Transaction, Category, Account, Budget } from '@/types/finance';
+import { Tag, Pencil, ChevronLeft, ChevronRight, Calendar, Trash2, LucideIcon, CheckCircle2, TrendingUp, TrendingDown, Minus, Wallet, PiggyBank } from 'lucide-react';
 import * as Icons from 'lucide-react';
 import { Area, AreaChart, ResponsiveContainer } from 'recharts';
 import { calculateCategoryHistory, formatCurrency, calculateMonthlyAverages } from '@/lib/calculations';
@@ -17,11 +17,11 @@ interface CategoryBreakdownProps {
   onEditTransaction?: (transaction: Transaction) => void;
   onDeleteTransaction?: (transactionId: string) => void;
   onConfirmTransaction?: (transaction: Transaction) => void;
-  budgets?: Budget[];
   categoryCatalog?: Category[];
   selectedAccount?: string;
   baseDate?: Date;
   accounts?: Account[];
+  budgets?: Budget[];
 }
 
 const ITEMS_PER_PAGE = 5;
@@ -112,11 +112,11 @@ const CategoryBreakdown = ({
   onEditTransaction,
   onDeleteTransaction,
   onConfirmTransaction,
-  budgets = [],
   categoryCatalog = [],
   selectedAccount,
   baseDate = new Date(),
   accounts = [],
+  budgets = [],
 }: CategoryBreakdownProps) => {
   const [currentPage, setCurrentPage] = useState(1);
 
@@ -308,8 +308,6 @@ const CategoryBreakdown = ({
       </h3>
       <div className="space-y-2">
         {paginatedCategories.map((category, index) => {
-          const budget = budgets.find(b => b.category.toLowerCase() === category.category.toLowerCase());
-          const budgetRemaining = budget ? budget.amount - category.total : null;
           const catHistory = calculateCategoryHistory(transactions, category.category, type, 6, selectedAccount, baseDate);
           const chartColor = type === 'expense' ? '#ef4444' : '#22c55e';
           
@@ -375,13 +373,40 @@ const CategoryBreakdown = ({
                     <p className="text-[10px] text-muted-foreground font-bold uppercase tracking-wider truncate">
                       {category.count} {category.count === 1 ? 'transacción' : 'transacciones'}
                     </p>
-                    {budget && budgetRemaining !== null && (
-                      <p className={`text-[10px] font-bold uppercase tracking-wider truncate ${budgetRemaining >= 0 ? 'text-income' : 'text-destructive'}`}>
-                        {budgetRemaining >= 0
-                          ? `${formatCurrency(budgetRemaining)} rest.`
-                          : `${formatCurrency(Math.abs(budgetRemaining))} exc.`}
-                      </p>
-                    )}
+                    
+                    {/* Envelope Indicator */}
+                    {(() => {
+                      if (type !== 'expense' || budgets.length === 0) return null;
+                      const currentMonthStr = new Date().getFullYear() + '-' + String(new Date().getMonth() + 1).padStart(2, '0');
+                      const totalAssigned = budgets.filter(b => b.category === category.category && b.month === currentMonthStr).reduce((sum, b) => sum + b.amount, 0);
+                      if (totalAssigned === 0) return null; // No budget ever assigned
+                      const budgetCreatedAt = budgets.find(b => b.category === category.category && b.month === currentMonthStr)?.createdAt;
+                      
+                      const totalSpent = transactions.filter(t => {
+                          if (t.isPending || t.type !== 'expense' || t.category !== category.category || !t.date.startsWith(currentMonthStr)) return false;
+                          // If there's a creation date, only count transactions on or after that date
+                          if (budgetCreatedAt) {
+                              const bDate = budgetCreatedAt.split('T')[0];
+                              return t.date >= bDate;
+                          }
+                          return true;
+                      }).reduce((sum, t) => sum + t.amount, 0);
+                      
+                      const available = totalAssigned - totalSpent;
+                      
+                      return (
+                        <div className={cn(
+                          "inline-flex items-center gap-1 px-1.5 py-0.5 mt-1 rounded-full text-[9px] font-black tracking-wider uppercase",
+                          available > 0 ? "bg-income/10 text-income" :
+                          available < 0 ? "bg-destructive/10 text-destructive" :
+                          "bg-muted text-muted-foreground"
+                        )}>
+                          <PiggyBank className="w-2.5 h-2.5" />
+                          <span>{formatCurrency(available)} en Sobre</span>
+                        </div>
+                      );
+                    })()}
+
                   </div>
                 </div>
                 <div className="flex items-center justify-between sm:justify-end gap-3 w-full sm:w-auto mt-3 sm:mt-0 pt-3 sm:pt-0 border-t sm:border-t-0 border-border/10">

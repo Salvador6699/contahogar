@@ -70,8 +70,7 @@ const BackupPage = () => {
             if (
                 !Array.isArray(importedData.accounts) ||
                 !Array.isArray(importedData.transactions) ||
-                !Array.isArray(importedData.categories) ||
-                !Array.isArray(importedData.budgets)
+                !Array.isArray(importedData.categories)
             ) {
                 throw new Error('El archivo no tiene el formato correcto de ContaHogar');
             }

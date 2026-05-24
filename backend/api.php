@@ -70,6 +70,7 @@ if ($action === 'load') {
         $data['budgets'][] = $row;
     }
 
+
     // Cargar recurring_transactions
     $rows = fetchTable($db, "SELECT * FROM recurring_transactions");
     foreach ($rows as $row) {
@@ -127,28 +128,39 @@ if ($action === 'save') {
         // Como la app actualmente manda el estado completo (como en localStorage),
         // vaciamos las tablas y las volvemos a llenar. Esto asegura que los elementos
         // eliminados también desaparezcan de la DB.
-        $db->query("SET FOREIGN_KEY_CHECKS = 0");
-        $db->query("DELETE FROM accounts");
-        $db->query("DELETE FROM categories");
-        $db->query("DELETE FROM transactions");
-        $db->query("DELETE FROM recurring_transactions");
-        $db->query("DELETE FROM budgets");
-        $db->query("DELETE FROM favorites");
-        $db->query("DELETE FROM savings_goals");
-        $db->query("DELETE FROM settings");
+        // Vaciar las tablas en el orden correcto para respetar las claves foráneas
+        $tablesToDelete = [
+            'savings_goals',
+            'favorites',
+            'recurring_transactions',
+            'transactions',
+            'budgets',
+            'categories',
+            'accounts',
+            'settings'
+        ];
 
-        // Preparar sentencias
-        $stmtAcc = $db->prepare("INSERT INTO accounts (id, name, initialBalance, linkedAccountId, logo) VALUES (?, ?, ?, ?, ?)");
+        // Intentar desactivar las comprobaciones de claves foráneas por si acaso
+        $db->query("SET FOREIGN_KEY_CHECKS = 0");
+
+        foreach ($tablesToDelete as $table) {
+            if ($db->query("DELETE FROM $table") === false) {
+                throw new Exception("Error al vaciar la tabla $table: " . $db->error);
+            }
+        }
+
+        // Preparar sentencias (usamos REPLACE INTO por si acaso para evitar conflictos de Primary Key, aunque el DELETE ya debería vaciar)
+        $stmtAcc = $db->prepare("REPLACE INTO accounts (id, name, initialBalance, linkedAccountId, logo) VALUES (?, ?, ?, ?, ?)");
         if (!empty($data['accounts'])) {
             foreach ($data['accounts'] as $item) {
                 $linkedId = isset($item['linkedAccountId']) ? $item['linkedAccountId'] : null;
                 $logo = isset($item['logo']) ? $item['logo'] : null;
                 $stmtAcc->bind_param("ssdss", $item['id'], $item['name'], $item['initialBalance'], $linkedId, $logo);
-                $stmtAcc->execute();
+                if ($stmtAcc->execute() === false) throw new Exception("Error insertando cuenta: " . $stmtAcc->error);
             }
         }
 
-        $stmtCat = $db->prepare("INSERT INTO categories (id, name, icon, color, monthlyLimit, customIcon) VALUES (?, ?, ?, ?, ?, ?)");
+        $stmtCat = $db->prepare("REPLACE INTO categories (id, name, icon, color, monthlyLimit, customIcon) VALUES (?, ?, ?, ?, ?, ?)");
         if (!empty($data['categories'])) {
             foreach ($data['categories'] as $item) {
                 $icon = isset($item['icon']) ? $item['icon'] : null;
@@ -156,21 +168,21 @@ if ($action === 'save') {
                 $limit = isset($item['monthlyLimit']) ? $item['monthlyLimit'] : null;
                 $cIcon = isset($item['customIcon']) ? $item['customIcon'] : null;
                 $stmtCat->bind_param("ssssds", $item['id'], $item['name'], $icon, $color, $limit, $cIcon);
-                $stmtCat->execute();
+                if ($stmtCat->execute() === false) throw new Exception("Error insertando categoría: " . $stmtCat->error);
             }
         }
 
-        $stmtTx = $db->prepare("INSERT INTO transactions (id, date, amount, category, type, accountId, description, isPending) VALUES (?, ?, ?, ?, ?, ?, ?, ?)");
+        $stmtTx = $db->prepare("REPLACE INTO transactions (id, date, amount, category, type, accountId, description, isPending) VALUES (?, ?, ?, ?, ?, ?, ?, ?)");
         if (!empty($data['transactions'])) {
             foreach ($data['transactions'] as $item) {
                 $desc = isset($item['description']) ? $item['description'] : null;
                 $pending = !empty($item['isPending']) ? 1 : 0;
                 $stmtTx->bind_param("ssdssssi", $item['id'], $item['date'], $item['amount'], $item['category'], $item['type'], $item['accountId'], $desc, $pending);
-                $stmtTx->execute();
+                if ($stmtTx->execute() === false) throw new Exception("Error insertando transacción: " . $stmtTx->error);
             }
         }
 
-        $stmtRec = $db->prepare("INSERT INTO recurring_transactions (id, name, amount, type, category, accountId, frequency, intervalMonths, endAfterMonths, startDate, lastGeneratedDate, isActive) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)");
+        $stmtRec = $db->prepare("REPLACE INTO recurring_transactions (id, name, amount, type, category, accountId, frequency, intervalMonths, endAfterMonths, startDate, lastGeneratedDate, isActive) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)");
         if (!empty($data['recurringTransactions'])) {
             foreach ($data['recurringTransactions'] as $item) {
                 $intM = isset($item['intervalMonths']) ? $item['intervalMonths'] : null;
@@ -178,30 +190,32 @@ if ($action === 'save') {
                 $lastD = isset($item['lastGeneratedDate']) ? $item['lastGeneratedDate'] : null;
                 $active = !empty($item['isActive']) ? 1 : 0;
                 $stmtRec->bind_param("ssdssssiisss", $item['id'], $item['name'], $item['amount'], $item['type'], $item['category'], $item['accountId'], $item['frequency'], $intM, $endM, $item['startDate'], $lastD, $active);
-                $stmtRec->execute();
+                if ($stmtRec->execute() === false) throw new Exception("Error insertando automatización: " . $stmtRec->error);
             }
         }
 
-        $stmtBud = $db->prepare("INSERT INTO budgets (id, category, amount, month) VALUES (?, ?, ?, ?)");
+        $stmtBud = $db->prepare("REPLACE INTO budgets (id, category, amount, month, createdAt) VALUES (?, ?, ?, ?, ?)");
         if (!empty($data['budgets'])) {
             foreach ($data['budgets'] as $item) {
-                $stmtBud->bind_param("ssds", $item['id'], $item['category'], $item['amount'], $item['month']);
-                $stmtBud->execute();
+                $createdAt = isset($item['createdAt']) ? $item['createdAt'] : null;
+                $stmtBud->bind_param("ssdss", $item['id'], $item['category'], $item['amount'], $item['month'], $createdAt);
+                if ($stmtBud->execute() === false) throw new Exception("Error insertando presupuesto: " . $stmtBud->error);
             }
         }
 
-        $stmtFav = $db->prepare("INSERT INTO favorites (id, name, amount, category, accountId, description, type, icon, customIcon) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)");
+
+        $stmtFav = $db->prepare("REPLACE INTO favorites (id, name, amount, category, accountId, description, type, icon, customIcon) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)");
         if (!empty($data['favorites'])) {
             foreach ($data['favorites'] as $item) {
                 $desc = isset($item['description']) ? $item['description'] : null;
                 $icon = isset($item['icon']) ? $item['icon'] : null;
                 $cIcon = isset($item['customIcon']) ? $item['customIcon'] : null;
                 $stmtFav->bind_param("ssdssssss", $item['id'], $item['name'], $item['amount'], $item['category'], $item['accountId'], $desc, $item['type'], $icon, $cIcon);
-                $stmtFav->execute();
+                if ($stmtFav->execute() === false) throw new Exception("Error insertando favorito: " . $stmtFav->error);
             }
         }
 
-        $stmtSav = $db->prepare("INSERT INTO savings_goals (id, name, targetAmount, currentAmount, deadline, accountId, color, category) VALUES (?, ?, ?, ?, ?, ?, ?, ?)");
+        $stmtSav = $db->prepare("REPLACE INTO savings_goals (id, name, targetAmount, currentAmount, deadline, accountId, color, category) VALUES (?, ?, ?, ?, ?, ?, ?, ?)");
         if (!empty($data['savingsGoals'])) {
             foreach ($data['savingsGoals'] as $item) {
                 $dead = isset($item['deadline']) ? $item['deadline'] : null;
@@ -210,15 +224,15 @@ if ($action === 'save') {
                 $cat = isset($item['category']) ? $item['category'] : null;
                 $curr = isset($item['currentAmount']) ? $item['currentAmount'] : 0;
                 $stmtSav->bind_param("ssddssss", $item['id'], $item['name'], $item['targetAmount'], $curr, $dead, $acc, $col, $cat);
-                $stmtSav->execute();
+                if ($stmtSav->execute() === false) throw new Exception("Error insertando ahorro: " . $stmtSav->error);
             }
         }
 
         if (isset($data['alertSettings'])) {
-            $stmtSet = $db->prepare("INSERT INTO settings (setting_key, setting_value) VALUES ('alertSettings', ?)");
+            $stmtSet = $db->prepare("REPLACE INTO settings (setting_key, setting_value) VALUES ('alertSettings', ?)");
             $jsonStr = json_encode($data['alertSettings']);
             $stmtSet->bind_param("s", $jsonStr);
-            $stmtSet->execute();
+            if ($stmtSet->execute() === false) throw new Exception("Error insertando configuración: " . $stmtSet->error);
         }
 
         $db->query("SET FOREIGN_KEY_CHECKS = 1");

@@ -1,4 +1,4 @@
-import { Transaction, CategorySummary, Account, Budget, AlertSettings } from '@/types/finance';
+import { Transaction, CategorySummary, Account, AlertSettings } from '@/types/finance';
 import { format } from 'date-fns';
 
 export const calculateBalance = (
@@ -402,38 +402,3 @@ export const calculateCategoryHistory = (
   return history;
 };
 
-export const calculateBudgetAlerts = (
-  budgets: Budget[],
-  categorySummaries: CategorySummary[],
-  totalIncome: number,
-  totalExpenses: number,
-  alertSettings?: AlertSettings
-) => {
-  const overrides = alertSettings?.thresholdOverrides || {};
-  const dismissed = alertSettings?.dismissedItems || [];
-  const dismissedTotal = alertSettings?.dismissedTotal || false;
-
-  const alerts = budgets.map(budget => {
-    const summary = categorySummaries.find(s => s.category === budget.category);
-    const spent = summary ? summary.total : 0;
-    const percent = budget.amount > 0 ? (spent / budget.amount) * 100 : 0;
-    
-    // Default threshold 75% or custom override
-    const threshold = overrides[budget.id] || 75;
-
-    return {
-      ...budget,
-      spent,
-      percent,
-      isTriggered: percent >= threshold || percent >= 100
-    };
-  }).filter(b => b.isTriggered && !dismissed.includes(b.id));
-
-  const hasDeficit = totalExpenses > totalIncome && totalIncome > 0 && !dismissedTotal;
-
-  return {
-    alerts,
-    hasAlerts: alerts.length > 0 || hasDeficit,
-    hasDeficit
-  };
-};

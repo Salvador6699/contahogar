@@ -51,12 +51,6 @@ export interface CategorySummary {
   count: number;
 }
 
-export interface Budget {
-  id: string;
-  category: string;
-  amount: number;
-  month: string; // yyyy-MM
-}
 
 export interface FavoriteExpense {
   id: string;
@@ -88,6 +82,14 @@ export interface SavingsGoal {
 }
 
 // Updated FinanceData to support multiple accounts, structured categories and automations
+export interface Budget {
+  id: string;
+  category: string;
+  amount: number;
+  month: string; // yyyy-MM
+  createdAt?: string; // ISO string
+}
+
 export interface FinanceData {
   accounts: Account[];
   transactions: Transaction[];
