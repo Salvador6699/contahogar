@@ -354,3 +354,15 @@ All colors MUST be HSL.
     transform: rotate(360deg);
   }
 }
+
+/* Formularios Móvil (Teclado) */
+.contenedor-formulario {
+  height: 100dvh;
+  display: flex;
+  flex-direction: column;
+  overflow-y: auto;
+}
+
+.boton-guardar {
+  margin-top: auto;
+}

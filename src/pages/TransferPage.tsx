@@ -100,6 +100,7 @@ const TransferPage = () => {
         setAmount('');
         setEditingTransferId(null);
         toast.success(editingTransferId ? 'Transferencia actualizada' : 'Transferencia realizada con éxito');
+        navigate('/');
     };
 
     const handleEditTransfer = (transfer: Transaction) => {

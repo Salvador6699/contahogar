@@ -154,6 +154,8 @@ const QuickAmountModal = ({
                   placeholder="0.00"
                   className="w-full h-20 text-4xl font-black pl-14 pr-4 bg-muted/30 border-none rounded-3xl text-center focus-visible:ring-offset-0 focus-visible:ring-2 focus-visible:ring-primary/20 transition-all"
                   required
+                  inputMode="decimal"
+                  enterKeyHint="done"
                 />
               </div>
 

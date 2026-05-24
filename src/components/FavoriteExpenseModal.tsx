@@ -230,6 +230,7 @@ const FavoriteExpenseModal = ({
                   onChange={(e) => setName(e.target.value)}
                   placeholder="Café, Bus, Almuerzo..."
                   className="bg-background"
+                  enterKeyHint="next"
                 />
               </div>
               <div className="space-y-2">
@@ -242,6 +243,8 @@ const FavoriteExpenseModal = ({
                   onChange={(e) => setAmount(e.target.value)}
                   placeholder="0.00"
                   className="bg-background"
+                  inputMode="decimal"
+                  enterKeyHint="next"
                 />
               </div>
               
@@ -361,8 +364,11 @@ const FavoriteExpenseModal = ({
                 onChange={(e) => setDescription(e.target.value)}
                 placeholder="Por ejemplo: Desayuno barra alta"
                 className="bg-background"
+                enterKeyHint="done"
               />
             </div>
+
+            <div className="h-24 shrink-0"></div>
 
             <div className="flex gap-3 justify-end pt-4 mt-auto border-t border-border/20 sticky bottom-0 bg-background pb-4 z-10">
               <Button variant="ghost" onClick={onClose} className="h-12 flex-1 sm:flex-none">

@@ -128,14 +128,14 @@ if ($action === 'save') {
         // vaciamos las tablas y las volvemos a llenar. Esto asegura que los elementos
         // eliminados también desaparezcan de la DB.
         $db->query("SET FOREIGN_KEY_CHECKS = 0");
-        $db->query("TRUNCATE TABLE accounts");
-        $db->query("TRUNCATE TABLE categories");
-        $db->query("TRUNCATE TABLE transactions");
-        $db->query("TRUNCATE TABLE recurring_transactions");
-        $db->query("TRUNCATE TABLE budgets");
-        $db->query("TRUNCATE TABLE favorites");
-        $db->query("TRUNCATE TABLE savings_goals");
-        $db->query("TRUNCATE TABLE settings");
+        $db->query("DELETE FROM accounts");
+        $db->query("DELETE FROM categories");
+        $db->query("DELETE FROM transactions");
+        $db->query("DELETE FROM recurring_transactions");
+        $db->query("DELETE FROM budgets");
+        $db->query("DELETE FROM favorites");
+        $db->query("DELETE FROM savings_goals");
+        $db->query("DELETE FROM settings");
 
         // Preparar sentencias
         $stmtAcc = $db->prepare("INSERT INTO accounts (id, name, initialBalance, linkedAccountId, logo) VALUES (?, ?, ?, ?, ?)");

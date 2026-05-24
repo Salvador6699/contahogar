@@ -257,7 +257,7 @@ const TransactionModal = ({
             )}
           </div>
         ) : (
-          <form onSubmit={handleSubmit} className="flex flex-col max-h-[80vh] min-h-0">
+          <form onSubmit={handleSubmit} className="contenedor-formulario min-h-0">
             {accounts.length > 1 && (
               <div className="flex justify-between items-center bg-muted/30 px-4 py-3 rounded-xl border border-border/50 mb-4 mx-1">
                 <div className="flex items-center gap-2">
@@ -279,7 +279,7 @@ const TransactionModal = ({
                 </button>
               </div>
             )}
-            <div className="overflow-y-auto px-1 custom-scrollbar pb-4 flex-1 min-h-0 sm:overflow-y-visible">
+            <div className="overflow-y-auto px-1 custom-scrollbar pb-32 flex-1 min-h-0 sm:overflow-y-visible">
               <div className="flex flex-col sm:grid sm:grid-cols-2 sm:gap-8 space-y-5 sm:space-y-0">
                 {/* Columna Izquierda */}
                 <div className="space-y-5">
@@ -299,6 +299,8 @@ const TransactionModal = ({
                       required
                       className="w-full text-2xl h-14"
                       onFocus={scrollOnFocus}
+                      inputMode="decimal"
+                      enterKeyHint="next"
                     />
                   </div>
 
@@ -321,6 +323,7 @@ const TransactionModal = ({
                         className="w-full h-12 pr-12"
                         autoComplete="off"
                         onFocus={scrollOnFocus}
+                        enterKeyHint="next"
                       />
                       <button
                         type="button"
@@ -401,6 +404,7 @@ const TransactionModal = ({
                       placeholder="Ej: Compra del domingo..."
                       className="w-full h-20 sm:h-full sm:min-h-[120px] bg-background/50"
                       onFocus={scrollOnFocus}
+                      enterKeyHint="done"
                     />
                   </div>
 
@@ -517,7 +521,7 @@ const TransactionModal = ({
         </div>
       </div>
 
-          <div className="flex gap-3 pt-4 pb-2 mt-auto border-t border-border/30 bg-background/95 backdrop-blur-sm sticky bottom-0 z-20">
+          <div className="flex gap-3 pt-4 pb-2 mt-auto border-t border-border/30 bg-background/95 backdrop-blur-sm sticky bottom-0 z-20 boton-guardar">
             <Button
               type="button"
               variant="outline"

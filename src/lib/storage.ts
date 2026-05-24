@@ -169,12 +169,21 @@ export const saveData = (data: FinanceData): void => {
     };
     const API_URL = getApiUrl();
 
+    // Headers con autenticación para el entorno de pruebas
+    const getHeaders = () => {
+      const headers: Record<string, string> = {
+        'Content-Type': 'application/json',
+      };
+      if (window.location.hostname.includes('mialias.net')) {
+        headers['Authorization'] = 'Basic ' + btoa('tabsys401:I5XmH2zvX2bA');
+      }
+      return headers;
+    };
+
     // Sync con el backend en segundo plano
     fetch(`${API_URL}?action=save`, {
       method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-      },
+      headers: getHeaders(),
       body: jsonString
     })
     .then(async res => {
@@ -216,7 +225,13 @@ export const syncFromBackend = async (): Promise<boolean> => {
       return `${url.protocol}//${url.host}/backend/api.php`;
     };
     const API_URL = getApiUrl();
-    const response = await fetch(`${API_URL}?action=load`);
+    
+    const headers: Record<string, string> = {};
+    if (window.location.hostname.includes('mialias.net')) {
+      headers['Authorization'] = 'Basic ' + btoa('tabsys401:I5XmH2zvX2bA');
+    }
+
+    const response = await fetch(`${API_URL}?action=load`, { headers });
     
     // Si la respuesta no es OK (ej. Error 500)
     if (!response.ok) {
