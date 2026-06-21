@@ -428,6 +428,15 @@ export const updateTransaction = (updatedTransaction: Transaction): void => {
 export const deleteTransaction = (transactionId: string): void => {
   const data = loadData();
   data.transactions = data.transactions.filter(t => t.id !== transactionId);
+  
+  // Track manually deleted automated transactions so they don't get regenerated
+  if (transactionId.startsWith('auto-')) {
+    if (!data.deletedAutomations) data.deletedAutomations = [];
+    if (!data.deletedAutomations.includes(transactionId)) {
+      data.deletedAutomations.push(transactionId);
+    }
+  }
+  
   saveData(data);
 };
 

@@ -32,9 +32,9 @@ export const processRecurringTransactions = (): { created: number; current: numb
   data.recurringTransactions.forEach(template => {
     if (!template.isActive) return;
 
-    // Start from the NEXT period after startDate.
-    // The startDate transaction is saved as a real (non-pending) transaction by the user.
-    let nextGen = getNextDate(parseISO(template.startDate), template.frequency, template.intervalMonths);
+    // Start generating directly from startDate
+    // Now that users can create fixed expenses directly from settings, we must generate the first instance.
+    let nextGen = parseISO(template.startDate);
     let safetyCounter = 0;
     const maxSafety = 500;
 
@@ -53,9 +53,11 @@ export const processRecurringTransactions = (): { created: number; current: numb
       const txId = `auto-${template.id}-${dateStr}`;
 
       // Only create if not already present (could be confirmed by user with same ID)
+      // AND not explicitly deleted by the user
       const exists = data.transactions.some(t => t.id === txId);
+      const isDeleted = data.deletedAutomations?.includes(txId);
 
-      if (!exists) {
+      if (!exists && !isDeleted) {
         const newTx: Transaction = {
           id: txId,
           date: dateStr,

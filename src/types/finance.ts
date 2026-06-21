@@ -100,4 +100,5 @@ export interface FinanceData {
   favorites?: FavoriteExpense[];
   alertSettings?: AlertSettings;
   savingsGoals?: SavingsGoal[];
+  deletedAutomations?: string[];
 }
