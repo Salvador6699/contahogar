@@ -1,15 +1,12 @@
 import { useState, useMemo, useEffect } from 'react';
 import { loadData, saveData } from '@/lib/storage';
 import { Budget, Category, Transaction, Account } from '@/types/finance';
-import { calculateTotalBalance, formatCurrency } from '@/lib/calculations';
+import { formatCurrency, calculateTotalBalance } from '@/lib/calculations';
 import { format } from 'date-fns';
 import { v4 as uuidv4 } from 'uuid';
-import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { Checkbox } from '@/components/ui/checkbox';
-import { PiggyBank, PlusCircle, ArrowRight, Save, TrendingUp, TrendingDown, Minus, Info, Trash2 } from 'lucide-react';
-import * as Icons from 'lucide-react';
+import { PiggyBank, PlusCircle, Save, Trash2 } from 'lucide-react';
 import { toast } from 'sonner';
 import { cn } from '@/lib/utils';
 import {
@@ -19,47 +16,33 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 
 const BudgetPage = () => {
     const [data, setData] = useState(loadData());
     const [currentMonth] = useState(format(new Date(), 'yyyy-MM'));
-    const [includeFutureIncomes, setIncludeFutureIncomes] = useState(false);
+    const [isAddModalOpen, setIsAddModalOpen] = useState(false);
+    const [newCategoryName, setNewCategoryName] = useState('');
+    const [newCategoryAmount, setNewCategoryAmount] = useState('');
     
     // We will keep a local state of the budgets being edited for the current month
-    // Key: category name, Value: assigned amount
-    const [localAssignments, setLocalAssignments] = useState<Record<string, number>>({});
+    // Key: category name, Value: object with amount and isAuto
+    const [localAssignments, setLocalAssignments] = useState<Record<string, { amount: number, isAuto: boolean }>>({});
 
     // Initialize local assignments from DB
     useEffect(() => {
-        const assignments: Record<string, number> = {};
-        const monthBudgets = data.budgets.filter(b => b.month === currentMonth);
+        const assignments: Record<string, { amount: number, isAuto: boolean }> = {};
+        const monthBudgets = data.budgets.filter(b => b.month === currentMonth && b.category !== 'Transferencia');
         monthBudgets.forEach(b => {
-            assignments[b.category] = b.amount;
+            assignments[b.category] = { amount: b.amount, isAuto: !!b.isAuto };
         });
         setLocalAssignments(assignments);
     }, [data, currentMonth]);
-
-    // Calculate core financial values
-    const calculations = useMemo(() => {
-        // 1. Total actual balance (same as home page)
-        let unassigned = calculateTotalBalance(data.accounts, data.transactions, false);
-
-        // Add future incomes if checked
-        if (includeFutureIncomes) {
-            const futureIncomes = data.transactions
-                .filter(t => t.isPending && t.type === 'income' && t.date.startsWith(currentMonth))
-                .reduce((sum, t) => sum + t.amount, 0);
-            unassigned += futureIncomes;
-        }
-
-        // Subtract what we are currently assigning in the form
-        const totalCurrentAssigned = Object.values(localAssignments).reduce((sum, amount) => sum + (amount || 0), 0);
-        unassigned -= totalCurrentAssigned;
-
-        return {
-            unassigned,
-        };
-    }, [data, localAssignments, includeFutureIncomes]);
 
     const handleAssignChange = (categoryName: string, value: string) => {
         const numValue = value === '' ? 0 : parseFloat(value);
@@ -67,41 +50,66 @@ const BudgetPage = () => {
 
         setLocalAssignments(prev => ({
             ...prev,
-            [categoryName]: numValue
+            [categoryName]: { ...(prev[categoryName] || { isAuto: false }), amount: numValue }
         }));
     };
 
     const handleAutoAssignFutureExpenses = () => {
-        const pendingExpenses = data.transactions.filter(t => t.isPending && t.type === 'expense' && t.date.startsWith(currentMonth));
-        
-        if (pendingExpenses.length === 0) {
-            toast.info('No hay gastos futuros pendientes.');
-            return;
-        }
+        setLocalAssignments(prev => {
+            const next = { ...prev };
+            let assignedCount = 0;
 
-        // "borra todo y rehace" - We clear previous assignments and ONLY use pending expenses
-        const newAssignments: Record<string, number> = {};
-        let assignedCount = 0;
+            // Encontrar gastos reales y futuros del mes (excluyendo transferencias)
+            const monthExpenses = data.transactions.filter(t => 
+                t.type === 'expense' && 
+                t.date.startsWith(currentMonth) &&
+                t.category !== 'Transferencia'
+            );
 
-        pendingExpenses.forEach(t => {
-            newAssignments[t.category] = (newAssignments[t.category] || 0) + t.amount;
-            assignedCount++;
+            // Agrupar por categoría
+            const spentByCategory: Record<string, number> = {};
+            monthExpenses.forEach(t => {
+                spentByCategory[t.category] = (spentByCategory[t.category] || 0) + t.amount;
+            });
+
+            // Solo asignar si la categoría no tiene un presupuesto manual
+            Object.entries(spentByCategory).forEach(([category, amount]) => {
+                if (!next[category]) {
+                    next[category] = { amount, isAuto: true };
+                    assignedCount++;
+                }
+            });
+
+            if (assignedCount === 0) {
+                toast.info('No se encontraron nuevos gastos sin presupuesto.');
+            } else {
+                toast.success(`Se añadieron ${assignedCount} categorías autoasignadas.`);
+            }
+
+            return next;
         });
-
-        setLocalAssignments(newAssignments);
-        toast.success(`Se borraron los anteriores y se auto-asignaron gastos futuros.`);
     };
 
-    const handleAddCategory = (categoryName: string) => {
-        if (!categoryName) return;
-        if (localAssignments[categoryName] !== undefined) {
-            toast.info('La categoría ya está en el presupuesto.');
+    const handleConfirmAddCategory = () => {
+        if (!newCategoryName) {
+            toast.error("Por favor, selecciona una categoría.");
             return;
         }
+        
+        const numValue = newCategoryAmount === '' ? 0 : parseFloat(newCategoryAmount);
+        if (isNaN(numValue)) {
+            toast.error("El importe no es válido.");
+            return;
+        }
+
         setLocalAssignments(prev => ({
             ...prev,
-            [categoryName]: 0
+            [newCategoryName]: { amount: numValue, isAuto: false }
         }));
+        
+        setIsAddModalOpen(false);
+        setNewCategoryName('');
+        setNewCategoryAmount('');
     };
 
     const handleRemoveCategory = (categoryName: string) => {
@@ -119,16 +127,15 @@ const BudgetPage = () => {
         newData.budgets = newData.budgets.filter(b => b.month !== currentMonth);
         
         // Add the new budgets from local state
-        Object.entries(localAssignments).forEach(([category, amount]) => {
-            if (amount > 0 || amount < 0) { // allow negative for corrections? usually just > 0
-                newData.budgets.push({
-                    id: uuidv4(),
-                    category,
-                    amount,
-                    month: currentMonth,
-                    createdAt: new Date().toISOString()
-                });
-            }
+        Object.entries(localAssignments).forEach(([category, { amount, isAuto }]) => {
+            newData.budgets.push({
+                id: uuidv4(),
+                category,
+                amount,
+                month: currentMonth,
+                isAuto,
+                createdAt: new Date().toISOString()
+            });
         });
 
         saveData(newData);
@@ -136,174 +143,279 @@ const BudgetPage = () => {
         toast.success('Presupuesto guardado correctamente');
     };
 
-    // We only show categories that are currently in localAssignments
-    const sortedCategories = Object.keys(localAssignments).sort();
-    const availableCategoriesToAdd = data.categories.filter(c => localAssignments[c.name] === undefined);
+    const incomeOnlyCategories = useMemo(() => {
+        const incomeCats = new Set<string>();
+        const expenseCats = new Set<string>();
+        data.transactions.forEach(t => {
+            if (t.type === 'income') incomeCats.add(t.category);
+            if (t.type === 'expense') expenseCats.add(t.category);
+        });
+        // También añadimos la palabra "Sueldo" por defecto si no tiene gastos
+        if (!expenseCats.has('Sueldo')) incomeCats.add('Sueldo');
+        if (!expenseCats.has('Nómina')) incomeCats.add('Nómina');
+        
+        return new Set([...incomeCats].filter(c => !expenseCats.has(c)));
+    }, [data.transactions]);
+
+    const availableCategoriesToAdd = data.categories.filter(c => 
+        (localAssignments[c.name] === undefined || localAssignments[c.name].isAuto) && 
+        c.name !== 'Transferencia' &&
+        !incomeOnlyCategories.has(c.name)
+    );
+
+    // Calculos globales
+    const capitalDisponible = useMemo(() => {
+        // Obtenemos el balance proyectado total hasta final del mes seleccionado
+        // Esto es exactamente lo que hace el Dashboard para calcular el "Capital"
+        const balanceActual = calculateTotalBalance(data.accounts, data.transactions, true, currentMonth);
+        
+        // A este balance le sumamos los gastos del mes actual, 
+        // ya que los gastos del mes no deben reducir tu dinero "Disponible para asignar" 
+        // (esos gastos ya se van descontando de los presupuestos asignados en la tabla de abajo)
+        const gastosMesActual = data.transactions
+            .filter(t => t.type === 'expense' && t.category !== 'Transferencia' && t.date.startsWith(currentMonth))
+            .reduce((sum, t) => sum + t.amount, 0);
+
+        return balanceActual + gastosMesActual;
+    }, [data, currentMonth]);
+
+    const getGastado = (catName: string) => {
+        return data.transactions
+            .filter(t => !t.isPending && t.type === 'expense' && t.category === catName && t.date.startsWith(currentMonth))
+            .reduce((sum, t) => sum + t.amount, 0);
+    };
+
+    const manualCategories = Object.keys(localAssignments).filter(cat => !localAssignments[cat].isAuto).sort();
+    const autoCategories = Object.keys(localAssignments).filter(cat => localAssignments[cat].isAuto).sort();
+
+    const sumManualBudgets = manualCategories.reduce((sum, cat) => sum + localAssignments[cat].amount, 0);
+    const sumAutoBudgets = autoCategories.reduce((sum, cat) => sum + localAssignments[cat].amount, 0);
+    const disponibleParaAsignar = Number((capitalDisponible - sumManualBudgets - sumAutoBudgets).toFixed(2));
 
     return (
-        <div className="min-h-screen app-gradient-bg lg:pl-20 pt-24 pb-32">
+        <div className="min-h-screen bg-background lg:pl-20 pt-24 pb-32">
             <div className="container max-w-4xl mx-auto px-4 py-6 sm:py-8">
                 
-                {/* Header & Unassigned */}
-                <div className="flex flex-col items-center justify-center text-center mb-10 space-y-4">
-                    <div className="p-4 bg-primary/10 rounded-full mb-2">
-                        <PiggyBank className="w-10 h-10 text-primary" />
-                    </div>
-                    <h1 className="text-3xl font-black text-foreground">Presupuestos</h1>
-                    <p className="text-muted-foreground max-w-lg">
-                        Asigna tu saldo actual a los sobres que desees.
-                    </p>
+                <div className="flex flex-col sm:flex-row items-center justify-between gap-4 mb-6">
+                    <h1 className="text-3xl font-black text-foreground flex items-center gap-2">
+                        <PiggyBank className="w-8 h-8 text-primary" />
+                        Presupuestos
+                    </h1>
 
-                    <Card className={cn(
-                        "p-6 sm:p-10 w-full max-w-md border-4 transition-colors",
-                        calculations.unassigned === 0 ? "border-primary/20 bg-primary/5" :
-                        calculations.unassigned > 0 ? "border-income/20 bg-income/5" :
-                        "border-destructive/20 bg-destructive/5"
-                    )}>
-                        <h2 className="text-sm font-bold uppercase tracking-widest text-muted-foreground mb-2">
-                            Disponible para Asignar
-                        </h2>
-                        <p className={cn(
-                            "text-5xl font-black tracking-tighter",
-                            calculations.unassigned === 0 ? "text-primary" :
-                            calculations.unassigned > 0 ? "text-income" :
-                            "text-destructive"
-                        )}>
-                            {formatCurrency(calculations.unassigned)}
-                        </p>
-                    </Card>
+                    <div className="flex flex-wrap items-center justify-center gap-2 w-full sm:w-auto">
+                        <Button 
+                            onClick={() => setIsAddModalOpen(true)}
+                            variant="outline"
+                            className="font-bold border-2 flex-1 sm:flex-none"
+                            title="Añadir presupuesto manualmente"
+                        >
+                            <PlusCircle className="w-4 h-4 mr-2" />
+                            Añadir manual
+                        </Button>
 
-                    <div className="flex items-center gap-2 mt-4 text-sm font-medium text-muted-foreground">
-                        <Checkbox 
-                            id="futureIncomes" 
-                            checked={includeFutureIncomes} 
-                            onCheckedChange={(c) => setIncludeFutureIncomes(!!c)}
-                        />
-                        <label htmlFor="futureIncomes" className="cursor-pointer">
-                            Incluir ingresos futuros (+{formatCurrency(
-                                data.transactions.filter(t => t.isPending && t.type === 'income' && t.date.startsWith(currentMonth)).reduce((sum, t) => sum + t.amount, 0)
-                            )})
-                        </label>
+                        <Button 
+                            onClick={handleAutoAssignFutureExpenses}
+                            variant="secondary"
+                            className="font-bold flex-1 sm:flex-none"
+                            title="Autoasignar gastos no presupuestados"
+                        >
+                            <PlusCircle className="w-4 h-4 sm:mr-2" />
+                            <span className="hidden sm:inline">Autoasignar</span>
+                        </Button>
+
+                        <Button 
+                            onClick={handleSave}
+                            className="font-black px-6 flex-1 sm:flex-none"
+                        >
+                            <Save className="w-4 h-4 sm:mr-2" />
+                            <span className="hidden sm:inline">Guardar</span>
+                        </Button>
                     </div>
                 </div>
 
-                {/* Toolbar */}
-                <div className="flex flex-col sm:flex-row items-center justify-between gap-4 mb-6 bg-card p-4 rounded-2xl shadow-sm border border-border/50">
-                    <Button 
-                        onClick={handleAutoAssignFutureExpenses}
-                        variant="secondary"
-                        className="w-full sm:w-auto font-bold"
-                    >
-                        <PlusCircle className="w-4 h-4 mr-2" />
-                        Auto-asignar gastos futuros
-                    </Button>
-
-                    <div className="w-full sm:w-auto flex items-center gap-2">
-                        <Select onValueChange={handleAddCategory}>
-                            <SelectTrigger className="w-full sm:w-[200px] font-bold">
-                                <SelectValue placeholder="Añadir presupuesto..." />
-                            </SelectTrigger>
-                            <SelectContent>
-                                {availableCategoriesToAdd.map(cat => (
-                                    <SelectItem key={cat.id} value={cat.name}>
-                                        {cat.name}
-                                    </SelectItem>
-                                ))}
-                            </SelectContent>
-                        </Select>
-                    </div>
-
-                    <Button 
-                        onClick={handleSave}
-                        className="w-full sm:w-auto font-black px-8"
-                    >
-                        <Save className="w-4 h-4 mr-2" />
-                        Guardar Presupuesto
-                    </Button>
-                </div>
-
-                {/* Envelopes Grid */}
-                <div className="space-y-4">
-                    {/* Header Row (Desktop) */}
-                    <div className="hidden sm:grid grid-cols-12 gap-4 px-4 py-2 text-xs font-black uppercase tracking-wider text-muted-foreground">
-                        <div className="col-span-5">Categoría</div>
-                        <div className="col-span-3 text-right">Asignar</div>
-                        <div className="col-span-4 text-right">Acciones</div>
-                    </div>
-
-                    {sortedCategories.length === 0 && (
-                        <div className="text-center py-12 text-muted-foreground">
-                            No hay presupuestos creados. Auto-asigna o añade uno manualmente.
+                <div className="bg-card border-2 border-border/50 overflow-hidden text-sm">
+                    {/* TOP TABLE: MANUAL BUDGETS */}
+                    <div className="border-b-2 border-border/50">
+                        {/* TOTAL CAPITAL ROW */}
+                        <div className="flex border-b border-border/50 bg-muted/20">
+                            <div className="w-3/4 p-2 sm:p-3 font-bold uppercase tracking-wider text-muted-foreground flex items-center">
+                                CAPITAL TOTAL DISPONIBLE
+                            </div>
+                            <div className="w-1/4 p-2 sm:p-3 font-black text-right border-l border-border/50 text-income text-base">
+                                {formatCurrency(capitalDisponible)}
+                            </div>
                         </div>
-                    )}
 
-                    {sortedCategories.map(catName => {
-                        const assignedAmount = localAssignments[catName] || 0;
-                        const catObj = data.categories.find(c => c.name === catName);
-                        
-                        // Icon rendering logic
-                        let IconElement = <Icons.Tag className="w-5 h-5 text-white" />;
-                        if (catObj?.icon && (Icons as any)[catObj.icon]) {
-                            const IconComp = (Icons as any)[catObj.icon];
-                            IconElement = <IconComp className="w-5 h-5 text-white" />;
-                        }
+                        {/* DISPONIBLE ROW */}
+                        <div className="flex border-b border-border/50 bg-muted/20">
+                            <div className="w-3/4 p-2 sm:p-3 font-bold uppercase tracking-wider text-muted-foreground flex items-center">
+                                CANTIDAD TODAVÍA NO ASIGNADA
+                            </div>
+                            <div className={cn(
+                                "w-1/4 p-2 sm:p-3 font-black text-right border-l border-border/50 text-base",
+                                disponibleParaAsignar > 0 ? "text-primary" : disponibleParaAsignar < 0 ? "text-destructive" : "text-muted-foreground"
+                            )}>
+                                {formatCurrency(disponibleParaAsignar)}
+                            </div>
+                        </div>
 
-                        return (
-                            <Card key={catName} className="overflow-hidden hover:shadow-md transition-all border-border/50">
-                                <div className="p-4 sm:p-0">
-                                    <div className="sm:grid sm:grid-cols-12 gap-4 items-center sm:px-4 sm:py-3">
-                                        
-                                        {/* Category Info */}
-                                        <div className="col-span-5 flex items-center gap-3 mb-4 sm:mb-0">
-                                            {catObj?.customIcon ? (
-                                                <div className="w-10 h-10 rounded-xl flex-shrink-0 bg-muted overflow-hidden">
-                                                    <img src={catObj.customIcon} alt={catName} className="w-full h-full object-cover" />
-                                                </div>
-                                            ) : (
-                                                <div 
-                                                    className="w-10 h-10 rounded-xl flex items-center justify-center flex-shrink-0 shadow-sm"
-                                                    style={{ backgroundColor: catObj?.color || '#ef4444' }}
-                                                >
-                                                    {IconElement}
-                                                </div>
-                                            )}
-                                            <p className="font-black text-foreground capitalize truncate text-lg sm:text-base">
-                                                {catName}
-                                            </p>
+                        {/* HEADERS */}
+                        <div className="flex border-b border-border/50 bg-muted/10 font-bold uppercase tracking-wider text-[10px] sm:text-xs text-muted-foreground">
+                            <div className="w-[35%] p-2 sm:p-3 border-r border-border/50">Categoría</div>
+                            <div className="w-[25%] p-2 sm:p-3 border-r border-border/50 text-center">Presupuesto</div>
+                            <div className="w-[20%] p-2 sm:p-3 border-r border-border/50 text-center">Gastado</div>
+                            <div className="w-[20%] p-2 sm:p-3 text-center">Resto</div>
+                        </div>
+
+                        {/* MANUAL ROWS */}
+                        {manualCategories.map(cat => {
+                            const amount = Number((localAssignments[cat].amount || 0).toFixed(2));
+                            const gastado = Number(getGastado(cat).toFixed(2));
+                            const resto = Number((amount - gastado).toFixed(2));
+
+                            return (
+                                <div key={cat} className="flex border-b border-border/20 hover:bg-muted/5 transition-colors group">
+                                    <div className="w-[35%] p-2 sm:p-3 border-r border-border/50 font-bold capitalize flex items-center justify-between">
+                                        <span className="truncate">{cat}</span>
+                                        <button onClick={() => handleRemoveCategory(cat)} className="text-destructive/50 hover:text-destructive opacity-100 sm:opacity-0 sm:group-hover:opacity-100 transition-opacity">
+                                            <Trash2 className="w-3 h-3" />
+                                        </button>
+                                    </div>
+                                    <div className="w-[25%] p-1 sm:p-2 border-r border-border/50">
+                                        <div className="relative w-full flex items-center justify-end">
+                                            <Input 
+                                                type="number"
+                                                step="0.01"
+                                                value={amount === 0 ? '' : amount}
+                                                onChange={(e) => handleAssignChange(cat, e.target.value)}
+                                                placeholder="0.00"
+                                                className="h-8 text-right font-bold focus-visible:ring-1 bg-transparent border-transparent hover:border-input focus:border-input transition-colors w-full pr-5"
+                                            />
+                                            <span className="absolute right-2 text-muted-foreground font-bold text-xs select-none pointer-events-none">€</span>
                                         </div>
-
-                                        {/* Assigned Input */}
-                                        <div className="col-span-3 text-center sm:text-right relative mb-3 sm:mb-0 flex justify-center sm:justify-end">
-                                            <div className="relative w-full max-w-[120px]">
-                                                <span className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground font-bold">€</span>
-                                                <Input 
-                                                    type="number"
-                                                    value={assignedAmount === 0 ? '' : assignedAmount}
-                                                    onChange={(e) => handleAssignChange(catName, e.target.value)}
-                                                    placeholder="0.00"
-                                                    className="pl-8 text-right font-bold h-10 focus:border-primary/50"
-                                                />
-                                            </div>
-                                        </div>
-
-                                        <div className="col-span-4 flex items-center justify-center sm:justify-end">
-                                            <Button 
-                                                variant="ghost" 
-                                                size="icon" 
-                                                onClick={() => handleRemoveCategory(catName)}
-                                                className="text-destructive hover:bg-destructive/10"
-                                                title="Eliminar de presupuestos"
-                                            >
-                                                <Trash2 className="w-4 h-4" />
-                                            </Button>
-                                        </div>
-
+                                    </div>
+                                    <div className="w-[20%] p-2 sm:p-3 border-r border-border/50 text-right text-muted-foreground font-medium flex items-center justify-end">
+                                        {formatCurrency(gastado)}
+                                    </div>
+                                    <div className={cn(
+                                        "w-[20%] p-2 sm:p-3 text-right font-bold flex items-center justify-end",
+                                        resto > 0 ? "text-income" : resto < 0 ? "text-destructive" : "text-muted-foreground"
+                                    )}>
+                                        {formatCurrency(resto)}
                                     </div>
                                 </div>
-                            </Card>
-                        );
-                    })}
+                            );
+                        })}
+                        {manualCategories.length === 0 && (
+                            <div className="p-8 text-center text-muted-foreground text-xs uppercase tracking-wider font-bold">
+                                Añade presupuestos para este mes
+                            </div>
+                        )}
+                    </div>
+
+                    <div className="h-8 bg-muted/10"></div>
+
+                    {/* BOTTOM TABLE: AUTO BUDGETS */}
+                    <div>
+                        {/* AUTO HEADERS */}
+                        <div className="flex border-b border-t-2 border-border/50 bg-muted/20">
+                            <div className="w-full p-2 sm:p-3 font-bold uppercase tracking-wider text-muted-foreground flex items-center text-xs">
+                                GASTOS NO PRESUPUESTADOS / AUTOASIGNADOS
+                            </div>
+                        </div>
+
+                        {/* AUTO ROWS */}
+                        {autoCategories.map(cat => {
+                            const amount = Number((localAssignments[cat].amount || 0).toFixed(2));
+                            const gastado = Number(getGastado(cat).toFixed(2));
+                            const resto = Number((amount - gastado).toFixed(2));
+
+                            return (
+                                <div key={cat} className="flex border-b border-border/20 hover:bg-muted/5 transition-colors group">
+                                    <div className="w-[35%] p-2 sm:p-3 border-r border-border/50 font-bold capitalize flex items-center justify-between text-muted-foreground">
+                                        <span className="truncate">{cat}</span>
+                                        <button onClick={() => handleRemoveCategory(cat)} className="text-destructive/50 hover:text-destructive opacity-100 sm:opacity-0 sm:group-hover:opacity-100 transition-opacity">
+                                            <Trash2 className="w-3 h-3" />
+                                        </button>
+                                    </div>
+                                    <div className="w-[25%] p-1 sm:p-2 border-r border-border/50">
+                                        <div className="relative w-full flex items-center justify-end">
+                                            <Input 
+                                                type="number"
+                                                step="0.01"
+                                                value={amount === 0 ? '' : amount}
+                                                onChange={(e) => handleAssignChange(cat, e.target.value)}
+                                                placeholder="0.00"
+                                                className="h-8 text-right font-bold focus-visible:ring-1 bg-transparent border-transparent hover:border-input focus:border-input transition-colors w-full pr-5 text-muted-foreground"
+                                            />
+                                            <span className="absolute right-2 text-muted-foreground/60 font-bold text-xs select-none pointer-events-none">€</span>
+                                        </div>
+                                    </div>
+                                    <div className="w-[20%] p-2 sm:p-3 border-r border-border/50 text-right text-muted-foreground/60 font-medium flex items-center justify-end">
+                                        {formatCurrency(gastado)}
+                                    </div>
+                                    <div className={cn(
+                                        "w-[20%] p-2 sm:p-3 text-right font-bold flex items-center justify-end",
+                                        resto > 0 ? "text-income" : resto < 0 ? "text-destructive" : "text-muted-foreground"
+                                    )}>
+                                        {formatCurrency(resto)}
+                                    </div>
+                                </div>
+                            );
+                        })}
+                        {autoCategories.length === 0 && (
+                            <div className="p-8 text-center text-muted-foreground text-xs uppercase tracking-wider font-bold">
+                                Sin gastos autoasignados
+                            </div>
+                        )}
+                    </div>
                 </div>
+
+                <Dialog open={isAddModalOpen} onOpenChange={setIsAddModalOpen}>
+                    <DialogContent className="sm:max-w-md">
+                        <DialogHeader>
+                            <DialogTitle className="text-xl font-black">Añadir Presupuesto</DialogTitle>
+                        </DialogHeader>
+                        <div className="space-y-4 py-4">
+                            <div className="space-y-2">
+                                <label className="text-sm font-bold text-muted-foreground">Categoría</label>
+                                <Select value={newCategoryName} onValueChange={setNewCategoryName}>
+                                    <SelectTrigger className="w-full font-bold">
+                                        <SelectValue placeholder="Selecciona una categoría..." />
+                                    </SelectTrigger>
+                                    <SelectContent>
+                                        {availableCategoriesToAdd.map(cat => (
+                                            <SelectItem key={cat.id} value={cat.name}>
+                                                {cat.name}
+                                            </SelectItem>
+                                        ))}
+                                    </SelectContent>
+                                </Select>
+                            </div>
+                            <div className="space-y-2">
+                                <label className="text-sm font-bold text-muted-foreground">Importe del Presupuesto (€)</label>
+                                <div className="relative w-full flex items-center justify-end">
+                                    <Input 
+                                        type="number"
+                                        step="0.01"
+                                        value={newCategoryAmount}
+                                        onChange={(e) => setNewCategoryAmount(e.target.value)}
+                                        placeholder="0.00"
+                                        className="h-12 text-right font-bold text-lg focus-visible:ring-1 pr-8"
+                                        autoFocus
+                                    />
+                                    <span className="absolute right-3 text-muted-foreground font-bold select-none pointer-events-none">€</span>
+                                </div>
+                            </div>
+                            <Button 
+                                onClick={handleConfirmAddCategory} 
+                                className="w-full font-black mt-2 h-12"
+                            >
+                                Añadir a la lista
+                            </Button>
+                        </div>
+                    </DialogContent>
+                </Dialog>
 
             </div>
         </div>

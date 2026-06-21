@@ -88,6 +88,7 @@ export interface Budget {
   amount: number;
   month: string; // yyyy-MM
   createdAt?: string; // ISO string
+  isAuto?: boolean;
 }
 
 export interface FinanceData {

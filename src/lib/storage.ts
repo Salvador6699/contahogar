@@ -147,8 +147,27 @@ export const loadData = (): FinanceData => {
       }
     }
     
-    const data = JSON.parse(jsonString);
-    return migrateData(data);
+    const parsedData = JSON.parse(jsonString);
+    const data = migrateData(parsedData);
+    
+    // Eliminar categorías repetidas automáticamente
+    if (data.categories && Array.isArray(data.categories)) {
+        const uniqueNames = new Set<string>();
+        data.categories = data.categories.filter((cat: any) => {
+            const name = typeof cat === 'string' ? cat : cat.name;
+            if (!name) return false;
+            
+            // Normalizar quitando acentos y a minúsculas
+            const normalized = name.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '').trim();
+            if (uniqueNames.has(normalized)) {
+                return false;
+            }
+            uniqueNames.add(normalized);
+            return true;
+        });
+    }
+    
+    return data;
   } catch (error) {
     console.error('Error loading data:', error);
     return getDefaultData();
@@ -447,7 +466,45 @@ export const updateCategory = (updated: Category): void => {
     const data = loadData();
     const index = (data.categories as any[]).findIndex(c => (typeof c === 'string' ? c : c.id) === updated.id);
     if (index !== -1) {
+        const oldCategory = data.categories[index];
+        const oldName = typeof oldCategory === 'string' ? oldCategory : oldCategory.name;
+        
         data.categories[index] = updated as any;
+
+        // Si el nombre de la categoría ha cambiado, propagar el cambio a todos los registros (Cascada)
+        if (oldName !== updated.name) {
+            // Actualizar transacciones
+            data.transactions = data.transactions.map(t => 
+                t.category === oldName ? { ...t, category: updated.name } : t
+            );
+            
+            // Actualizar presupuestos
+            data.budgets = data.budgets.map(b => 
+                b.category === oldName ? { ...b, category: updated.name } : b
+            );
+            
+            // Actualizar transacciones recurrentes
+            if (data.recurringTransactions) {
+                data.recurringTransactions = data.recurringTransactions.map(rt => 
+                    rt.category === oldName ? { ...rt, category: updated.name } : rt
+                );
+            }
+            
+            // Actualizar favoritos
+            if (data.favorites) {
+                data.favorites = data.favorites.map(f => 
+                    f.category === oldName ? { ...f, category: updated.name } : f
+                );
+            }
+
+            // Actualizar metas de ahorro
+            if (data.savingsGoals) {
+                data.savingsGoals = data.savingsGoals.map(sg => 
+                    sg.category === oldName ? { ...sg, category: updated.name } : sg
+                );
+            }
+        }
+
         saveData(data);
     }
 };
