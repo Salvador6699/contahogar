@@ -49,12 +49,12 @@ const Index = () => {
   const [isTransactionModalOpen, setIsTransactionModalOpen] = useState(false);
   const [transactionType, setTransactionType] = useState<TransactionType>('expense');
   const [editingTransaction, setEditingTransaction] = useState<Transaction | null>(null);
-  const [selectedMonth, setSelectedMonth] = useState<string | null>(null);
+  const [searchParams, setSearchParams] = useSearchParams();
+  const [selectedMonth, setSelectedMonth] = useState<string | null>(searchParams.get('month'));
   const [selectedAccount, setSelectedAccount] = useState<string | 'total'>('total');
   const [isFavoriteModalOpen, setIsFavoriteModalOpen] = useState(false);
   const [editingFavorite, setEditingFavorite] = useState<FavoriteExpense | null>(null);
   const [favorites, setFavorites] = useState<FavoriteExpense[]>([]);
-  const [searchParams, setSearchParams] = useSearchParams();
   const [isQuickAmountModalOpen, setIsQuickAmountModalOpen] = useState(false);
   const [activeQuickFavorite, setActiveQuickFavorite] = useState<FavoriteExpense | null>(null);
 
@@ -81,14 +81,27 @@ const Index = () => {
     const storedData = loadData();
     setData(storedData);
 
+    let paramsChanged = false;
+    const newParams = new URLSearchParams(searchParams);
+
+    // Handle month selection from History
+    const monthParam = searchParams.get('month');
+    if (monthParam) {
+      setSelectedMonth(monthParam);
+      newParams.delete('month');
+      paramsChanged = true;
+    }
+
     // Handle quick-add from navigation
     const action = searchParams.get('action');
     if (action === 'add-expense') {
       openExpenseModal();
-      setSearchParams({}, { replace: true });
+      newParams.delete('action');
+      paramsChanged = true;
     } else if (action === 'add-income') {
       openIncomeModal();
-      setSearchParams({}, { replace: true });
+      newParams.delete('action');
+      paramsChanged = true;
     } else if (action === 'quick-expense') {
       const favId = searchParams.get('id');
       const favs = loadFavorites();
@@ -97,12 +110,19 @@ const Index = () => {
         setActiveQuickFavorite(fav);
         setIsQuickAmountModalOpen(true);
       }
-      setSearchParams({}, { replace: true });
+      newParams.delete('action');
+      newParams.delete('id');
+      paramsChanged = true;
     } else if (action === 'manage-favorites') {
       setIsFavoriteModalOpen(true);
-      setSearchParams({}, { replace: true });
+      newParams.delete('action');
+      paramsChanged = true;
     }
-  }, [searchParams]);
+
+    if (paramsChanged) {
+      setSearchParams(newParams, { replace: true });
+    }
+  }, [searchParams, setSearchParams]);
 
   const handleAddTransaction = (
     transaction: Omit<Transaction, 'id'>,

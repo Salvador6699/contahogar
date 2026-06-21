@@ -9,8 +9,9 @@ import { Transaction } from '@/types/finance';
 import { loadData } from '@/lib/storage';
 import { formatCurrency } from '@/lib/calculations';
 import MobileNav from '@/components/MobileNav';
-import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from 'recharts';
+import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, Cell } from 'recharts';
 import { ChartContainer, ChartTooltipContent } from '@/components/ui/chart';
+import { ResponsiveDialog, ResponsiveDialogContent, ResponsiveDialogHeader, ResponsiveDialogTitle } from '@/components/ui/responsive-dialog';
 
 interface MonthlyData {
     month: string;
@@ -22,6 +23,7 @@ interface MonthlyData {
 const HistoryPage = () => {
     const navigate = useNavigate();
     const [data] = useState(loadData());
+    const [selectedChartMonth, setSelectedChartMonth] = useState<{ monthKey: string, monthName: string } | null>(null);
 
     const monthlyData: MonthlyData[] = useMemo(() => {
         const monthMap = new Map<string, Transaction[]>();
@@ -55,6 +57,75 @@ const HistoryPage = () => {
     const handleMonthClick = (monthKey: string) => {
         navigate(`/?month=${monthKey}`);
     };
+
+    const handleBarClick = (data: any) => {
+        if (data && data.monthKey) {
+            setSelectedChartMonth({ monthKey: data.monthKey, monthName: data.month });
+        }
+    };
+
+    const chartDetailsData = useMemo(() => {
+        if (!selectedChartMonth) return null;
+        
+        const isTransfer = (category: string) => {
+            const normalized = category.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '');
+            return normalized === 'transferencia';
+        };
+
+        const monthTransactions = data.transactions.filter(t => 
+            t.date.startsWith(selectedChartMonth.monthKey) && 
+            !t.isPending &&
+            !isTransfer(t.category)
+        );
+
+        const incomeColors = ['#059669', '#10b981', '#34d399', '#6ee7b7', '#a7f3d0'];
+        const expenseColors = ['#dc2626', '#ef4444', '#f87171', '#fca5a5', '#fecaca'];
+
+        const getTop5AndOthers = (type: 'income' | 'expense') => {
+            const summary: Record<string, number> = {};
+            monthTransactions.filter(t => t.type === type).forEach(t => {
+                summary[t.category] = (summary[t.category] || 0) + t.amount;
+            });
+
+            const colors = type === 'income' ? incomeColors : expenseColors;
+
+            const sorted = Object.entries(summary)
+                .sort((a, b) => b[1] - a[1])
+                .map(([category, amount], index) => {
+                    return {
+                        category,
+                        amount,
+                        fill: index < 5 ? colors[index] : '#94a3b8'
+                    };
+                });
+
+            const top5 = sorted.slice(0, 5);
+            const othersAmount = sorted.slice(5).reduce((sum, item) => sum + item.amount, 0);
+
+            if (othersAmount > 0) {
+                top5.push({ category: 'Otros', amount: othersAmount, fill: '#94a3b8' });
+            }
+            return top5;
+        };
+
+        const incomeData = getTop5AndOthers('income');
+        const expenseData = getTop5AndOthers('expense');
+
+        const chartDataObj: any = { name: selectedChartMonth.monthName };
+        
+        incomeData.forEach((item, index) => {
+            chartDataObj[`income_${index}`] = item.amount;
+        });
+        expenseData.forEach((item, index) => {
+            chartDataObj[`expense_${index}`] = item.amount;
+        });
+
+        return {
+            chartData: [chartDataObj],
+            incomeData,
+            expenseData
+        };
+    }, [selectedChartMonth, data.transactions, data.categories]);
 
     const chartConfig = {
         income: {
@@ -113,6 +184,8 @@ const HistoryPage = () => {
                                             radius={[4, 4, 0, 0]}
                                             isAnimationActive={false}
                                             animationDuration={0}
+                                            onClick={(data) => handleBarClick(data)}
+                                            className="cursor-pointer hover:opacity-80 transition-opacity"
                                         />
                                         <Bar
                                             dataKey="expenses"
@@ -121,6 +194,8 @@ const HistoryPage = () => {
                                             radius={[4, 4, 0, 0]}
                                             isAnimationActive={false}
                                             animationDuration={0}
+                                            onClick={(data) => handleBarClick(data)}
+                                            className="cursor-pointer hover:opacity-80 transition-opacity"
                                         />
                                     </BarChart>
                                 </ResponsiveContainer>
@@ -164,6 +239,112 @@ const HistoryPage = () => {
                     </div>
                 )}
             </div>
+
+            {/* Modal de Detalle de Barras */}
+            {selectedChartMonth && chartDetailsData && (
+                <ResponsiveDialog 
+                    open={!!selectedChartMonth} 
+                    onOpenChange={(open) => {
+                        if (!open) {
+                            setSelectedChartMonth(null);
+                        }
+                    }}
+                >
+                    <ResponsiveDialogContent className="sm:max-w-3xl max-h-[90vh] overflow-hidden flex flex-col p-0">
+                        <ResponsiveDialogHeader className="px-6 pt-6 pb-2 shrink-0">
+                            <ResponsiveDialogTitle className="text-xl flex flex-col">
+                                <span className="capitalize">{selectedChartMonth.monthName}</span>
+                                <span className="text-sm font-bold text-muted-foreground">
+                                    Desglose de Ingresos y Gastos (Top 5)
+                                </span>
+                            </ResponsiveDialogTitle>
+                        </ResponsiveDialogHeader>
+                        <div className="flex-1 overflow-y-auto px-6 pb-6 custom-scrollbar">
+                            <div className="flex flex-col sm:flex-row gap-6 mt-4 items-start">
+                                <div className="h-[350px] w-full sm:flex-1 sm:min-w-[200px]">
+                                    <ResponsiveContainer width="100%" height="100%">
+                                        <BarChart 
+                                            data={chartDetailsData.chartData} 
+                                            margin={{ top: 0, right: 0, left: -20, bottom: 0 }}
+                                            barSize={40}
+                                        >
+                                            <CartesianGrid strokeDasharray="3 3" vertical={false} className="stroke-muted" />
+                                            <XAxis dataKey="name" tick={{ fontSize: 12 }} />
+                                            <YAxis tickFormatter={(val) => `${val}€`} tick={{ fontSize: 10 }} />
+                                            <Tooltip 
+                                                formatter={(value: number, name: string) => [formatCurrency(value), name.split(': ')[1]]}
+                                                cursor={{ fill: 'transparent' }}
+                                                contentStyle={{
+                                                    backgroundColor: 'hsl(var(--background))',
+                                                    border: '1px solid hsl(var(--border))',
+                                                    borderRadius: '8px',
+                                                    fontSize: '12px',
+                                                    fontWeight: 'bold'
+                                                }}
+                                            />
+                                            {chartDetailsData.incomeData.map((item, index) => (
+                                                <Bar 
+                                                    key={`inc-${index}`} 
+                                                    dataKey={`income_${index}`} 
+                                                    name={`Ingreso: ${item.category}`} 
+                                                    stackId="income" 
+                                                    fill={item.fill} 
+                                                    isAnimationActive={false}
+                                                />
+                                            ))}
+                                            {chartDetailsData.expenseData.map((item, index) => (
+                                                <Bar 
+                                                    key={`exp-${index}`} 
+                                                    dataKey={`expense_${index}`} 
+                                                    name={`Gasto: ${item.category}`} 
+                                                    stackId="expense" 
+                                                    fill={item.fill} 
+                                                    isAnimationActive={false}
+                                                />
+                                            ))}
+                                        </BarChart>
+                                    </ResponsiveContainer>
+                                </div>
+                                <div className="w-full sm:w-[250px] flex flex-col gap-6">
+                                    {chartDetailsData.incomeData.length > 0 && (
+                                        <div>
+                                            <h3 className="font-bold text-income mb-2 border-b border-border/50 pb-1">Top Ingresos</h3>
+                                            <div className="space-y-1.5 mt-2">
+                                                {chartDetailsData.incomeData.map((item, i) => (
+                                                    <div key={i} className="flex justify-between items-center text-sm">
+                                                        <div className="flex items-center gap-2 overflow-hidden">
+                                                            <div className="w-3 h-3 rounded-full shrink-0" style={{ backgroundColor: item.fill }} />
+                                                            <span className="truncate max-w-[120px] capitalize text-muted-foreground">{item.category}</span>
+                                                        </div>
+                                                        <span className="font-bold">{formatCurrency(item.amount)}</span>
+                                                    </div>
+                                                ))}
+                                            </div>
+                                        </div>
+                                    )}
+                                    {chartDetailsData.expenseData.length > 0 && (
+                                        <div>
+                                            <h3 className="font-bold text-expense mb-2 border-b border-border/50 pb-1">Top Gastos</h3>
+                                            <div className="space-y-1.5 mt-2">
+                                                {chartDetailsData.expenseData.map((item, i) => (
+                                                    <div key={i} className="flex justify-between items-center text-sm">
+                                                        <div className="flex items-center gap-2 overflow-hidden">
+                                                            <div className="w-3 h-3 rounded-full shrink-0" style={{ backgroundColor: item.fill }} />
+                                                            <span className="truncate max-w-[120px] capitalize text-muted-foreground">{item.category}</span>
+                                                        </div>
+                                                        <span className="font-bold">{formatCurrency(item.amount)}</span>
+                                                    </div>
+                                                ))}
+                                            </div>
+                                        </div>
+                                    )}
+                                </div>
+                            </div>
+                        </div>
+                    </ResponsiveDialogContent>
+                </ResponsiveDialog>
+            )}
+
             <MobileNav />
         </div>
     );
