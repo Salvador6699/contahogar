@@ -80,7 +80,7 @@ const MobileNav = () => {
         { icon: SearchIcon, label: 'Buscar', path: '/buscar' },
         { icon: PiggyBank, label: 'Presupuestos', path: '/presupuestos' },
         { icon: History, label: 'Historial', path: '/historial' },
-        { icon: Zap, label: 'Botones Rápidos', path: '/?action=manage-favorites' },
+        { icon: Zap, label: 'Botones Rápidos', path: '/favorites' },
         { icon: Settings, label: 'Ajustes', path: '/ajustes' },
         { icon: ShieldCheck, label: 'Seguridad', path: '/backup' },
     ];

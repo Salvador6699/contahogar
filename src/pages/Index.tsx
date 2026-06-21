@@ -29,7 +29,6 @@ import BalanceCard from '@/components/BalanceCard';
 import SummaryCards from '@/components/SummaryCards';
 import CategoryBreakdown from '@/components/CategoryBreakdown';
 import QuickExpenses from '@/components/QuickExpenses';
-import FavoriteExpenseModal from '@/components/FavoriteExpenseModal';
 import TransactionModal from '@/components/TransactionModal';
 import TransactionList from '@/components/TransactionList';
 import AccountSelector from '@/components/AccountSelector';
@@ -505,20 +504,6 @@ const Index = () => {
               )}
             </div>
           </div>
-
-          <FavoriteExpenseModal 
-            isOpen={isFavoriteModalOpen}
-            onClose={() => {
-              setIsFavoriteModalOpen(false);
-              setEditingFavorite(null);
-            }}
-            favorites={favorites}
-            categories={data.categories}
-            accounts={data.accounts}
-            onSave={handleSaveFavorite}
-            onDelete={handleDeleteFavorite}
-            editingFavorite={editingFavorite}
-          />
 
           {/* Content Sections */}
           <div className="space-y-8 pb-24 items-start">

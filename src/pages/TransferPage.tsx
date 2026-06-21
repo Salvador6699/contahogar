@@ -19,6 +19,9 @@ import { toast } from 'sonner';
 import { useScrollOnFocus } from '@/hooks/useScrollOnFocus';
 import { withKeyboardClose } from '@/lib/utils';
 import { v4 as uuidv4 } from 'uuid';
+import { SmartPagination } from '@/components/SmartPagination';
+
+const ITEMS_PER_PAGE = 5;
 
 const TransferPage = () => {
     const navigate = useNavigate();
@@ -28,6 +31,7 @@ const TransferPage = () => {
     const [fromAccountId, setFromAccountId] = useState('');
     const [toAccountId, setToAccountId] = useState('');
     const [editingTransferId, setEditingTransferId] = useState<string | null>(null);
+    const [currentPage, setCurrentPage] = useState(1);
 
     useMemo(() => {
         if (data.accounts.length >= 2) {
@@ -137,6 +141,15 @@ const TransferPage = () => {
             .filter(t => t.type === 'expense')
             .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
     }, [transferTransactions]);
+
+    // Pagination
+    const totalPages = Math.max(1, Math.ceil(transferPairs.length / ITEMS_PER_PAGE));
+    const safeCurrentPage = Math.min(currentPage, totalPages);
+    const startIndex = (safeCurrentPage - 1) * ITEMS_PER_PAGE;
+    const isLastPage = safeCurrentPage === totalPages;
+    // Calculate endIndex ensuring all remaining items are shown on the last page if they are less than ITEMS_PER_PAGE
+    const endIndex = isLastPage ? transferPairs.length : startIndex + ITEMS_PER_PAGE;
+    const paginatedPairs = transferPairs.slice(startIndex, endIndex);
 
     return (
         <div className="min-h-screen app-gradient-bg pb-32  pt-24">
@@ -251,7 +264,7 @@ const TransferPage = () => {
                             </p>
                         ) : (
                             <div className="space-y-3">
-                                {transferPairs.map((transfer) => {
+                                {paginatedPairs.map((transfer) => {
                                     const matchingIncome = transferTransactions.find(
                                         t => t.type === 'income' &&
                                             t.amount === transfer.amount &&
@@ -306,6 +319,19 @@ const TransferPage = () => {
                                     );
                                 })}
                             </div>
+                        )}
+
+                        {transferPairs.length > 0 && (
+                            <>
+                                <SmartPagination 
+                                    currentPage={currentPage}
+                                    totalPages={totalPages}
+                                    onPageChange={setCurrentPage}
+                                />
+                                <p className="text-center text-xs text-muted-foreground mt-4">
+                                    Mostrando {startIndex + 1}-{endIndex} de {transferPairs.length} transferencias
+                                </p>
+                            </>
                         )}
                     </div>
                 </div>

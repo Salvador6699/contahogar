@@ -17,6 +17,7 @@ import BackupPage from "./pages/BackupPage";
 import TransferPage from "./pages/TransferPage";
 import SearchPage from "./pages/SearchPage";
 import BudgetPage from "./pages/BudgetPage";
+import FavoritesPage from "./pages/FavoritesPage";
 import NotFound from "./pages/NotFound";
 
 const App = () => {
@@ -56,6 +57,7 @@ const App = () => {
                 <Route path="/transferir" element={<TransferPage />} />
                 <Route path="/buscar" element={<SearchPage />} />
                 <Route path="/presupuestos" element={<BudgetPage />} />
+                <Route path="/favorites" element={<FavoritesPage />} />
                 <Route path="*" element={<NotFound />} />
               </Route>
             </Routes>
