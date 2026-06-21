@@ -6,7 +6,7 @@ import { format } from 'date-fns';
 import { v4 as uuidv4 } from 'uuid';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { PiggyBank, PlusCircle, Save, Trash2 } from 'lucide-react';
+import { PiggyBank, PlusCircle, Save, Trash2, Plus, Minus, Search, X } from 'lucide-react';
 import { toast } from 'sonner';
 import { cn } from '@/lib/utils';
 import {
@@ -33,6 +33,12 @@ const BudgetPage = () => {
     // We will keep a local state of the budgets being edited for the current month
     // Key: category name, Value: object with amount and isAuto
     const [localAssignments, setLocalAssignments] = useState<Record<string, { amount: number, isAuto: boolean }>>({});
+    
+    // State for the "Añadir cantidad" input on each card
+    const [addAmounts, setAddAmounts] = useState<Record<string, string>>({});
+
+    // State for searching categories
+    const [searchQuery, setSearchQuery] = useState('');
 
     // Initialize local assignments from DB
     useEffect(() => {
@@ -52,6 +58,25 @@ const BudgetPage = () => {
             ...prev,
             [categoryName]: { ...(prev[categoryName] || { isAuto: false }), amount: numValue }
         }));
+    };
+
+    const handleAddAmount = (cat: string, isSubtract: boolean = false) => {
+        const inputVal = parseFloat(addAmounts[cat] || '0');
+        if (isNaN(inputVal) || inputVal === 0) return;
+        
+        const amountToAdd = isSubtract ? -Math.abs(inputVal) : Math.abs(inputVal);
+        
+        setLocalAssignments(prev => {
+            const currentAmount = prev[cat]?.amount || 0;
+            const newAmount = Math.max(0, currentAmount + amountToAdd);
+            return {
+                ...prev,
+                [cat]: { ...(prev[cat] || { isAuto: false }), amount: newAmount }
+            };
+        });
+        
+        // Clear input after adding
+        setAddAmounts(prev => ({ ...prev, [cat]: '' }));
     };
 
     const handleAutoAssignFutureExpenses = () => {
@@ -179,197 +204,388 @@ const BudgetPage = () => {
         return balanceActual + gastosMesActual;
     }, [data, currentMonth]);
 
+    const ingresosDelMes = useMemo(() => {
+        return data.transactions
+            .filter(t => t.type === 'income' && t.category !== 'Transferencia' && t.date.startsWith(currentMonth))
+            .reduce((sum, t) => sum + t.amount, 0);
+    }, [data.transactions, currentMonth]);
+
     const getGastado = (catName: string) => {
         return data.transactions
             .filter(t => !t.isPending && t.type === 'expense' && t.category === catName && t.date.startsWith(currentMonth))
             .reduce((sum, t) => sum + t.amount, 0);
     };
 
-    const manualCategories = Object.keys(localAssignments).filter(cat => !localAssignments[cat].isAuto).sort();
-    const autoCategories = Object.keys(localAssignments).filter(cat => localAssignments[cat].isAuto).sort();
+    const getRestoForSort = (catName: string) => {
+        const amount = localAssignments[catName]?.amount || 0;
+        const gastado = getGastado(catName);
+        return amount - gastado;
+    };
+
+    const manualCategories = Object.keys(localAssignments)
+        .filter(cat => !localAssignments[cat].isAuto)
+        .sort((a, b) => getRestoForSort(b) - getRestoForSort(a));
+
+    const autoCategories = Object.keys(localAssignments)
+        .filter(cat => localAssignments[cat].isAuto)
+        .sort((a, b) => getRestoForSort(b) - getRestoForSort(a));
 
     const sumManualBudgets = manualCategories.reduce((sum, cat) => sum + localAssignments[cat].amount, 0);
     const sumAutoBudgets = autoCategories.reduce((sum, cat) => sum + localAssignments[cat].amount, 0);
     const disponibleParaAsignar = Number((capitalDisponible - sumManualBudgets - sumAutoBudgets).toFixed(2));
+    const disponibleBasadoEnIngresos = Number((ingresosDelMes - sumManualBudgets - sumAutoBudgets).toFixed(2));
+
+    const filteredManualCategories = manualCategories.filter(cat => cat.toLowerCase().includes(searchQuery.toLowerCase()));
+    const filteredAutoCategories = autoCategories.filter(cat => cat.toLowerCase().includes(searchQuery.toLowerCase()));
 
     return (
-        <div className="min-h-screen bg-background lg:pl-20 pt-24 pb-32">
-            <div className="container max-w-4xl mx-auto px-4 py-6 sm:py-8">
+        <div className="min-h-screen bg-background lg:pl-20 pt-16 pb-24 lg:pb-8">
+            <div className="container max-w-4xl mx-auto px-4 pt-2 sm:pt-8">
                 
-                <div className="flex flex-col sm:flex-row items-center justify-between gap-4 mb-6">
-                    <h1 className="text-3xl font-black text-foreground flex items-center gap-2">
+                {/* PAGE TITLE & ACTION BUTTONS (Scrolls away) */}
+                <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 mb-6">
+                    <h1 className="text-3xl font-black text-foreground flex items-center gap-2 mt-2 sm:mt-0">
                         <PiggyBank className="w-8 h-8 text-primary" />
                         Presupuestos
                     </h1>
 
-                    <div className="flex flex-wrap items-center justify-center gap-2 w-full sm:w-auto">
+                    <div className="flex flex-wrap items-center justify-start sm:justify-end gap-2 w-full sm:w-auto">
                         <Button 
                             onClick={() => setIsAddModalOpen(true)}
                             variant="outline"
-                            className="font-bold border-2 flex-1 sm:flex-none"
+                            className="font-bold border-2 flex-1 sm:flex-none h-11"
                             title="Añadir presupuesto manualmente"
                         >
-                            <PlusCircle className="w-4 h-4 mr-2" />
+                            <PlusCircle className="w-5 h-5 mr-2" />
                             Añadir manual
                         </Button>
 
                         <Button 
                             onClick={handleAutoAssignFutureExpenses}
                             variant="secondary"
-                            className="font-bold flex-1 sm:flex-none"
+                            className="font-bold flex-1 sm:flex-none h-11"
                             title="Autoasignar gastos no presupuestados"
                         >
-                            <PlusCircle className="w-4 h-4 sm:mr-2" />
+                            <PlusCircle className="w-5 h-5 sm:mr-2" />
                             <span className="hidden sm:inline">Autoasignar</span>
                         </Button>
 
                         <Button 
                             onClick={handleSave}
-                            className="font-black px-6 flex-1 sm:flex-none"
+                            className="font-black px-6 flex-1 sm:flex-none h-11"
                         >
-                            <Save className="w-4 h-4 sm:mr-2" />
-                            <span className="hidden sm:inline">Guardar</span>
+                            <Save className="w-5 h-5 sm:mr-2" />
+                            <span className="hidden sm:inline text-base">Guardar Cambios</span>
                         </Button>
                     </div>
                 </div>
 
-                <div className="bg-card border-2 border-border/50 overflow-hidden text-sm">
-                    {/* TOP TABLE: MANUAL BUDGETS */}
-                    <div className="border-b-2 border-border/50">
+                {/* STICKY SUMMARY CARDS & SEARCH */}
+                <div className="sticky top-14 z-30 bg-background/95 backdrop-blur-md pt-2 pb-4 mb-8 border-b border-border/20 -mx-4 px-4 sm:mx-0 sm:px-0">
+                    {/* GLOBAL SUMMARY CARDS */}
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                         {/* TOTAL CAPITAL ROW */}
-                        <div className="flex border-b border-border/50 bg-muted/20">
-                            <div className="w-3/4 p-2 sm:p-3 font-bold uppercase tracking-wider text-muted-foreground flex items-center">
-                                CAPITAL TOTAL DISPONIBLE
-                            </div>
-                            <div className="w-1/4 p-2 sm:p-3 font-black text-right border-l border-border/50 text-income text-base">
-                                {formatCurrency(capitalDisponible)}
+                        <div className="bg-card rounded-2xl border border-border/50 shadow-sm p-5 flex flex-col justify-center">
+                            <div className="flex justify-between items-start gap-4">
+                                <div>
+                                    <div className="text-[11px] sm:text-xs font-bold uppercase tracking-widest text-muted-foreground mb-1">
+                                        CAPITAL TOTAL
+                                    </div>
+                                    <div className="font-black text-2xl sm:text-3xl text-foreground">
+                                        {formatCurrency(capitalDisponible)}
+                                    </div>
+                                </div>
+                                <div className="text-right border-l pl-4 border-border/40 flex-shrink-0">
+                                    <div className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground mb-1">
+                                        INGRESOS DEL MES
+                                    </div>
+                                    <div className="font-black text-lg sm:text-xl text-income/90">
+                                        {formatCurrency(ingresosDelMes)}
+                                    </div>
+                                </div>
                             </div>
                         </div>
 
                         {/* DISPONIBLE ROW */}
-                        <div className="flex border-b border-border/50 bg-muted/20">
-                            <div className="w-3/4 p-2 sm:p-3 font-bold uppercase tracking-wider text-muted-foreground flex items-center">
-                                CANTIDAD TODAVÍA NO ASIGNADA
-                            </div>
-                            <div className={cn(
-                                "w-1/4 p-2 sm:p-3 font-black text-right border-l border-border/50 text-base",
-                                disponibleParaAsignar > 0 ? "text-primary" : disponibleParaAsignar < 0 ? "text-destructive" : "text-muted-foreground"
-                            )}>
-                                {formatCurrency(disponibleParaAsignar)}
-                            </div>
-                        </div>
-
-                        {/* HEADERS */}
-                        <div className="flex border-b border-border/50 bg-muted/10 font-bold uppercase tracking-wider text-[10px] sm:text-xs text-muted-foreground">
-                            <div className="w-[35%] p-2 sm:p-3 border-r border-border/50">Categoría</div>
-                            <div className="w-[25%] p-2 sm:p-3 border-r border-border/50 text-center">Presupuesto</div>
-                            <div className="w-[20%] p-2 sm:p-3 border-r border-border/50 text-center">Gastado</div>
-                            <div className="w-[20%] p-2 sm:p-3 text-center">Resto</div>
-                        </div>
-
-                        {/* MANUAL ROWS */}
-                        {manualCategories.map(cat => {
-                            const amount = Number((localAssignments[cat].amount || 0).toFixed(2));
-                            const gastado = Number(getGastado(cat).toFixed(2));
-                            const resto = Number((amount - gastado).toFixed(2));
-
-                            return (
-                                <div key={cat} className="flex border-b border-border/20 hover:bg-muted/5 transition-colors group">
-                                    <div className="w-[35%] p-2 sm:p-3 border-r border-border/50 font-bold capitalize flex items-center justify-between">
-                                        <span className="truncate">{cat}</span>
-                                        <button onClick={() => handleRemoveCategory(cat)} className="text-destructive/50 hover:text-destructive opacity-100 sm:opacity-0 sm:group-hover:opacity-100 transition-opacity">
-                                            <Trash2 className="w-3 h-3" />
-                                        </button>
-                                    </div>
-                                    <div className="w-[25%] p-1 sm:p-2 border-r border-border/50">
-                                        <div className="relative w-full flex items-center justify-end">
-                                            <Input 
-                                                type="number"
-                                                step="0.01"
-                                                value={amount === 0 ? '' : amount}
-                                                onChange={(e) => handleAssignChange(cat, e.target.value)}
-                                                placeholder="0.00"
-                                                className="h-8 text-right font-bold focus-visible:ring-1 bg-transparent border-transparent hover:border-input focus:border-input transition-colors w-full pr-5"
-                                            />
-                                            <span className="absolute right-2 text-muted-foreground font-bold text-xs select-none pointer-events-none">€</span>
-                                        </div>
-                                    </div>
-                                    <div className="w-[20%] p-2 sm:p-3 border-r border-border/50 text-right text-muted-foreground font-medium flex items-center justify-end">
-                                        {formatCurrency(gastado)}
+                        <div className={cn(
+                            "rounded-2xl border shadow-sm p-5 flex flex-col justify-center transition-colors",
+                            disponibleParaAsignar > 0 ? "bg-primary/5 border-primary/20" : 
+                            disponibleParaAsignar < 0 ? "bg-destructive/5 border-destructive/20" : 
+                            "bg-muted/10 border-border/50"
+                        )}>
+                            <div className="flex justify-between items-start gap-4">
+                                <div>
+                                    <div className={cn(
+                                        "text-[11px] sm:text-xs font-bold uppercase tracking-widest mb-1",
+                                        disponibleParaAsignar > 0 ? "text-primary/70" : 
+                                        disponibleParaAsignar < 0 ? "text-destructive/70" : 
+                                        "text-muted-foreground"
+                                    )}>
+                                        NO ASIGNADA (GLOBAL)
                                     </div>
                                     <div className={cn(
-                                        "w-[20%] p-2 sm:p-3 text-right font-bold flex items-center justify-end",
-                                        resto > 0 ? "text-income" : resto < 0 ? "text-destructive" : "text-muted-foreground"
+                                        "font-black text-2xl sm:text-3xl",
+                                        disponibleParaAsignar > 0 ? "text-primary" : 
+                                        disponibleParaAsignar < 0 ? "text-destructive" : 
+                                        "text-muted-foreground"
                                     )}>
-                                        {formatCurrency(resto)}
+                                        {formatCurrency(disponibleParaAsignar)}
                                     </div>
                                 </div>
-                            );
-                        })}
-                        {manualCategories.length === 0 && (
-                            <div className="p-8 text-center text-muted-foreground text-xs uppercase tracking-wider font-bold">
-                                Añade presupuestos para este mes
+                                <div className="text-right border-l pl-4 border-border/40 flex-shrink-0">
+                                    <div className={cn(
+                                        "text-[10px] font-bold uppercase tracking-wider mb-1",
+                                        disponibleBasadoEnIngresos > 0 ? "text-income/70" : 
+                                        disponibleBasadoEnIngresos < 0 ? "text-destructive/70" : 
+                                        "text-muted-foreground/70"
+                                    )}>
+                                        REMANENTE (MES)
+                                    </div>
+                                    <div className={cn(
+                                        "font-black text-lg sm:text-xl",
+                                        disponibleBasadoEnIngresos > 0 ? "text-income/90" : 
+                                        disponibleBasadoEnIngresos < 0 ? "text-destructive/90" : 
+                                        "text-muted-foreground/80"
+                                    )}>
+                                        {formatCurrency(disponibleBasadoEnIngresos)}
+                                    </div>
+                                </div>
                             </div>
-                        )}
+                        </div>
                     </div>
 
-                    <div className="h-8 bg-muted/10"></div>
-
-                    {/* BOTTOM TABLE: AUTO BUDGETS */}
-                    <div>
-                        {/* AUTO HEADERS */}
-                        <div className="flex border-b border-t-2 border-border/50 bg-muted/20">
-                            <div className="w-full p-2 sm:p-3 font-bold uppercase tracking-wider text-muted-foreground flex items-center text-xs">
-                                GASTOS NO PRESUPUESTADOS / AUTOASIGNADOS
-                            </div>
+                    {/* SEARCH BAR (FIXED) */}
+                    <div className="mt-5">
+                        <div className="relative w-full max-w-md mx-auto sm:max-w-none sm:w-64 sm:ml-auto">
+                            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+                            <Input 
+                                placeholder="Buscar categoría..." 
+                                value={searchQuery}
+                                onChange={(e) => setSearchQuery(e.target.value)}
+                                className="pl-9 pr-9 h-10 bg-muted/20 border-border/50 font-medium"
+                            />
+                            {searchQuery && (
+                                <button 
+                                    onClick={() => setSearchQuery('')}
+                                    className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground transition-colors p-1"
+                                    title="Borrar búsqueda"
+                                >
+                                    <X className="w-4 h-4" />
+                                </button>
+                            )}
                         </div>
-
-                        {/* AUTO ROWS */}
-                        {autoCategories.map(cat => {
-                            const amount = Number((localAssignments[cat].amount || 0).toFixed(2));
-                            const gastado = Number(getGastado(cat).toFixed(2));
-                            const resto = Number((amount - gastado).toFixed(2));
-
-                            return (
-                                <div key={cat} className="flex border-b border-border/20 hover:bg-muted/5 transition-colors group">
-                                    <div className="w-[35%] p-2 sm:p-3 border-r border-border/50 font-bold capitalize flex items-center justify-between text-muted-foreground">
-                                        <span className="truncate">{cat}</span>
-                                        <button onClick={() => handleRemoveCategory(cat)} className="text-destructive/50 hover:text-destructive opacity-100 sm:opacity-0 sm:group-hover:opacity-100 transition-opacity">
-                                            <Trash2 className="w-3 h-3" />
-                                        </button>
-                                    </div>
-                                    <div className="w-[25%] p-1 sm:p-2 border-r border-border/50">
-                                        <div className="relative w-full flex items-center justify-end">
-                                            <Input 
-                                                type="number"
-                                                step="0.01"
-                                                value={amount === 0 ? '' : amount}
-                                                onChange={(e) => handleAssignChange(cat, e.target.value)}
-                                                placeholder="0.00"
-                                                className="h-8 text-right font-bold focus-visible:ring-1 bg-transparent border-transparent hover:border-input focus:border-input transition-colors w-full pr-5 text-muted-foreground"
-                                            />
-                                            <span className="absolute right-2 text-muted-foreground/60 font-bold text-xs select-none pointer-events-none">€</span>
-                                        </div>
-                                    </div>
-                                    <div className="w-[20%] p-2 sm:p-3 border-r border-border/50 text-right text-muted-foreground/60 font-medium flex items-center justify-end">
-                                        {formatCurrency(gastado)}
-                                    </div>
-                                    <div className={cn(
-                                        "w-[20%] p-2 sm:p-3 text-right font-bold flex items-center justify-end",
-                                        resto > 0 ? "text-income" : resto < 0 ? "text-destructive" : "text-muted-foreground"
-                                    )}>
-                                        {formatCurrency(resto)}
-                                    </div>
-                                </div>
-                            );
-                        })}
-                        {autoCategories.length === 0 && (
-                            <div className="p-8 text-center text-muted-foreground text-xs uppercase tracking-wider font-bold">
-                                Sin gastos autoasignados
-                            </div>
-                        )}
                     </div>
                 </div>
+
+                {/* CARDS BLOCK */}
+                <div className="pb-10">
+                    {/* MANUAL BUDGETS */}
+                    <div className="mb-10">
+                        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-4">
+                            <h2 className="text-xl font-bold flex items-center gap-2">
+                                Presupuestos Manuales
+                                <span className="bg-primary/10 text-primary text-xs py-1 px-2 rounded-full">
+                                    {filteredManualCategories.length !== manualCategories.length 
+                                        ? `${filteredManualCategories.length}/${manualCategories.length}` 
+                                        : manualCategories.length}
+                                </span>
+                            </h2>
+                        </div>
+                        
+                        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
+                            {filteredManualCategories.map(cat => {
+                            const amount = Number((localAssignments[cat].amount || 0).toFixed(2));
+                            const gastado = Number(getGastado(cat).toFixed(2));
+                            const resto = Number((amount - gastado).toFixed(2));
+                            const percentage = amount > 0 ? (gastado / amount) * 100 : gastado > 0 ? 100 : 0;
+
+                            return (
+                                <div key={cat} className="bg-card rounded-2xl border border-border/50 shadow-sm overflow-hidden flex flex-col transition-all hover:shadow-md hover:border-primary/20">
+                                    <div className="p-4 border-b border-border/30 flex justify-between items-center bg-muted/10">
+                                        <h3 className="font-bold text-[17px] capitalize text-foreground truncate pr-2">{cat}</h3>
+                                        <button onClick={() => handleRemoveCategory(cat)} className="text-destructive/50 hover:text-destructive hover:bg-destructive/10 rounded-full p-1.5 transition-colors" title="Eliminar presupuesto">
+                                            <Trash2 className="w-4 h-4" />
+                                        </button>
+                                    </div>
+                                    
+                                    <div className="p-5 flex-1 flex flex-col gap-5">
+                                        {/* Progress Bar */}
+                                        <div className="space-y-2">
+                                            <div className="flex justify-between text-[11px] font-bold uppercase tracking-wider text-muted-foreground">
+                                                <span>Progreso</span>
+                                                <span className={percentage >= 100 ? "text-destructive" : "text-primary"}>{percentage.toFixed(0)}%</span>
+                                            </div>
+                                            <div className="h-2 w-full bg-muted rounded-full overflow-hidden">
+                                                <div 
+                                                    className={cn("h-full rounded-full transition-all duration-500", percentage >= 100 ? "bg-destructive" : "bg-primary")} 
+                                                    style={{ width: `${Math.min(percentage, 100)}%` }} 
+                                                />
+                                            </div>
+                                        </div>
+
+                                        {/* Stats Grid */}
+                                        <div className="grid grid-cols-2 gap-3 mt-1">
+                                            <div className="bg-muted/20 p-3 rounded-xl border border-border/40 flex flex-col justify-center">
+                                                <p className="text-[10px] uppercase tracking-wider font-bold text-muted-foreground mb-1">Presupuesto</p>
+                                                <p className="font-black text-lg leading-none">{formatCurrency(amount)}</p>
+                                            </div>
+                                            <div className="bg-muted/20 p-3 rounded-xl border border-border/40 flex flex-col justify-center">
+                                                <p className="text-[10px] uppercase tracking-wider font-bold text-muted-foreground mb-1">Gastado</p>
+                                                <p className="font-black text-lg leading-none text-muted-foreground/80">{formatCurrency(gastado)}</p>
+                                            </div>
+                                        </div>
+
+                                        {/* Resto */}
+                                        <div className={cn(
+                                            "p-4 rounded-xl border-2 flex justify-between items-center",
+                                            resto > 0 ? "bg-income/5 border-income/20 text-income" : 
+                                            resto < 0 ? "bg-destructive/5 border-destructive/20 text-destructive" : 
+                                            "bg-muted/20 border-border/30 text-muted-foreground"
+                                        )}>
+                                            <span className="text-xs font-bold uppercase tracking-widest opacity-80">Resto</span>
+                                            <span className="font-black text-2xl leading-none">{formatCurrency(resto)}</span>
+                                        </div>
+
+                                        {/* Add amount input */}
+                                        <div className="flex items-center gap-1.5 mt-auto pt-1">
+                                            <div className="relative flex-1 group">
+                                                <Input 
+                                                    type="number" 
+                                                    step="0.01" 
+                                                    placeholder="Cantidad..." 
+                                                    value={addAmounts[cat] || ''}
+                                                    onChange={(e) => setAddAmounts(prev => ({ ...prev, [cat]: e.target.value }))}
+                                                    onKeyDown={(e) => { if (e.key === 'Enter') handleAddAmount(cat, false); }}
+                                                    className="h-10 pr-7 text-sm font-bold bg-muted/10 border-border/50 group-hover:border-primary/30 transition-colors"
+                                                />
+                                                <span className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground font-bold text-xs select-none pointer-events-none">€</span>
+                                            </div>
+                                            <Button onClick={() => handleAddAmount(cat, false)} variant="secondary" size="icon" className="h-10 w-10 shrink-0 font-bold hover:bg-income hover:text-white transition-colors" title="Sumar cantidad">
+                                                <Plus className="w-5 h-5" />
+                                            </Button>
+                                            <Button onClick={() => handleAddAmount(cat, true)} variant="secondary" size="icon" className="h-10 w-10 shrink-0 font-bold hover:bg-destructive hover:text-white transition-colors" title="Restar cantidad">
+                                                <Minus className="w-5 h-5" />
+                                            </Button>
+                                        </div>
+                                    </div>
+                                </div>
+                            );
+                        })}
+                    </div>
+                    {filteredManualCategories.length === 0 && (
+                        <div className="bg-card rounded-2xl border border-dashed border-border p-12 text-center flex flex-col items-center justify-center">
+                            <PiggyBank className="w-12 h-12 text-muted-foreground/30 mb-3" />
+                            <p className="text-muted-foreground text-sm uppercase tracking-wider font-bold">
+                                {searchQuery ? "No se encontraron categorías manuales" : "Añade presupuestos para este mes"}
+                            </p>
+                        </div>
+                    )}
+                </div>
+
+                {/* AUTO BUDGETS */}
+                {autoCategories.length > 0 && (
+                    <div>
+                        <h2 className="text-xl font-bold mb-4 flex items-center gap-2 text-muted-foreground">
+                            Gastos No Presupuestados (Autoasignados)
+                            <span className="bg-muted text-muted-foreground text-xs py-1 px-2 rounded-full">
+                                {filteredAutoCategories.length !== autoCategories.length 
+                                    ? `${filteredAutoCategories.length}/${autoCategories.length}` 
+                                    : autoCategories.length}
+                            </span>
+                        </h2>
+                        
+                        {filteredAutoCategories.length > 0 ? (
+                            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5 opacity-90">
+                                {filteredAutoCategories.map(cat => {
+                                    const amount = Number((localAssignments[cat].amount || 0).toFixed(2));
+                                    const gastado = Number(getGastado(cat).toFixed(2));
+                                    const resto = Number((amount - gastado).toFixed(2));
+                                    const percentage = amount > 0 ? (gastado / amount) * 100 : gastado > 0 ? 100 : 0;
+
+                                    return (
+                                        <div key={cat} className="bg-card rounded-2xl border border-border/50 shadow-sm overflow-hidden flex flex-col transition-all hover:shadow-md grayscale-[30%]">
+                                            <div className="p-4 border-b border-border/30 flex justify-between items-center bg-muted/20">
+                                            <h3 className="font-bold text-[17px] capitalize text-muted-foreground truncate pr-2">{cat}</h3>
+                                            <button onClick={() => handleRemoveCategory(cat)} className="text-destructive/50 hover:text-destructive hover:bg-destructive/10 rounded-full p-1.5 transition-colors" title="Eliminar presupuesto">
+                                                <Trash2 className="w-4 h-4" />
+                                            </button>
+                                        </div>
+                                        
+                                        <div className="p-5 flex-1 flex flex-col gap-5">
+                                            {/* Progress Bar */}
+                                            <div className="space-y-2">
+                                                <div className="flex justify-between text-[11px] font-bold uppercase tracking-wider text-muted-foreground">
+                                                    <span>Progreso</span>
+                                                    <span className={percentage >= 100 ? "text-destructive" : "text-primary"}>{percentage.toFixed(0)}%</span>
+                                                </div>
+                                                <div className="h-2 w-full bg-muted rounded-full overflow-hidden">
+                                                    <div 
+                                                        className={cn("h-full rounded-full transition-all duration-500", percentage >= 100 ? "bg-destructive/70" : "bg-primary/70")} 
+                                                        style={{ width: `${Math.min(percentage, 100)}%` }} 
+                                                    />
+                                                </div>
+                                            </div>
+
+                                            {/* Stats Grid */}
+                                            <div className="grid grid-cols-2 gap-3 mt-1">
+                                                <div className="bg-muted/10 p-3 rounded-xl border border-border/40 flex flex-col justify-center">
+                                                    <p className="text-[10px] uppercase tracking-wider font-bold text-muted-foreground mb-1">Presupuesto</p>
+                                                    <p className="font-black text-lg leading-none">{formatCurrency(amount)}</p>
+                                                </div>
+                                                <div className="bg-muted/10 p-3 rounded-xl border border-border/40 flex flex-col justify-center">
+                                                    <p className="text-[10px] uppercase tracking-wider font-bold text-muted-foreground mb-1">Gastado</p>
+                                                    <p className="font-black text-lg leading-none text-muted-foreground/80">{formatCurrency(gastado)}</p>
+                                                </div>
+                                            </div>
+
+                                            {/* Resto */}
+                                            <div className={cn(
+                                                "p-4 rounded-xl border flex justify-between items-center",
+                                                resto > 0 ? "bg-income/5 border-income/10 text-income/80" : 
+                                                resto < 0 ? "bg-destructive/5 border-destructive/10 text-destructive/80" : 
+                                                "bg-muted/20 border-border/30 text-muted-foreground"
+                                            )}>
+                                                <span className="text-xs font-bold uppercase tracking-widest opacity-80">Resto</span>
+                                                <span className="font-black text-2xl leading-none">{formatCurrency(resto)}</span>
+                                            </div>
+
+                                            {/* Add amount input */}
+                                            <div className="flex items-center gap-1.5 mt-auto pt-1">
+                                                <div className="relative flex-1 group">
+                                                    <Input 
+                                                        type="number" 
+                                                        step="0.01" 
+                                                        placeholder="Cantidad..." 
+                                                        value={addAmounts[cat] || ''}
+                                                        onChange={(e) => setAddAmounts(prev => ({ ...prev, [cat]: e.target.value }))}
+                                                        onKeyDown={(e) => { if (e.key === 'Enter') handleAddAmount(cat, false); }}
+                                                        className="h-10 pr-7 text-sm font-bold bg-muted/10 border-border/50 group-hover:border-primary/30 transition-colors"
+                                                    />
+                                                    <span className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground font-bold text-xs select-none pointer-events-none">€</span>
+                                                </div>
+                                                <Button onClick={() => handleAddAmount(cat, false)} variant="secondary" size="icon" className="h-10 w-10 shrink-0 font-bold hover:bg-income hover:text-white transition-colors" title="Sumar cantidad">
+                                                    <Plus className="w-5 h-5" />
+                                                </Button>
+                                                <Button onClick={() => handleAddAmount(cat, true)} variant="secondary" size="icon" className="h-10 w-10 shrink-0 font-bold hover:bg-destructive hover:text-white transition-colors" title="Restar cantidad">
+                                                    <Minus className="w-5 h-5" />
+                                                </Button>
+                                            </div>
+                                        </div>
+                                    </div>
+                                );
+                            })}
+                            </div>
+                        ) : (
+                            <div className="bg-muted/10 rounded-2xl border border-dashed border-border/50 p-8 text-center">
+                                <p className="text-muted-foreground text-sm uppercase tracking-wider font-bold">
+                                    No hay gastos autoasignados que coincidan
+                                </p>
+                            </div>
+                        )}
+                    </div>
+                )}
+                </div>
+
 
                 <Dialog open={isAddModalOpen} onOpenChange={setIsAddModalOpen}>
                     <DialogContent className="sm:max-w-md">
