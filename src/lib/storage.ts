@@ -539,6 +539,10 @@ export const updateRecurringTransaction = (updated: RecurringTransaction): void 
     const index = data.recurringTransactions.findIndex(r => r.id === updated.id);
     if (index !== -1) {
         data.recurringTransactions[index] = updated;
+        // Eliminar las transacciones pendientes antiguas para que se regeneren con los nuevos datos
+        data.transactions = data.transactions.filter(t => 
+            !(t.id.startsWith(`auto-${updated.id}-`) && t.isPending)
+        );
         saveData(data);
     }
 };
@@ -547,6 +551,10 @@ export const deleteRecurringTransaction = (id: string): void => {
     const data = loadData();
     if (!data.recurringTransactions) return;
     data.recurringTransactions = data.recurringTransactions.filter(r => r.id !== id);
+    // Eliminar también todas las transacciones generadas que estén pendientes
+    data.transactions = data.transactions.filter(t => 
+        !(t.id.startsWith(`auto-${id}-`) && t.isPending)
+    );
     saveData(data);
 };
 

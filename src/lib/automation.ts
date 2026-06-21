@@ -9,7 +9,23 @@ export const processRecurringTransactions = (): { created: number; current: numb
   let createdCount = 0;
   let dataChanged = false;
 
+  // Clean up orphan pending automated transactions (templates that were deleted or deactivated)
+  const validTemplateIds = new Set((data.recurringTransactions || []).filter(r => r.isActive).map(r => r.id));
+  const initialLength = data.transactions.length;
+  data.transactions = data.transactions.filter(t => {
+    if (t.isPending && t.id.startsWith('auto-')) {
+      // id format: auto-<UUID>-yyyy-MM-dd
+      const templateId = t.id.slice(5, -11); 
+      return validTemplateIds.has(templateId);
+    }
+    return true;
+  });
+  if (data.transactions.length !== initialLength) {
+    dataChanged = true;
+  }
+
   if (!data.recurringTransactions || data.recurringTransactions.length === 0) {
+    if (dataChanged) saveData(data);
     return { created: 0, current: 0 };
   }
 
