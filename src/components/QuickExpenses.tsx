@@ -62,7 +62,7 @@ const QuickExpenses = ({
         </Button>
       </div>
 
-      <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-3">
+      <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 xl:grid-cols-8 2xl:grid-cols-10 gap-3">
         {favorites.map((fav) => {
           const cat = categories.find(c => c.name === fav.category);
           const acc = accounts.find(a => a.id === fav.accountId);

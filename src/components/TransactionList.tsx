@@ -1,4 +1,4 @@
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useEffect } from 'react';
 import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -57,12 +57,15 @@ const TransactionList = ({ transactions, onEdit, onDelete }: TransactionListProp
   }, [sortedTransactions, searchQuery]);
 
   // Pagination
-  const totalPages = Math.ceil(filteredTransactions.length / ITEMS_PER_PAGE);
-  const startIndex = (currentPage - 1) * ITEMS_PER_PAGE;
-  const paginatedTransactions = filteredTransactions.slice(startIndex, startIndex + ITEMS_PER_PAGE);
+  const totalPages = Math.max(1, Math.floor(filteredTransactions.length / ITEMS_PER_PAGE));
+  const safeCurrentPage = Math.min(currentPage, totalPages);
+  const startIndex = (safeCurrentPage - 1) * ITEMS_PER_PAGE;
+  const isLastPage = safeCurrentPage === totalPages;
+  const endIndex = isLastPage ? filteredTransactions.length : startIndex + ITEMS_PER_PAGE;
+  const paginatedTransactions = filteredTransactions.slice(startIndex, endIndex);
 
   // Reset to page 1 when search changes
-  useMemo(() => {
+  useEffect(() => {
     setCurrentPage(1);
   }, [searchQuery]);
 
@@ -141,28 +144,28 @@ const TransactionList = ({ transactions, onEdit, onDelete }: TransactionListProp
                           })}
                         </p>
                       </div>
-                      <div className="flex items-center gap-2">
-                        <p className={`text-lg font-bold ${colorClass} whitespace-nowrap`}>
+                      <div className="flex items-center justify-between w-full sm:w-auto gap-4 mt-3 sm:mt-0 pt-3 sm:pt-0 border-t sm:border-t-0 border-border/10">
+                        <p className={`text-xl font-bold ${colorClass} whitespace-nowrap`}>
                           {isIncome ? '+' : '-'}{formatCurrency(transaction.amount)}
                         </p>
-                        <div className="flex gap-1">
+                        <div className="flex gap-2">
                           <Button
                             variant="ghost"
                             size="icon"
                             onClick={() => onEdit(transaction)}
-                            className="h-8 w-8 hover:bg-background/50"
+                            className="h-10 w-10 hover:bg-background/50"
                             aria-label="Editar transacción"
                           >
-                            <Pencil className="h-4 w-4" />
+                            <Pencil className="h-5 w-5" />
                           </Button>
                           <Button
                             variant="ghost"
                             size="icon"
                             onClick={() => setDeleteId(transaction.id)}
-                            className="h-8 w-8 hover:bg-destructive/10 hover:text-destructive"
+                            className="h-10 w-10 hover:bg-destructive/10 hover:text-destructive"
                             aria-label="Eliminar transacción"
                           >
-                            <Trash2 className="h-4 w-4" />
+                            <Trash2 className="h-5 w-5" />
                           </Button>
                         </div>
                       </div>
@@ -180,7 +183,7 @@ const TransactionList = ({ transactions, onEdit, onDelete }: TransactionListProp
             />
             
             <p className="text-center text-xs text-muted-foreground">
-              Mostrando {startIndex + 1}-{Math.min(startIndex + ITEMS_PER_PAGE, filteredTransactions.length)} de {filteredTransactions.length} transacciones
+              Mostrando {startIndex + 1}-{endIndex} de {filteredTransactions.length} transacciones
             </p>
           </>
         )}

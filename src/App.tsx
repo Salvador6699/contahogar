@@ -12,15 +12,10 @@ import { syncFromBackend } from "@/lib/storage";
 import Index from "./pages/Index";
 import HistoryPage from "./pages/HistoryPage";
 import ComparisonPage from "./pages/ComparisonPage";
-import AveragesPage from "./pages/AveragesPage";
 import SettingsPage from "./pages/SettingsPage";
 import BackupPage from "./pages/BackupPage";
 import TransferPage from "./pages/TransferPage";
 import SearchPage from "./pages/SearchPage";
-import GuidePage from "./pages/GuidePage";
-import ManagementPage from "./pages/ManagementPage";
-import CalendarPage from "./pages/CalendarPage";
-import SavingsPage from "./pages/SavingsPage";
 import BudgetPage from "./pages/BudgetPage";
 import NotFound from "./pages/NotFound";
 
@@ -56,15 +51,10 @@ const App = () => {
                 <Route path="/" element={<Index />} />
                 <Route path="/historial" element={<HistoryPage />} />
                 <Route path="/comparativa" element={<ComparisonPage />} />
-                <Route path="/medias" element={<AveragesPage />} />
                 <Route path="/ajustes" element={<SettingsPage />} />
                 <Route path="/backup" element={<BackupPage />} />
                 <Route path="/transferir" element={<TransferPage />} />
                 <Route path="/buscar" element={<SearchPage />} />
-                <Route path="/guia" element={<GuidePage />} />
-                <Route path="/gestion" element={<ManagementPage />} />
-                <Route path="/calendario" element={<CalendarPage />} />
-                <Route path="/ahorro" element={<SavingsPage />} />
                 <Route path="/presupuestos" element={<BudgetPage />} />
                 <Route path="*" element={<NotFound />} />
               </Route>

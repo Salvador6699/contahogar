@@ -27,13 +27,13 @@ export const calculateBalance = (
   }
 
   // Calculate balance considering account's initial balance
-  return filteredTransactions.reduce((balance, transaction) => {
+  return Number(filteredTransactions.reduce((balance, transaction) => {
     if (transaction.type === 'income') {
       return balance + transaction.amount;
     } else {
       return balance - transaction.amount;
     }
-  }, 0);
+  }, 0).toFixed(2));
 };
 
 export const calculateAccountBalance = (
@@ -43,7 +43,7 @@ export const calculateAccountBalance = (
   upToEndOfMonth?: string
 ): number => {
   const transactionBalance = calculateBalance(transactions, account.id, includePending, upToEndOfMonth);
-  return account.initialBalance + transactionBalance;
+  return Number((account.initialBalance + transactionBalance).toFixed(2));
 };
 
 export const calculateTotalBalance = (

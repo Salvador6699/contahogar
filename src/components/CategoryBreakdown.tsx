@@ -1,13 +1,15 @@
 import { useState, useMemo, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { CategorySummary, Transaction, Category, Account, Budget } from '@/types/finance';
 import { Tag, Pencil, ChevronLeft, ChevronRight, Calendar, Trash2, LucideIcon, CheckCircle2, TrendingUp, TrendingDown, Minus, Wallet, PiggyBank } from 'lucide-react';
 import * as Icons from 'lucide-react';
-import { Area, AreaChart, ResponsiveContainer } from 'recharts';
 import { calculateCategoryHistory, formatCurrency, calculateMonthlyAverages } from '@/lib/calculations';
 import { cn } from '@/lib/utils';
 import { SmartPagination } from '@/components/SmartPagination';
+import { ResponsiveDialog, ResponsiveDialogContent, ResponsiveDialogHeader, ResponsiveDialogTitle } from '@/components/ui/responsive-dialog';
+import TransactionList from '@/components/TransactionList';
 
 interface CategoryBreakdownProps {
   categories: CategorySummary[];
@@ -26,83 +28,6 @@ interface CategoryBreakdownProps {
 
 const ITEMS_PER_PAGE = 5;
 
-// TrendBadge sub-component for category trend
-const TrendBadge = ({ value, isExpense = false, comparisonValue }: { value: number | null, isExpense?: boolean, comparisonValue?: number }) => {
-  if (value === null) return null;
-  const isUp = value > 0;
-  const isNeutral = Math.abs(value) < 1;
-
-  if (isNeutral) return (
-    <div className="flex flex-col items-end gap-1">
-      <span className="text-[8px] font-bold text-muted-foreground italic">
-         vs {formatCurrency(comparisonValue || 0)}
-      </span>
-      <div className="flex items-center gap-1 text-[8px] font-bold text-muted-foreground bg-muted/50 px-1.5 py-0.5 rounded-full">
-        <Minus className="w-2 h-2" />
-        <span>0%</span>
-      </div>
-    </div>
-  );
-
-  // Special case for NEW categories (value SENTINEL = 999999)
-  if (value === 999999) return (
-    <div className="flex items-center gap-1 text-[8px] font-black text-income bg-income/10 px-1.5 py-0.5 rounded-full">
-      <TrendingUp className="w-2 h-2" />
-      <span>NUEVO</span>
-    </div>
-  );
-
-  let colorClass = "";
-  let Icon = isUp ? TrendingUp : TrendingDown;
-
-  if (!isExpense) {
-    colorClass = isUp ? "text-green-500 bg-green-500/10" : "text-red-500 bg-red-500/10";
-  } else {
-    colorClass = isUp ? "text-red-500 bg-red-500/10" : "text-green-500 bg-green-500/10";
-  }
-
-  return (
-    <div className="flex flex-col items-end gap-1">
-      {comparisonValue !== undefined && (
-        <span className={cn("text-[8px] font-bold italic", colorClass.split(' ')[0])}>
-          vs {formatCurrency(comparisonValue)}
-        </span>
-      )}
-      <div className={cn("flex items-center gap-0.5 text-[8px] font-black px-1.5 py-0.5 rounded-full", colorClass)}>
-        <Icon className="w-2 h-2" />
-        <span>{Math.abs(Math.round(value))}%</span>
-      </div>
-    </div>
-  );
-};
-
-// Sparkline sub-component for consistency
-const CategorySparkline = ({ data, color, type }: { data: any[], color: string, type: string }) => (
-  <div className="h-10 w-16 flex-shrink-0">
-    <ResponsiveContainer width="100%" height="100%">
-      <AreaChart data={data}>
-        <defs>
-          <linearGradient id={`grad-cat-${type}`} x1="0" y1="0" x2="0" y2="1">
-            <stop offset="5%" stopColor={color} stopOpacity={0.3}/>
-            <stop offset="95%" stopColor={color} stopOpacity={0}/>
-          </linearGradient>
-        </defs>
-        <Area
-          type="monotone"
-          dataKey="total"
-          stroke={color}
-          strokeWidth={2}
-          fillOpacity={1}
-          fill={`url(#grad-cat-${type})`}
-          isAnimationActive={false}
-          animationDuration={0}
-          dot={false}
-          activeDot={{ r: 3, fill: color }}
-        />
-      </AreaChart>
-    </ResponsiveContainer>
-  </div>
-);
 
 const CategoryBreakdown = ({
   categories,
@@ -113,12 +38,14 @@ const CategoryBreakdown = ({
   onDeleteTransaction,
   onConfirmTransaction,
   categoryCatalog = [],
-  selectedAccount,
+  selectedAccount = 'total',
   baseDate = new Date(),
   accounts = [],
   budgets = [],
 }: CategoryBreakdownProps) => {
   const [currentPage, setCurrentPage] = useState(1);
+  const [selectedCategoryName, setSelectedCategoryName] = useState<string | null>(null);
+  const navigate = useNavigate();
 
   if (categories.length === 0) {
     return null;
@@ -137,9 +64,11 @@ const CategoryBreakdown = ({
       .filter(t => t.type === type && t.isPending)
       .sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
 
-    const totalPages = Math.ceil(pendingItems.length / ITEMS_PER_PAGE);
-    const startIndex = (currentPage - 1) * ITEMS_PER_PAGE;
-    const paginatedItems = pendingItems.slice(startIndex, startIndex + ITEMS_PER_PAGE);
+    const totalPages = Math.max(1, Math.floor(pendingItems.length / ITEMS_PER_PAGE));
+    const safeCurrentPage = Math.min(currentPage, totalPages);
+    const startIndex = (safeCurrentPage - 1) * ITEMS_PER_PAGE;
+    const isLastPage = safeCurrentPage === totalPages;
+    const paginatedItems = pendingItems.slice(startIndex, isLastPage ? pendingItems.length : startIndex + ITEMS_PER_PAGE);
     const pendingTotal = pendingItems.reduce((sum, t) => sum + t.amount, 0);
 
     if (pendingItems.length === 0) return null;
@@ -153,14 +82,14 @@ const CategoryBreakdown = ({
             {formatCurrency(pendingTotal)}
           </span>
         </h3>
-        <div className="space-y-2">
+        <div className={`grid grid-cols-1 ${!isPending ? 'sm:grid-cols-2 2xl:grid-cols-3' : ''} gap-3`}>
           {paginatedItems.map((transaction) => (
             <Card
               key={transaction.id}
               className={`p-4 ${bgClass} border-2 ${borderClass} hover:shadow-md transition-all`}
             >
-              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-                <div className="flex-1 min-w-0 flex items-center gap-3">
+              <div className="flex items-start justify-between gap-3">
+                <div className="flex items-center gap-3 min-w-0">
                     {(() => {
                       const catObj = categoryCatalog.find(c => c.name === transaction.category);
                       if (catObj?.customIcon) {
@@ -223,20 +152,20 @@ const CategoryBreakdown = ({
                       </p>
                     </div>
                 </div>
-                <div className="flex items-center gap-2">
-                  <p className={`text-lg font-bold ${colorClass} whitespace-nowrap`}>
+                <div className="flex flex-col items-end gap-2 flex-shrink-0">
+                  <p className={`text-lg font-bold ${colorClass} whitespace-nowrap leading-none mt-1`}>
                     {formatCurrency(transaction.amount)}
                   </p>
-                  <div className="flex gap-1">
+                  <div className="flex items-center gap-1">
                     {onEditTransaction && (
                       <Button
                         variant="ghost"
                         size="icon"
                         onClick={() => onEditTransaction(transaction)}
-                        className="min-h-[44px] min-w-[44px] p-2 hover:bg-background/50"
+                        className="h-8 w-8 hover:bg-background/50 text-muted-foreground"
                         aria-label={`Editar ${transaction.category}`}
                       >
-                        <Pencil className="h-5 w-5" />
+                        <Pencil className="h-4 w-4" />
                       </Button>
                     )}
                     {onDeleteTransaction && (
@@ -244,10 +173,10 @@ const CategoryBreakdown = ({
                         variant="ghost"
                         size="icon"
                         onClick={() => onDeleteTransaction(transaction.id)}
-                        className="min-h-[44px] min-w-[44px] p-2 hover:bg-destructive/10 hover:text-destructive"
+                        className="h-8 w-8 hover:bg-destructive/10 text-muted-foreground hover:text-destructive"
                         aria-label={`Eliminar ${transaction.category}`}
                       >
-                        <Trash2 className="h-5 w-5" />
+                        <Trash2 className="h-4 w-4" />
                       </Button>
                     )}
                   </div>
@@ -266,17 +195,84 @@ const CategoryBreakdown = ({
     );
   }
 
-  // Non-pending: show grouped by category with date of each transaction
-  const totalPages = Math.ceil(categories.length / ITEMS_PER_PAGE);
-  const startIndex = (currentPage - 1) * ITEMS_PER_PAGE;
-  const paginatedCategories = categories.slice(startIndex, startIndex + ITEMS_PER_PAGE);
+  // Pre-sort categories based on envelope available amount
+  const sortedCategories = useMemo(() => {
+    if (type !== 'expense' || budgets.length === 0) return categories;
+    
+    const viewedMonthStr = baseDate ? (baseDate.getFullYear() + '-' + String(baseDate.getMonth() + 1).padStart(2, '0')) : (new Date().getFullYear() + '-' + String(new Date().getMonth() + 1).padStart(2, '0'));
+    
+    return [...categories].sort((a, b) => {
+      const aBudget = budgets.find(bg => bg.category === a.category && bg.month === viewedMonthStr);
+      const bBudget = budgets.find(bg => bg.category === b.category && bg.month === viewedMonthStr);
+      
+      const aAvailable = aBudget ? aBudget.amount - a.total : null;
+      const bAvailable = bBudget ? bBudget.amount - b.total : null;
+      
+      if (aAvailable !== null && bAvailable !== null) {
+        if (aAvailable < 0 && bAvailable < 0) return aAvailable - bAvailable;
+        if (aAvailable < 0) return -1;
+        if (bAvailable < 0) return 1;
+        return bAvailable - aAvailable;
+      }
+      if (aAvailable !== null) return -1;
+      if (bAvailable !== null) return 1;
+      return b.total - a.total;
+    });
+  }, [categories, budgets, type, baseDate]);
+
+  const { paginatedCategories, totalPages } = useMemo(() => {
+    const viewedMonthStr = baseDate ? (baseDate.getFullYear() + '-' + String(baseDate.getMonth() + 1).padStart(2, '0')) : (new Date().getFullYear() + '-' + String(new Date().getMonth() + 1).padStart(2, '0'));
+    
+    // Separamos los items que tienen presupuesto asignado activo (positivo o negativo) de los que están a cero
+    const activeEnvItems = sortedCategories.filter(c => {
+      if (type !== 'expense') return false;
+      const b = budgets.find(bg => bg.category === c.category && bg.month === viewedMonthStr);
+      if (!b) return false;
+      return Number((b.amount - c.total).toFixed(2)) !== 0;
+    });
+    
+    const zeroEnvItems = sortedCategories.filter(c => {
+      if (type !== 'expense') return false;
+      const b = budgets.find(bg => bg.category === c.category && bg.month === viewedMonthStr);
+      if (!b) return false;
+      return Number((b.amount - c.total).toFixed(2)) === 0;
+    });
+
+    const nonEnvItems = sortedCategories.filter(c => type !== 'expense' || !budgets.some(bg => bg.category === c.category && bg.month === viewedMonthStr));
+
+    const chunkItems = (items: CategorySummary[]) => {
+      if (items.length === 0) return [];
+      const numPages = Math.max(1, Math.floor(items.length / ITEMS_PER_PAGE));
+      const chunks = [];
+      for (let i = 0; i < numPages; i++) {
+        if (i === numPages - 1) {
+          chunks.push(items.slice(i * ITEMS_PER_PAGE));
+        } else {
+          chunks.push(items.slice(i * ITEMS_PER_PAGE, (i + 1) * ITEMS_PER_PAGE));
+        }
+      }
+      return chunks;
+    };
+
+    const allPages = [...chunkItems(activeEnvItems), ...chunkItems(zeroEnvItems), ...chunkItems(nonEnvItems)];
+    const finalTotalPages = Math.max(1, allPages.length);
+    // If the currentPage gets out of bounds (e.g., due to deleting a category), default to the last page
+    const safeCurrentPage = Math.min(currentPage, finalTotalPages);
+    
+    return {
+        totalPages: finalTotalPages,
+        paginatedCategories: allPages[safeCurrentPage - 1] || []
+    };
+  }, [sortedCategories, budgets, baseDate, currentPage, type]);
 
   // Get transactions for a specific category
   const getTransactionsForCategory = (categoryName: string): Transaction[] => {
+    const targetMonthStr = baseDate.getFullYear() + '-' + String(baseDate.getMonth() + 1).padStart(2, '0');
     return transactions.filter(t =>
       t.type === type &&
       t.category.toLowerCase() === categoryName.toLowerCase() &&
-      !t.isPending
+      !t.isPending &&
+      t.date.startsWith(targetMonthStr)
     ).sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
   };
 
@@ -306,7 +302,7 @@ const CategoryBreakdown = ({
         <Tag className="w-5 h-5" />
         {title}
       </h3>
-      <div className="space-y-2">
+      <div className="grid grid-cols-1 sm:grid-cols-2 2xl:grid-cols-3 gap-3">
         {paginatedCategories.map((category, index) => {
           const catHistory = calculateCategoryHistory(transactions, category.category, type, 6, selectedAccount, baseDate);
           const chartColor = type === 'expense' ? '#ef4444' : '#22c55e';
@@ -343,7 +339,8 @@ const CategoryBreakdown = ({
           return (
             <Card
               key={index}
-              className={`p-4 ${bgClass} border-2 ${borderClass} hover:shadow-md transition-all`}
+              onClick={() => setSelectedCategoryName(category.category)}
+              className={`p-4 ${bgClass} border-2 ${borderClass} hover:shadow-md transition-all cursor-pointer active:scale-[0.98]`}
             >
               <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
                 <div className="flex-1 flex items-center gap-3 min-w-0">
@@ -377,28 +374,20 @@ const CategoryBreakdown = ({
                     {/* Envelope Indicator */}
                     {(() => {
                       if (type !== 'expense' || budgets.length === 0) return null;
-                      const currentMonthStr = new Date().getFullYear() + '-' + String(new Date().getMonth() + 1).padStart(2, '0');
-                      const totalAssigned = budgets.filter(b => b.category === category.category && b.month === currentMonthStr).reduce((sum, b) => sum + b.amount, 0);
-                      if (totalAssigned === 0) return null; // No budget ever assigned
-                      const budgetCreatedAt = budgets.find(b => b.category === category.category && b.month === currentMonthStr)?.createdAt;
                       
-                      const totalSpent = transactions.filter(t => {
-                          if (t.isPending || t.type !== 'expense' || t.category !== category.category || !t.date.startsWith(currentMonthStr)) return false;
-                          // If there's a creation date, only count transactions on or after that date
-                          if (budgetCreatedAt) {
-                              const bDate = budgetCreatedAt.split('T')[0];
-                              return t.date >= bDate;
-                          }
-                          return true;
-                      }).reduce((sum, t) => sum + t.amount, 0);
+                      const viewedMonthStr = baseDate ? (baseDate.getFullYear() + '-' + String(baseDate.getMonth() + 1).padStart(2, '0')) : (new Date().getFullYear() + '-' + String(new Date().getMonth() + 1).padStart(2, '0'));
+                      const totalAssigned = budgets.filter(b => b.category === category.category && b.month === viewedMonthStr).reduce((sum, b) => sum + b.amount, 0);
                       
-                      const available = totalAssigned - totalSpent;
+                      if (totalAssigned === 0) return null; // No budget assigned for this month
+                      
+                      const available = totalAssigned - category.total;
+                      const availableRounded = Number(available.toFixed(2));
                       
                       return (
                         <div className={cn(
                           "inline-flex items-center gap-1 px-1.5 py-0.5 mt-1 rounded-full text-[9px] font-black tracking-wider uppercase",
-                          available > 0 ? "bg-income/10 text-income" :
-                          available < 0 ? "bg-destructive/10 text-destructive" :
+                          availableRounded > 0 ? "bg-income/10 text-income" :
+                          availableRounded < 0 ? "bg-destructive/10 text-destructive" :
                           "bg-muted text-muted-foreground"
                         )}>
                           <PiggyBank className="w-2.5 h-2.5" />
@@ -409,17 +398,27 @@ const CategoryBreakdown = ({
 
                   </div>
                 </div>
-                <div className="flex items-center justify-between sm:justify-end gap-3 w-full sm:w-auto mt-3 sm:mt-0 pt-3 sm:pt-0 border-t sm:border-t-0 border-border/10">
-                  <CategorySparkline data={catHistory} color={chartColor} type={type} />
+                <div className="flex items-center justify-between sm:justify-end gap-2 w-full sm:w-auto mt-3 sm:mt-0 pt-3 sm:pt-0 border-t sm:border-t-0 border-border/10">
+
+                  {type === 'expense' && (
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      className="h-8 w-8 text-muted-foreground hover:text-primary hover:bg-primary/10 shrink-0"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        navigate(`/presupuestos?category=${encodeURIComponent(category.category)}`);
+                      }}
+                      title="Modificar sobre en presupuestos"
+                    >
+                      <PiggyBank className="w-4 h-4" />
+                    </Button>
+                  )}
+
                   <div className="flex flex-col items-end min-w-[70px]">
-                    <p className={`text-lg font-bold ${colorClass} whitespace-nowrap leading-none mb-1`}>
+                    <p className={`text-lg font-bold ${colorClass} whitespace-nowrap leading-none`}>
                       {formatCurrency(category.total)}
                     </p>
-                    <TrendBadge 
-                      value={categoryTrend} 
-                      isExpense={type === 'expense'} 
-                      comparisonValue={isActuallyNew ? undefined : compValue} 
-                    />
                   </div>
                 </div>
               </div>
@@ -433,6 +432,31 @@ const CategoryBreakdown = ({
         totalPages={totalPages}
         onPageChange={setCurrentPage}
       />
+
+      {selectedCategoryName && (
+        <ResponsiveDialog open={true} onOpenChange={(open) => !open && setSelectedCategoryName(null)}>
+          <ResponsiveDialogContent className="max-h-[90vh] overflow-hidden flex flex-col p-0">
+            <ResponsiveDialogHeader className="px-6 pt-6 pb-2 shrink-0">
+              <ResponsiveDialogTitle className="text-2xl flex items-center gap-2 capitalize">
+                <Tag className={`w-6 h-6 ${colorClass}`} />
+                {selectedCategoryName}
+              </ResponsiveDialogTitle>
+            </ResponsiveDialogHeader>
+            <div className="flex-1 overflow-y-auto px-6 pb-6 custom-scrollbar">
+              <TransactionList 
+                transactions={getTransactionsForCategory(selectedCategoryName)}
+                onEdit={(t) => {
+                  setSelectedCategoryName(null);
+                  if (onEditTransaction) onEditTransaction(t);
+                }}
+                onDelete={(id) => {
+                  if (onDeleteTransaction) onDeleteTransaction(id);
+                }}
+              />
+            </div>
+          </ResponsiveDialogContent>
+        </ResponsiveDialog>
+      )}
     </div>
   );
 };

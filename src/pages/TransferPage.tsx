@@ -139,8 +139,8 @@ const TransferPage = () => {
     }, [transferTransactions]);
 
     return (
-        <div className="min-h-screen app-gradient-bg pb-32 lg:pl-20 pt-24">
-            <div className="container max-w-2xl mx-auto px-4 py-4 sm:py-6">
+        <div className="min-h-screen app-gradient-bg pb-32  pt-24">
+            <div className="w-full max-w-3xl mx-auto px-4 lg:px-12 py-4 sm:py-6">
                 <div className="space-y-6 pb-24">
                     <Card className="border-none shadow-sm">
                         <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">

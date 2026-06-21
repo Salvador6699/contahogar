@@ -33,7 +33,6 @@ import FavoriteExpenseModal from '@/components/FavoriteExpenseModal';
 import TransactionModal from '@/components/TransactionModal';
 import TransactionList from '@/components/TransactionList';
 import AccountSelector from '@/components/AccountSelector';
-import DashboardCharts from '@/components/DashboardCharts';
 import QuickAmountModal from '@/components/QuickAmountModal';
 import { format, parseISO, addMonths, subMonths } from 'date-fns';
 import { Wallet, Calendar, ChevronLeft, ChevronRight, Scale, BarChart3 } from 'lucide-react';
@@ -89,6 +88,18 @@ const Index = () => {
       setSearchParams({}, { replace: true });
     } else if (action === 'add-income') {
       openIncomeModal();
+      setSearchParams({}, { replace: true });
+    } else if (action === 'quick-expense') {
+      const favId = searchParams.get('id');
+      const favs = loadFavorites();
+      const fav = favs.find(f => f.id === favId);
+      if (fav) {
+        setActiveQuickFavorite(fav);
+        setIsQuickAmountModalOpen(true);
+      }
+      setSearchParams({}, { replace: true });
+    } else if (action === 'manage-favorites') {
+      setIsFavoriteModalOpen(true);
       setSearchParams({}, { replace: true });
     }
   }, [searchParams]);
@@ -389,8 +400,8 @@ const Index = () => {
 
   return (
     <>
-      <div className="min-h-screen app-gradient-bg lg:pl-20 pt-24">
-        <div className="container max-w-6xl mx-auto px-4 py-6 sm:py-8 transition-all duration-500 pb-32">
+      <div className="min-h-screen app-gradient-bg pt-24">
+        <div className="w-full max-w-full mx-auto px-4 lg:px-12 py-6 sm:py-8 transition-all duration-500 pb-32">
           <div className="mb-6 sm:mb-8">
             {/* Month Navigator Header */}
             <div className="flex items-center justify-between p-4 bg-white dark:bg-card rounded-2xl shadow-sm border border-border/50 mb-8 overflow-hidden">
@@ -430,8 +441,8 @@ const Index = () => {
           </div>
 
 
-          <div className="grid grid-cols-1 xl:grid-cols-12 gap-6 lg:gap-8 mb-8">
-            <div className="col-span-1 xl:col-span-4 space-y-6">
+          <div className="grid grid-cols-1 xl:grid-cols-2 gap-6 lg:gap-8 mb-8">
+            <div className="space-y-6">
               <BalanceCard balance={balance} projectedBalance={projectedBalance} />
               <SummaryCards 
                 totalIncome={totalIncome} 
@@ -443,22 +454,35 @@ const Index = () => {
                 onDeleteTransaction={handleDeleteTransaction}
               />
             </div>
-            <div className="col-span-1 xl:col-span-8 space-y-6">
-              <QuickExpenses 
-                favorites={favorites}
-                categories={data.categories}
-                accounts={data.accounts}
-                onAddTransaction={handleQuickAdd}
-                onManageFavorites={() => {
-                  setEditingFavorite(null);
-                  setIsFavoriteModalOpen(true);
-                }}
-                onEditFavorite={(fav) => {
-                  setEditingFavorite(fav);
-                  setIsFavoriteModalOpen(true);
-                }}
-                onDeleteFavorite={handleDeleteFavorite}
-              />
+            <div className="space-y-6">
+              {/* Pending/Future Categories */}
+              {pendingExpenseCategories.length > 0 && (
+                <CategoryBreakdown
+                  categories={pendingExpenseCategories}
+                  type="expense"
+                  isPending={true}
+                  transactions={pendingTransactions}
+                  onEditTransaction={handleEditTransaction}
+                  onDeleteTransaction={handleDeleteTransaction}
+                  onConfirmTransaction={handleConfirmTransaction}
+                  categoryCatalog={data.categories}
+                  accounts={data.accounts}
+                />
+              )}
+              {pendingIncomeCategories.length > 0 && (
+                <CategoryBreakdown
+                  categories={pendingIncomeCategories}
+                  type="income"
+                  isPending={true}
+                  transactions={pendingTransactions}
+                  onEditTransaction={handleEditTransaction}
+                  onDeleteTransaction={handleDeleteTransaction}
+                  onConfirmTransaction={handleConfirmTransaction}
+                  categoryCatalog={data.categories}
+                  accounts={data.accounts}
+                  budgets={data.budgets}
+                />
+              )}
             </div>
           </div>
 
@@ -477,93 +501,63 @@ const Index = () => {
           />
 
           {/* Content Sections */}
-          <div className="space-y-8 pb-24">
-            {/* 1. Transaction List - regular transactions only (excluding pending) */}
-            <TransactionList
-              transactions={regularTransactions}
-              onEdit={handleEditTransaction}
-              onDelete={handleDeleteTransaction}
-            />
+          <div className="space-y-8 pb-24 items-start">
+            {/* Breakdowns */}
+            <div className="space-y-8">
+                <div className="grid grid-cols-1 gap-8 items-start">
+                    {/* Category Breakdowns */}
+                    <div className="space-y-8">
+                        {expenseCategories.length > 0 && (
+                        <CategoryBreakdown 
+                            categories={expenseCategories} 
+                            type="expense" 
+                            isPending={false} 
+                            categoryCatalog={data.categories}
+                            transactions={data.transactions}
+                            selectedAccount={accountFilter}
+                            baseDate={baseDate}
+                            budgets={data.budgets}
+                        />
+                        )}
 
-            {/* 2. Pending/Future Categories */}
-            {pendingExpenseCategories.length > 0 && (
-              <CategoryBreakdown
-                categories={pendingExpenseCategories}
-                type="expense"
-                isPending={true}
-                transactions={pendingTransactions}
-                onEditTransaction={handleEditTransaction}
-                onDeleteTransaction={handleDeleteTransaction}
-                onConfirmTransaction={handleConfirmTransaction}
-                categoryCatalog={data.categories}
-                accounts={data.accounts}
-              />
-            )}
-            {pendingIncomeCategories.length > 0 && (
-              <CategoryBreakdown
-                categories={pendingIncomeCategories}
-                type="income"
-                isPending={true}
-                transactions={pendingTransactions}
-                onEditTransaction={handleEditTransaction}
-                onDeleteTransaction={handleDeleteTransaction}
-                onConfirmTransaction={handleConfirmTransaction}
-                categoryCatalog={data.categories}
-                accounts={data.accounts}
-                budgets={data.budgets}
-              />
-            )}
+                        {/* 3. Current Income Categories */}
+                        {incomeCategories.length > 0 && (
+                        <CategoryBreakdown 
+                            categories={incomeCategories} 
+                            type="income" 
+                            isPending={false} 
+                            categoryCatalog={data.categories}
+                            transactions={data.transactions}
+                            selectedAccount={accountFilter}
+                            baseDate={baseDate}
+                        />
+                        )}
+                    </div>
 
-            {/* 2. Current Expense Categories */}
-            {expenseCategories.length > 0 && (
-              <CategoryBreakdown 
-                categories={expenseCategories} 
-                type="expense" 
-                isPending={false} 
-                categoryCatalog={data.categories}
-                transactions={data.transactions}
-                selectedAccount={accountFilter}
-                baseDate={baseDate}
-                budgets={data.budgets}
-              />
-            )}
 
-            {/* 3. Current Income Categories */}
-            {incomeCategories.length > 0 && (
-              <CategoryBreakdown 
-                categories={incomeCategories} 
-                type="income" 
-                isPending={false} 
-                categoryCatalog={data.categories}
-                transactions={data.transactions}
-                selectedAccount={accountFilter}
-                baseDate={baseDate}
-              />
-            )}
+                </div>
+            </div>
 
-            {/* Empty State */}
-            {!hasAnyData && (
-              <div className="text-center py-12">
-                <p className="text-muted-foreground text-lg">
-                  Aún no hay transacciones registradas.
-                </p>
-                <p className="text-muted-foreground mt-2">
-                  Usa los botones + y - para agregar ingresos y gastos.
-                </p>
-              </div>
-            )}
-
-            {/* Dashboard Charts at the end */}
-            {hasAnyData && (
-              <DashboardCharts
-                expenseCategories={chartExpenseCategories}
-                selectedAccount={selectedAccount}
-                totalIncome={totalIncome}
-                totalExpenses={totalExpenses}
-                accounts={data.accounts}
-                categoryCatalog={data.categories}
-              />
-            )}
+            {/* Bottom Section: Transaction List */}
+            <div>
+                <TransactionList
+                transactions={regularTransactions}
+                onEdit={handleEditTransaction}
+                onDelete={handleDeleteTransaction}
+                />
+                
+                {/* Empty State */}
+                {!hasAnyData && (
+                <div className="text-center py-12 bg-card rounded-3xl border border-dashed border-border p-8 mt-8">
+                    <p className="text-muted-foreground text-lg font-bold">
+                    Aún no hay transacciones registradas.
+                    </p>
+                    <p className="text-muted-foreground mt-2 text-sm">
+                    Usa los botones de Ingreso y Gasto arriba a la derecha.
+                    </p>
+                </div>
+                )}
+            </div>
           </div>
         </div>
 

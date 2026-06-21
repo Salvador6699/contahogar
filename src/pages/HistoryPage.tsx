@@ -68,8 +68,8 @@ const HistoryPage = () => {
     };
 
     return (
-        <div className="min-h-screen app-gradient-bg pb-20 lg:pl-20 pt-24">
-            <div className="container max-w-4xl mx-auto px-4 py-4 sm:py-6">
+        <div className="min-h-screen app-gradient-bg pb-20  pt-24">
+            <div className="w-full max-w-6xl mx-auto px-4 lg:px-12 py-4 sm:py-6">
                 {monthlyData.length === 0 ? (
                     <div className="text-center py-20">
                         <Calendar className="w-12 h-12 mx-auto text-muted-foreground mb-4" />

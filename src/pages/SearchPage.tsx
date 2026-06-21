@@ -115,7 +115,7 @@ const SearchPage = () => {
   }, [criteria]);
 
   return (
-    <div className="min-h-screen bg-background pb-32 pt-20 px-4 md:px-8 max-w-5xl mx-auto">
+    <div className="min-h-screen bg-background pb-32 pt-24 lg:pt-32 px-4 md:px-8 lg:px-12 w-full max-w-6xl mx-auto">
       
       <div className="flex flex-col gap-6">
         {/* Search Header */}

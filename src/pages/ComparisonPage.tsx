@@ -142,8 +142,8 @@ const ComparisonPage = () => {
     const atLeastOneBalanced = allAccountBalances.some(ab => ab.isBalanced && ab.hasAdjustments);
 
     return (
-        <div className="min-h-screen app-gradient-bg pb-32 lg:pl-20 pt-24">
-            <div className="container max-w-2xl mx-auto px-4 py-4 sm:py-6">
+        <div className="min-h-screen app-gradient-bg pb-32 pt-24 lg:pt-32">
+            <div className="w-full max-w-5xl mx-auto px-4 lg:px-12 py-4 sm:py-6">
 
                 <div className="space-y-6 pb-20">
                     {/* Account tabs */}
