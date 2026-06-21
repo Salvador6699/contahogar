@@ -517,6 +517,8 @@ const Index = () => {
                             selectedAccount={accountFilter}
                             baseDate={baseDate}
                             budgets={data.budgets}
+                            onEditTransaction={handleEditTransaction}
+                            onDeleteTransaction={handleDeleteTransaction}
                         />
                         )}
 
@@ -530,6 +532,8 @@ const Index = () => {
                             transactions={data.transactions}
                             selectedAccount={accountFilter}
                             baseDate={baseDate}
+                            onEditTransaction={handleEditTransaction}
+                            onDeleteTransaction={handleDeleteTransaction}
                         />
                         )}
                     </div>
