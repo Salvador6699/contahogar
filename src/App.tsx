@@ -4,7 +4,7 @@ import { TooltipProvider } from "@/components/ui/tooltip";
 import { BrowserRouter, Routes, Route } from "react-router-dom";
 import { ThemeProvider } from "next-themes";
 import ScrollToTop from "./components/ScrollToTop";
-import SplashScreen from "./components/SplashScreen";
+
 import AppLayout from "./components/AppLayout";
 import { processRecurringTransactions } from "@/lib/automation";
 import { syncFromBackend } from "@/lib/storage";
@@ -20,7 +20,7 @@ import BudgetPage from "./pages/BudgetPage";
 import NotFound from "./pages/NotFound";
 
 const App = () => {
-  const [showSplash, setShowSplash] = useState(true);
+
   const [isReady, setIsReady] = useState(false);
 
   useEffect(() => {
@@ -41,7 +41,7 @@ const App = () => {
     <ThemeProvider attribute="class" defaultTheme="system" enableSystem>
       <TooltipProvider>
         <Sonner />
-        {showSplash && <SplashScreen onFinish={() => setShowSplash(false)} />}
+
         
         {isReady && (
           <BrowserRouter>

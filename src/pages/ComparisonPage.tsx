@@ -18,6 +18,7 @@ interface Adjustment {
     type: 'income' | 'expense';
     amount: number;
     category: string;
+    description?: string;
 }
 
 const ComparisonPage = () => {
@@ -29,6 +30,7 @@ const ComparisonPage = () => {
     const [adjustments, setAdjustments] = useState<Record<string, Adjustment[]>>({});
     const [newAmount, setNewAmount] = useState('');
     const [newCategory, setNewCategory] = useState('');
+    const [newDescription, setNewDescription] = useState('');
     const [suggestions, setSuggestions] = useState<string[]>([]);
     const [showSuggestions, setShowSuggestions] = useState(false);
 
@@ -74,6 +76,7 @@ const ComparisonPage = () => {
                 type,
                 amount,
                 category: newCategory.trim(),
+                description: newDescription.trim() || undefined,
             };
             setAdjustments(prev => ({
                 ...prev,
@@ -81,6 +84,7 @@ const ComparisonPage = () => {
             }));
             setNewAmount('');
             setNewCategory('');
+            setNewDescription('');
             setShowSuggestions(false);
         }
     };
@@ -105,6 +109,7 @@ const ComparisonPage = () => {
                     category: adj.category,
                     type: adj.type as 'income' | 'expense',
                     accountId: accountId,
+                    description: adj.description,
                     isPending: false,
                 });
             });
@@ -239,6 +244,18 @@ const ComparisonPage = () => {
                         </CardHeader>
                         <CardContent className="space-y-4">
                             <div className="grid gap-4 sm:grid-cols-2">
+                                <div>
+                                    <Label className="text-xs font-bold uppercase mb-1 block">Importe (€)</Label>
+                                    <Input
+                                        type="number"
+                                        step="0.01"
+                                        min="0"
+                                        value={newAmount}
+                                        onChange={(e) => setNewAmount(e.target.value)}
+                                        placeholder="0.00"
+                                        onFocus={scrollOnFocus}
+                                    />
+                                </div>
                                 <div className="relative">
                                     <Label className="text-xs font-bold uppercase mb-1 block">Categoría</Label>
                                     <Input
@@ -271,18 +288,17 @@ const ComparisonPage = () => {
                                         </div>
                                     )}
                                 </div>
-                                <div>
-                                    <Label className="text-xs font-bold uppercase mb-1 block">Importe (€)</Label>
-                                    <Input
-                                        type="number"
-                                        step="0.01"
-                                        min="0"
-                                        value={newAmount}
-                                        onChange={(e) => setNewAmount(e.target.value)}
-                                        placeholder="0.00"
-                                        onFocus={scrollOnFocus}
-                                    />
-                                </div>
+                            </div>
+                            <div>
+                                <Label className="text-xs font-bold uppercase mb-1 block">Descripción (Opcional)</Label>
+                                <Input
+                                    type="text"
+                                    value={newDescription}
+                                    onChange={(e) => setNewDescription(e.target.value)}
+                                    placeholder="Detalles del ajuste..."
+                                    autoComplete="off"
+                                    onFocus={scrollOnFocus}
+                                />
                             </div>
                             <div className="flex gap-3">
                                 <Button
@@ -313,7 +329,14 @@ const ComparisonPage = () => {
                                                 <div className={`p-1.5 rounded-full ${adj.type === 'income' ? 'bg-income/10 text-income' : 'bg-expense/10 text-expense'}`}>
                                                     {adj.type === 'income' ? <Plus className="w-3 h-3" /> : <Minus className="w-3 h-3" />}
                                                 </div>
-                                                <span className="font-medium capitalize">{adj.category}</span>
+                                                <div className="flex flex-col">
+                                                    <span className="font-medium capitalize leading-tight">{adj.category}</span>
+                                                    {adj.description && (
+                                                        <span className="text-[10px] text-muted-foreground italic truncate max-w-[120px] sm:max-w-[200px]">
+                                                            {adj.description}
+                                                        </span>
+                                                    )}
+                                                </div>
                                             </div>
                                             <div className="flex items-center gap-3">
                                                 <span className={`font-bold ${adj.type === 'income' ? 'text-income' : 'text-expense'}`}>
@@ -348,7 +371,7 @@ const ComparisonPage = () => {
                             className="flex-1 py-6 bg-primary text-primary-foreground font-bold shadow-lg disabled:opacity-50"
                             onClick={() => withKeyboardClose(() => handleSaveAdjustments())}
                             onPointerDown={() => withKeyboardClose(() => handleSaveAdjustments())}
-                            disabled={!hasAnyAdjustments || !atLeastOneBalanced}
+                            disabled={!hasAnyAdjustments}
                         >
                             <Save className="w-5 h-5 mr-2" />
                             Guardar Cambios
