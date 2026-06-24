@@ -47,6 +47,94 @@ const CategoryBreakdown = ({
   const [selectedCategoryName, setSelectedCategoryName] = useState<string | null>(null);
   const navigate = useNavigate();
 
+  const now = new Date();
+  const today = now.getDate();
+  const currentMonthKey = now.getFullYear() + '-' + String(now.getMonth() + 1).padStart(2, '0');
+  const daysInMonth = new Date(now.getFullYear(), now.getMonth() + 1, 0).getDate();
+
+  const [allAverages, setAllAverages] = useState<{category: string, average: number}[]>([]);
+  const [isCalculatingAverages, setIsCalculatingAverages] = useState(true);
+
+  useEffect(() => {
+    setIsCalculatingAverages(true);
+    const timeoutId = setTimeout(() => {
+      const pastTransactions = transactions.filter(t => !t.date.startsWith(currentMonthKey));
+      setAllAverages(calculateMonthlyAverages(pastTransactions));
+      setIsCalculatingAverages(false);
+    }, 0);
+    return () => clearTimeout(timeoutId);
+  }, [transactions, currentMonthKey]);
+
+  // Pre-sort categories based on envelope available amount
+  const sortedCategories = useMemo(() => {
+    if (type !== 'expense' || budgets.length === 0) return categories;
+    
+    const viewedMonthStr = baseDate ? (baseDate.getFullYear() + '-' + String(baseDate.getMonth() + 1).padStart(2, '0')) : (new Date().getFullYear() + '-' + String(new Date().getMonth() + 1).padStart(2, '0'));
+    
+    return [...categories].sort((a, b) => {
+      const aBudget = budgets.find(bg => bg.category === a.category && bg.month === viewedMonthStr);
+      const bBudget = budgets.find(bg => bg.category === b.category && bg.month === viewedMonthStr);
+      
+      const aAvailable = aBudget ? aBudget.amount - a.total : null;
+      const bAvailable = bBudget ? bBudget.amount - b.total : null;
+      
+      if (aAvailable !== null && bAvailable !== null) {
+        if (aAvailable < 0 && bAvailable < 0) return aAvailable - bAvailable;
+        if (aAvailable < 0) return -1;
+        if (bAvailable < 0) return 1;
+        return bAvailable - aAvailable;
+      }
+      if (aAvailable !== null) return -1;
+      if (bAvailable !== null) return 1;
+      return b.total - a.total;
+    });
+  }, [categories, budgets, type, baseDate]);
+
+  const { paginatedCategories, totalPages } = useMemo(() => {
+    const viewedMonthStr = baseDate ? (baseDate.getFullYear() + '-' + String(baseDate.getMonth() + 1).padStart(2, '0')) : (new Date().getFullYear() + '-' + String(new Date().getMonth() + 1).padStart(2, '0'));
+    
+    // Separamos los items que tienen presupuesto asignado activo (positivo o negativo) de los que están a cero
+    const activeEnvItems = sortedCategories.filter(c => {
+      if (type !== 'expense') return false;
+      const b = budgets.find(bg => bg.category === c.category && bg.month === viewedMonthStr);
+      if (!b) return false;
+      return Number((b.amount - c.total).toFixed(2)) !== 0;
+    });
+    
+    const zeroEnvItems = sortedCategories.filter(c => {
+      if (type !== 'expense') return false;
+      const b = budgets.find(bg => bg.category === c.category && bg.month === viewedMonthStr);
+      if (!b) return false;
+      return Number((b.amount - c.total).toFixed(2)) === 0;
+    });
+
+    const nonEnvItems = sortedCategories.filter(c => type !== 'expense' || !budgets.some(bg => bg.category === c.category && bg.month === viewedMonthStr));
+
+    const chunkItems = (items: CategorySummary[]) => {
+      if (items.length === 0) return [];
+      const numPages = Math.max(1, Math.floor(items.length / ITEMS_PER_PAGE));
+      const chunks = [];
+      for (let i = 0; i < numPages; i++) {
+        if (i === numPages - 1) {
+          chunks.push(items.slice(i * ITEMS_PER_PAGE));
+        } else {
+          chunks.push(items.slice(i * ITEMS_PER_PAGE, (i + 1) * ITEMS_PER_PAGE));
+        }
+      }
+      return chunks;
+    };
+
+    const allPages = [...chunkItems(activeEnvItems), ...chunkItems(zeroEnvItems), ...chunkItems(nonEnvItems)];
+    const finalTotalPages = Math.max(1, allPages.length);
+    // If the currentPage gets out of bounds (e.g., due to deleting a category), default to the last page
+    const safeCurrentPage = Math.min(currentPage, finalTotalPages);
+    
+    return {
+        totalPages: finalTotalPages,
+        paginatedCategories: allPages[safeCurrentPage - 1] || []
+    };
+  }, [sortedCategories, budgets, baseDate, currentPage, type]);
+
   if (categories.length === 0) {
     return null;
   }
@@ -195,75 +283,8 @@ const CategoryBreakdown = ({
     );
   }
 
-  // Pre-sort categories based on envelope available amount
-  const sortedCategories = useMemo(() => {
-    if (type !== 'expense' || budgets.length === 0) return categories;
-    
-    const viewedMonthStr = baseDate ? (baseDate.getFullYear() + '-' + String(baseDate.getMonth() + 1).padStart(2, '0')) : (new Date().getFullYear() + '-' + String(new Date().getMonth() + 1).padStart(2, '0'));
-    
-    return [...categories].sort((a, b) => {
-      const aBudget = budgets.find(bg => bg.category === a.category && bg.month === viewedMonthStr);
-      const bBudget = budgets.find(bg => bg.category === b.category && bg.month === viewedMonthStr);
-      
-      const aAvailable = aBudget ? aBudget.amount - a.total : null;
-      const bAvailable = bBudget ? bBudget.amount - b.total : null;
-      
-      if (aAvailable !== null && bAvailable !== null) {
-        if (aAvailable < 0 && bAvailable < 0) return aAvailable - bAvailable;
-        if (aAvailable < 0) return -1;
-        if (bAvailable < 0) return 1;
-        return bAvailable - aAvailable;
-      }
-      if (aAvailable !== null) return -1;
-      if (bAvailable !== null) return 1;
-      return b.total - a.total;
-    });
-  }, [categories, budgets, type, baseDate]);
 
-  const { paginatedCategories, totalPages } = useMemo(() => {
-    const viewedMonthStr = baseDate ? (baseDate.getFullYear() + '-' + String(baseDate.getMonth() + 1).padStart(2, '0')) : (new Date().getFullYear() + '-' + String(new Date().getMonth() + 1).padStart(2, '0'));
-    
-    // Separamos los items que tienen presupuesto asignado activo (positivo o negativo) de los que están a cero
-    const activeEnvItems = sortedCategories.filter(c => {
-      if (type !== 'expense') return false;
-      const b = budgets.find(bg => bg.category === c.category && bg.month === viewedMonthStr);
-      if (!b) return false;
-      return Number((b.amount - c.total).toFixed(2)) !== 0;
-    });
-    
-    const zeroEnvItems = sortedCategories.filter(c => {
-      if (type !== 'expense') return false;
-      const b = budgets.find(bg => bg.category === c.category && bg.month === viewedMonthStr);
-      if (!b) return false;
-      return Number((b.amount - c.total).toFixed(2)) === 0;
-    });
 
-    const nonEnvItems = sortedCategories.filter(c => type !== 'expense' || !budgets.some(bg => bg.category === c.category && bg.month === viewedMonthStr));
-
-    const chunkItems = (items: CategorySummary[]) => {
-      if (items.length === 0) return [];
-      const numPages = Math.max(1, Math.floor(items.length / ITEMS_PER_PAGE));
-      const chunks = [];
-      for (let i = 0; i < numPages; i++) {
-        if (i === numPages - 1) {
-          chunks.push(items.slice(i * ITEMS_PER_PAGE));
-        } else {
-          chunks.push(items.slice(i * ITEMS_PER_PAGE, (i + 1) * ITEMS_PER_PAGE));
-        }
-      }
-      return chunks;
-    };
-
-    const allPages = [...chunkItems(activeEnvItems), ...chunkItems(zeroEnvItems), ...chunkItems(nonEnvItems)];
-    const finalTotalPages = Math.max(1, allPages.length);
-    // If the currentPage gets out of bounds (e.g., due to deleting a category), default to the last page
-    const safeCurrentPage = Math.min(currentPage, finalTotalPages);
-    
-    return {
-        totalPages: finalTotalPages,
-        paginatedCategories: allPages[safeCurrentPage - 1] || []
-    };
-  }, [sortedCategories, budgets, baseDate, currentPage, type]);
 
   // Get transactions for a specific category
   const getTransactionsForCategory = (categoryName: string): Transaction[] => {
@@ -275,26 +296,6 @@ const CategoryBreakdown = ({
       t.date.startsWith(targetMonthStr)
     ).sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
   };
-
-  const now = new Date();
-  const today = now.getDate();
-  const currentMonthKey = now.getFullYear() + '-' + String(now.getMonth() + 1).padStart(2, '0');
-  const daysInMonth = new Date(now.getFullYear(), now.getMonth() + 1, 0).getDate();
-
-  const [allAverages, setAllAverages] = useState<{category: string, average: number}[]>([]);
-  const [isCalculatingAverages, setIsCalculatingAverages] = useState(true);
-
-  useEffect(() => {
-    setIsCalculatingAverages(true);
-    const timeoutId = setTimeout(() => {
-      const pastTransactions = transactions.filter(t => !t.date.startsWith(currentMonthKey));
-      setAllAverages(calculateMonthlyAverages(pastTransactions));
-      setIsCalculatingAverages(false);
-    }, 0);
-    return () => clearTimeout(timeoutId);
-  }, [transactions, currentMonthKey]);
-
-
 
   return (
     <div className="space-y-3">

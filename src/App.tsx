@@ -4,9 +4,8 @@ import { TooltipProvider } from "@/components/ui/tooltip";
 import { BrowserRouter, Routes, Route } from "react-router-dom";
 import { ThemeProvider } from "next-themes";
 import ScrollToTop from "./components/ScrollToTop";
-
 import AppLayout from "./components/AppLayout";
-import { processRecurringTransactions } from "@/lib/automation";
+
 import { syncFromBackend } from "@/lib/storage";
 
 import Index from "./pages/Index";
@@ -29,8 +28,6 @@ const App = () => {
       // Intentar sincronizar con el backend antes de arrancar
       await syncFromBackend();
       
-      // Run automation on start
-      processRecurringTransactions();
       
       setIsReady(true);
     };

@@ -1,5 +1,4 @@
-export type TransactionType = 'income' | 'expense';
-export type RecurrenceFrequency = 'daily' | 'weekly' | 'monthly' | 'every_n_months' | 'yearly';
+export type TransactionType = "income" | "expense";
 
 // New Account interface for flexible account management
 export interface Account {
@@ -11,7 +10,7 @@ export interface Account {
 }
 
 export interface Transaction {
-  id:string;
+  id: string;
   date: string; // "yyyy-mm-dd"
   amount: number;
   category: string;
@@ -30,27 +29,12 @@ export interface Category {
   customIcon?: string; // Data URL for custom uploaded icon
 }
 
-export interface RecurringTransaction {
-  id: string;
-  name: string;
-  amount: number;
-  type: TransactionType;
-  category: string;
-  accountId: string;
-  frequency: RecurrenceFrequency;
-  intervalMonths?: number;   // used when frequency === 'every_n_months'
-  endAfterMonths?: number;   // undefined = indefinido; N = termina después de N meses
-  startDate: string;
-  lastGeneratedDate?: string;
-  isActive: boolean;
-}
 
 export interface CategorySummary {
   category: string;
   total: number;
   count: number;
 }
-
 
 export interface FavoriteExpense {
   id: string;
@@ -96,9 +80,7 @@ export interface FinanceData {
   transactions: Transaction[];
   categories: Category[];
   budgets: Budget[];
-  recurringTransactions?: RecurringTransaction[];
   favorites?: FavoriteExpense[];
   alertSettings?: AlertSettings;
   savingsGoals?: SavingsGoal[];
-  deletedAutomations?: string[];
 }

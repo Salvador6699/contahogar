@@ -1,5 +1,11 @@
-import { useState, useEffect, useMemo } from 'react';
-import { Transaction, TransactionType, FavoriteExpense, RecurringTransaction, RecurrenceFrequency } from '@/types/finance';
+import { useState, useEffect, useMemo } from "react";
+import {
+  Transaction,
+  TransactionType,
+  FavoriteExpense,
+  TransactionType,
+  FavoriteExpense,
+} from "@/types/finance";
 import {
   loadData,
   saveData,
@@ -12,7 +18,7 @@ import {
   updateFavorite as modifyFavorite,
   deleteFavorite as removeFavorite,
   updateAlertSettings,
-} from '@/lib/storage';
+} from "@/lib/storage";
 import {
   calculateBalance,
   calculateAccountBalance,
@@ -22,57 +28,75 @@ import {
   calculateCategorySummaries,
   formatCurrency,
   calculatePastMonthsHistory,
-  calculateSpendingPace
-} from '@/lib/calculations';
-import { useMonthFilter } from '@/hooks/useMonthFilter';
-import BalanceCard from '@/components/BalanceCard';
-import SummaryCards from '@/components/SummaryCards';
-import CategoryBreakdown from '@/components/CategoryBreakdown';
-import QuickExpenses from '@/components/QuickExpenses';
-import TransactionModal from '@/components/TransactionModal';
-import TransactionList from '@/components/TransactionList';
-import AccountSelector from '@/components/AccountSelector';
-import QuickAmountModal from '@/components/QuickAmountModal';
-import { format, parseISO, addMonths, subMonths } from 'date-fns';
-import { Wallet, Calendar, ChevronLeft, ChevronRight, Scale, BarChart3 } from 'lucide-react';
-import { Button } from '@/components/ui/button';
-import { useNavigate, useSearchParams } from 'react-router-dom';
-import { addRecurringTransaction } from '@/lib/storage';
-import { processRecurringTransactions } from '@/lib/automation';
-import { toast } from 'sonner';
-import { v4 as uuidv4 } from 'uuid';
+  calculateSpendingPace,
+} from "@/lib/calculations";
+import { useMonthFilter } from "@/hooks/useMonthFilter";
+import BalanceCard from "@/components/BalanceCard";
+import SummaryCards from "@/components/SummaryCards";
+import CategoryBreakdown from "@/components/CategoryBreakdown";
+import QuickExpenses from "@/components/QuickExpenses";
+import TransactionModal from "@/components/TransactionModal";
+import TransactionList from "@/components/TransactionList";
+import AccountSelector from "@/components/AccountSelector";
+import QuickAmountModal from "@/components/QuickAmountModal";
+import { format, parseISO, addMonths, subMonths } from "date-fns";
+import {
+  Wallet,
+  Calendar,
+  ChevronLeft,
+  ChevronRight,
+  Scale,
+  BarChart3,
+} from "lucide-react";
+import { Button } from "@/components/ui/button";
+import { useNavigate, useSearchParams } from "react-router-dom";
+
+import { toast } from "sonner";
+import { v4 as uuidv4 } from "uuid";
 
 const Index = () => {
   const navigate = useNavigate();
   const [data, setData] = useState(loadData());
   const [isTransactionModalOpen, setIsTransactionModalOpen] = useState(false);
-  const [transactionType, setTransactionType] = useState<TransactionType>('expense');
-  const [editingTransaction, setEditingTransaction] = useState<Transaction | null>(null);
+  const [transactionType, setTransactionType] =
+    useState<TransactionType>("expense");
+  const [editingTransaction, setEditingTransaction] =
+    useState<Transaction | null>(null);
   const [searchParams, setSearchParams] = useSearchParams();
-  const [selectedMonth, setSelectedMonth] = useState<string | null>(searchParams.get('month'));
-  const [selectedAccount, setSelectedAccount] = useState<string | 'total'>('total');
+  const [selectedMonth, setSelectedMonth] = useState<string | null>(
+    searchParams.get("month"),
+  );
+  const [selectedAccount, setSelectedAccount] = useState<string | "total">(
+    "total",
+  );
   const [isFavoriteModalOpen, setIsFavoriteModalOpen] = useState(false);
-  const [editingFavorite, setEditingFavorite] = useState<FavoriteExpense | null>(null);
+  const [editingFavorite, setEditingFavorite] =
+    useState<FavoriteExpense | null>(null);
   const [favorites, setFavorites] = useState<FavoriteExpense[]>([]);
   const [isQuickAmountModalOpen, setIsQuickAmountModalOpen] = useState(false);
-  const [activeQuickFavorite, setActiveQuickFavorite] = useState<FavoriteExpense | null>(null);
+  const [activeQuickFavorite, setActiveQuickFavorite] =
+    useState<FavoriteExpense | null>(null);
 
   useEffect(() => {
     setFavorites(loadFavorites());
   }, []);
 
-  const { filteredTransactions, isCurrentMonth, selectedMonthLabel, currentMonthKey } = useMonthFilter(
-    data.transactions,
-    selectedMonth
-  );
+  const {
+    filteredTransactions,
+    isCurrentMonth,
+    selectedMonthLabel,
+    currentMonthKey,
+  } = useMonthFilter(data.transactions, selectedMonth);
 
   const history = useMemo(() => {
-    const baseDate = selectedMonth ? parseISO(selectedMonth + "-01") : new Date();
+    const baseDate = selectedMonth
+      ? parseISO(selectedMonth + "-01")
+      : new Date();
     return calculatePastMonthsHistory(
-      data.transactions, 
-      selectedAccount === 'total' ? undefined : selectedAccount, 
-      6, 
-      baseDate
+      data.transactions,
+      selectedAccount === "total" ? undefined : selectedAccount,
+      6,
+      baseDate,
     );
   }, [data.transactions, selectedAccount, selectedMonth]);
 
@@ -84,37 +108,37 @@ const Index = () => {
     const newParams = new URLSearchParams(searchParams);
 
     // Handle month selection from History
-    const monthParam = searchParams.get('month');
+    const monthParam = searchParams.get("month");
     if (monthParam) {
       setSelectedMonth(monthParam);
-      newParams.delete('month');
+      newParams.delete("month");
       paramsChanged = true;
     }
 
     // Handle quick-add from navigation
-    const action = searchParams.get('action');
-    if (action === 'add-expense') {
+    const action = searchParams.get("action");
+    if (action === "add-expense") {
       openExpenseModal();
-      newParams.delete('action');
+      newParams.delete("action");
       paramsChanged = true;
-    } else if (action === 'add-income') {
+    } else if (action === "add-income") {
       openIncomeModal();
-      newParams.delete('action');
+      newParams.delete("action");
       paramsChanged = true;
-    } else if (action === 'quick-expense') {
-      const favId = searchParams.get('id');
+    } else if (action === "quick-expense") {
+      const favId = searchParams.get("id");
       const favs = loadFavorites();
-      const fav = favs.find(f => f.id === favId);
+      const fav = favs.find((f) => f.id === favId);
       if (fav) {
         setActiveQuickFavorite(fav);
         setIsQuickAmountModalOpen(true);
       }
-      newParams.delete('action');
-      newParams.delete('id');
+      newParams.delete("action");
+      newParams.delete("id");
       paramsChanged = true;
-    } else if (action === 'manage-favorites') {
+    } else if (action === "manage-favorites") {
       setIsFavoriteModalOpen(true);
-      newParams.delete('action');
+      newParams.delete("action");
       paramsChanged = true;
     }
 
@@ -124,62 +148,14 @@ const Index = () => {
   }, [searchParams, setSearchParams]);
 
   const handleAddTransaction = (
-    transaction: Omit<Transaction, 'id'>,
+    transaction: Omit<Transaction, "id">,
     copyToNextMonth?: boolean,
-    recurringOptions?: { frequency: string; intervalMonths?: number; endAfterMonths?: number }
   ) => {
-    let isAutomating = !!recurringOptions;
 
     // Save previous state for Undo
     const previousTransactions = [...data.transactions];
 
-    // Handle automation (Recurring Transaction creation)
-    if (isAutomating) {
-      const originalDate = transaction.date;
 
-      const newRecurring: Omit<RecurringTransaction, 'id'> = {
-        name: transaction.category,
-        amount: transaction.amount,
-        type: transaction.type,
-        category: transaction.category,
-        accountId: transaction.accountId,
-        frequency: recurringOptions!.frequency as RecurrenceFrequency,
-        intervalMonths: recurringOptions!.intervalMonths,
-        endAfterMonths: recurringOptions!.endAfterMonths,
-        startDate: originalDate,
-        isActive: true,
-      };
-
-      // If editing, remove old transaction first
-      if (editingTransaction) {
-        deleteTransaction(editingTransaction.id);
-      }
-
-      // Save the current transaction as REAL (non-pending) with a normal UUID
-      saveTransaction({ ...transaction, isPending: false });
-
-      // Create the recurrence rule and project future (pending) occurrences starting NEXT period
-      addRecurringTransaction(newRecurring);
-      processRecurringTransactions();
-      
-      addCategory(transaction.category);
-      setEditingTransaction(null);
-      const newData = loadData();
-      setData(newData);
-      setIsTransactionModalOpen(false);
-
-      toast.success(`Automatización creada para "${transaction.category}"`, {
-        action: {
-          label: 'Deshacer',
-          onClick: () => {
-            saveData({ ...newData, transactions: previousTransactions });
-            setData({ ...newData, transactions: previousTransactions });
-            toast.info('Automatización revertida');
-          }
-        }
-      });
-      return;
-    }
 
     if (editingTransaction) {
       // Normal edit without automation
@@ -192,13 +168,17 @@ const Index = () => {
     setEditingTransaction(null);
 
     // copyToNextMonth logic (kept for backward compatibility, though recurring is better)
-    if (copyToNextMonth && !isAutomating) {
+    if (copyToNextMonth) {
       const currentDate = new Date(transaction.date);
-      const nextMonth = new Date(currentDate.getFullYear(), currentDate.getMonth() + 1, currentDate.getDate());
+      const nextMonth = new Date(
+        currentDate.getFullYear(),
+        currentDate.getMonth() + 1,
+        currentDate.getDate(),
+      );
       const nextMonthTransaction: Transaction = {
         ...transaction,
         id: uuidv4(),
-        date: nextMonth.toISOString().split('T')[0],
+        date: nextMonth.toISOString().split("T")[0],
         isPending: true,
       };
       saveTransaction(nextMonthTransaction);
@@ -209,16 +189,19 @@ const Index = () => {
     setData(newData);
     setIsTransactionModalOpen(false);
 
-    toast.success(editingTransaction ? 'Transacción actualizada' : 'Transacción guardada', {
-      action: {
-        label: 'Deshacer',
-        onClick: () => {
-          saveData({ ...newData, transactions: previousTransactions });
-          setData({ ...newData, transactions: previousTransactions });
-          toast.info('Cambios revertidos');
-        }
-      }
-    });
+    toast.success(
+      editingTransaction ? "Transacción actualizada" : "Transacción guardada",
+      {
+        action: {
+          label: "Deshacer",
+          onClick: () => {
+            saveData({ ...newData, transactions: previousTransactions });
+            setData({ ...newData, transactions: previousTransactions });
+            toast.info("Cambios revertidos");
+          },
+        },
+      },
+    );
   };
 
   const handleQuickAdd = (fav: FavoriteExpense) => {
@@ -228,48 +211,55 @@ const Index = () => {
 
   const handleSaveQuickAmount = (amount: number, accountId: string) => {
     if (!activeQuickFavorite) return;
-    
+
     const previousTransactions = [...data.transactions];
-    const newTransaction: Omit<Transaction, 'id'> = {
-      date: format(new Date(), 'yyyy-MM-dd'),
+    const newTransaction: Omit<Transaction, "id"> = {
+      date: format(new Date(), "yyyy-MM-dd"),
       amount: amount,
       category: activeQuickFavorite.category,
       type: activeQuickFavorite.type,
       accountId: accountId,
-      description: activeQuickFavorite.description || `Gasto rápido: ${activeQuickFavorite.name}`,
+      description:
+        activeQuickFavorite.description ||
+        `Gasto rápido: ${activeQuickFavorite.name}`,
     };
     saveTransaction(newTransaction);
     const newData = loadData();
     setData(newData);
-    
-    toast.success(`${activeQuickFavorite.name} registrado: ${formatCurrency(amount)}`, {
-      action: {
-        label: 'Deshacer',
-        onClick: () => {
-          saveData({ ...newData, transactions: previousTransactions });
-          setData({ ...newData, transactions: previousTransactions });
-          toast.info('Registro eliminado');
-        }
-      }
-    });
+
+    toast.success(
+      `${activeQuickFavorite.name} registrado: ${formatCurrency(amount)}`,
+      {
+        action: {
+          label: "Deshacer",
+          onClick: () => {
+            saveData({ ...newData, transactions: previousTransactions });
+            setData({ ...newData, transactions: previousTransactions });
+            toast.info("Registro eliminado");
+          },
+        },
+      },
+    );
     setIsQuickAmountModalOpen(false);
     setActiveQuickFavorite(null);
   };
 
-  const handleSaveFavorite = (favData: Omit<FavoriteExpense, 'id'> | FavoriteExpense) => {
-    if ('id' in favData) {
+  const handleSaveFavorite = (
+    favData: Omit<FavoriteExpense, "id"> | FavoriteExpense,
+  ) => {
+    if ("id" in favData) {
       modifyFavorite(favData as FavoriteExpense);
     } else {
       saveFavorite(favData);
     }
     setFavorites(loadFavorites());
-    toast.success('Favorito guardado correctamente');
+    toast.success("Favorito guardado correctamente");
   };
 
   const handleDeleteFavorite = (id: string) => {
     removeFavorite(id);
     setFavorites(loadFavorites());
-    toast.success('Favorito eliminado');
+    toast.success("Favorito eliminado");
   };
 
   const handleEditTransaction = (transaction: Transaction) => {
@@ -283,16 +273,16 @@ const Index = () => {
     deleteTransaction(id);
     const newData = loadData();
     setData(newData);
-    
-    toast.success('Transacción eliminada', {
+
+    toast.success("Transacción eliminada", {
       action: {
-        label: 'Deshacer',
+        label: "Deshacer",
         onClick: () => {
           saveData({ ...newData, transactions: previousTransactions });
           setData({ ...newData, transactions: previousTransactions });
-          toast.info('Transacción restaurada');
-        }
-      }
+          toast.info("Transacción restaurada");
+        },
+      },
     });
   };
 
@@ -303,39 +293,43 @@ const Index = () => {
 
   const handleConfirmTransaction = (transaction: Transaction) => {
     const previousTransactions = [...data.transactions];
-    
+
     // Check for linked account
-    const account = data.accounts.find(a => a.id === transaction.accountId);
+    const account = data.accounts.find((a) => a.id === transaction.accountId);
     let finalAccountId = transaction.accountId;
     if (account && account.linkedAccountId) {
       finalAccountId = account.linkedAccountId;
     }
 
-    updateTransaction({ ...transaction, isPending: false, accountId: finalAccountId });
+    updateTransaction({
+      ...transaction,
+      isPending: false,
+      accountId: finalAccountId,
+    });
     const newData = loadData();
     setData(newData);
-    
-    toast.success('Gasto confirmado', {
+
+    toast.success("Gasto confirmado", {
       action: {
-        label: 'Deshacer',
+        label: "Deshacer",
         onClick: () => {
           saveData({ ...newData, transactions: previousTransactions });
           setData({ ...newData, transactions: previousTransactions });
-          toast.info('Gasto vuelto a pendiente');
-        }
-      }
+          toast.info("Gasto vuelto a pendiente");
+        },
+      },
     });
   };
 
   const openExpenseModal = () => {
     setEditingTransaction(null);
-    setTransactionType('expense');
+    setTransactionType("expense");
     setIsTransactionModalOpen(true);
   };
 
   const openIncomeModal = () => {
     setEditingTransaction(null);
-    setTransactionType('income');
+    setTransactionType("income");
     setIsTransactionModalOpen(true);
   };
 
@@ -343,21 +337,43 @@ const Index = () => {
   const balanceMonthKey = selectedMonth || currentMonthKey;
 
   // Calculate balances for each account (filtered up to selected month)
-  const accountBalances = data.accounts.map(account => ({
+  const accountBalances = data.accounts.map((account) => ({
     account,
-    balance: calculateAccountBalance(account, data.transactions, false, balanceMonthKey),
-    projectedBalance: calculateAccountBalance(account, data.transactions, true, balanceMonthKey),
+    balance: calculateAccountBalance(
+      account,
+      data.transactions,
+      false,
+      balanceMonthKey,
+    ),
+    projectedBalance: calculateAccountBalance(
+      account,
+      data.transactions,
+      true,
+      balanceMonthKey,
+    ),
   }));
 
   // Total balances
-  const totalBalance = calculateTotalBalance(data.accounts, data.transactions, false, balanceMonthKey);
-  const totalProjectedBalance = calculateTotalBalance(data.accounts, data.transactions, true, balanceMonthKey);
+  const totalBalance = calculateTotalBalance(
+    data.accounts,
+    data.transactions,
+    false,
+    balanceMonthKey,
+  );
+  const totalProjectedBalance = calculateTotalBalance(
+    data.accounts,
+    data.transactions,
+    true,
+    balanceMonthKey,
+  );
 
   // Selected account balance
   let balance = totalBalance;
   let projectedBalance = totalProjectedBalance;
-  if (selectedAccount !== 'total') {
-    const selected = accountBalances.find(ab => ab.account.id === selectedAccount);
+  if (selectedAccount !== "total") {
+    const selected = accountBalances.find(
+      (ab) => ab.account.id === selectedAccount,
+    );
     if (selected) {
       balance = selected.balance;
       projectedBalance = selected.projectedBalance;
@@ -365,52 +381,98 @@ const Index = () => {
   }
 
   // Exclude transfers from summaries and lists
-  const nonTransferTransactions = filteredTransactions.filter(t => t.category !== 'Transferencia');
-
+  const nonTransferTransactions = filteredTransactions.filter(
+    (t) => t.category !== "Transferencia",
+  );
 
   // Resolve account filter (undefined = all accounts)
-  const accountFilter = selectedAccount === 'total' ? undefined : selectedAccount;
+  const accountFilter =
+    selectedAccount === "total" ? undefined : selectedAccount;
 
   // Monthly filtered calculations — respect selected account
-  const totalIncome = calculateTotalIncome(nonTransferTransactions, accountFilter, false);
-  const totalExpenses = calculateTotalExpenses(nonTransferTransactions, accountFilter, false);
-  const expenseCategories = calculateCategorySummaries(nonTransferTransactions, 'expense', accountFilter, false);
-  const incomeCategories = calculateCategorySummaries(nonTransferTransactions, 'income', accountFilter, false);
+  const totalIncome = calculateTotalIncome(
+    nonTransferTransactions,
+    accountFilter,
+    false,
+  );
+  const totalExpenses = calculateTotalExpenses(
+    nonTransferTransactions,
+    accountFilter,
+    false,
+  );
+  const expenseCategories = calculateCategorySummaries(
+    nonTransferTransactions,
+    "expense",
+    accountFilter,
+    false,
+  );
+  const incomeCategories = calculateCategorySummaries(
+    nonTransferTransactions,
+    "income",
+    accountFilter,
+    false,
+  );
 
   // Chart categories — same filter
-  const chartExpenseCategories = calculateCategorySummaries(nonTransferTransactions, 'expense', accountFilter, false);
+  const chartExpenseCategories = calculateCategorySummaries(
+    nonTransferTransactions,
+    "expense",
+    accountFilter,
+    false,
+  );
 
   // Pending/future transactions — respect selected account
-  const pendingExpenseCategories = calculateCategorySummaries(nonTransferTransactions, 'expense', accountFilter, true);
-  const pendingIncomeCategories = calculateCategorySummaries(nonTransferTransactions, 'income', accountFilter, true);
+  const pendingExpenseCategories = calculateCategorySummaries(
+    nonTransferTransactions,
+    "expense",
+    accountFilter,
+    true,
+  );
+  const pendingIncomeCategories = calculateCategorySummaries(
+    nonTransferTransactions,
+    "income",
+    accountFilter,
+    true,
+  );
 
   // Separate transactions: regular (non-pending) sorted by most recent, pending sorted by closest date
   const regularTransactions = nonTransferTransactions
-    .filter(t => !t.isPending && (!accountFilter || t.accountId === accountFilter))
+    .filter(
+      (t) => !t.isPending && (!accountFilter || t.accountId === accountFilter),
+    )
     .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
 
   const pendingTransactions = nonTransferTransactions
-    .filter(t => t.isPending && (!accountFilter || t.accountId === accountFilter))
+    .filter(
+      (t) => t.isPending && (!accountFilter || t.accountId === accountFilter),
+    )
     .sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
 
-  const hasAnyData = expenseCategories.length > 0 || incomeCategories.length > 0 ||
-    pendingExpenseCategories.length > 0 || pendingIncomeCategories.length > 0;
+  const hasAnyData =
+    expenseCategories.length > 0 ||
+    incomeCategories.length > 0 ||
+    pendingExpenseCategories.length > 0 ||
+    pendingIncomeCategories.length > 0;
 
   // History and Pace for trends
-  const baseDate = useMemo(() => selectedMonth ? parseISO(selectedMonth + "-01") : new Date(), [selectedMonth]);
-  const spendingPace = isCurrentMonth ? calculateSpendingPace(data.transactions, accountFilter) : undefined;
-
+  const baseDate = useMemo(
+    () => (selectedMonth ? parseISO(selectedMonth + "-01") : new Date()),
+    [selectedMonth],
+  );
+  const spendingPace = isCurrentMonth
+    ? calculateSpendingPace(data.transactions, accountFilter)
+    : undefined;
 
   const handlePrevMonth = () => {
-    const current = parseISO((selectedMonth || currentMonthKey) + '-01');
+    const current = parseISO((selectedMonth || currentMonthKey) + "-01");
     const prevMonth = subMonths(current, 1);
-    setSelectedMonth(format(prevMonth, 'yyyy-MM'));
+    setSelectedMonth(format(prevMonth, "yyyy-MM"));
   };
 
   const handleNextMonth = () => {
-    const current = parseISO((selectedMonth || currentMonthKey) + '-01');
+    const current = parseISO((selectedMonth || currentMonthKey) + "-01");
     const nextMonth = addMonths(current, 1);
-    setSelectedMonth(format(nextMonth, 'yyyy-MM'));
+    setSelectedMonth(format(nextMonth, "yyyy-MM"));
   };
 
   const handleBackToCurrentMonth = () => {
@@ -425,14 +487,28 @@ const Index = () => {
             {/* Month Navigator Header */}
             <div className="flex items-center justify-between p-4 bg-white dark:bg-card rounded-2xl shadow-sm border border-border/50 mb-8 overflow-hidden">
               <div className="flex items-center gap-2 mx-auto">
-                <Button variant="outline" size="icon" className="h-9 w-9 rounded-full" onClick={handlePrevMonth}>
+                <Button
+                  variant="outline"
+                  size="icon"
+                  className="h-9 w-9 rounded-full"
+                  onClick={handlePrevMonth}
+                >
                   <ChevronLeft className="w-4 h-4" />
                 </Button>
                 <div className="flex flex-col items-center min-w-[120px] px-2">
-                  <span className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground/70">Periodo</span>
-                  <span className="text-base font-extrabold text-primary capitalize leading-tight">{selectedMonthLabel}</span>
+                  <span className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground/70">
+                    Periodo
+                  </span>
+                  <span className="text-base font-extrabold text-primary capitalize leading-tight">
+                    {selectedMonthLabel}
+                  </span>
                 </div>
-                <Button variant="outline" size="icon" className="h-9 w-9 rounded-full border-primary/20 hover:border-primary/40 hover:bg-primary/5 transition-all" onClick={handleNextMonth}>
+                <Button
+                  variant="outline"
+                  size="icon"
+                  className="h-9 w-9 rounded-full border-primary/20 hover:border-primary/40 hover:bg-primary/5 transition-all"
+                  onClick={handleNextMonth}
+                >
                   <ChevronRight className="w-4 h-4 text-primary" />
                 </Button>
                 {!isCurrentMonth && (
@@ -459,13 +535,15 @@ const Index = () => {
             />
           </div>
 
-
           <div className="grid grid-cols-1 xl:grid-cols-2 gap-6 lg:gap-8 mb-8">
             <div className="space-y-6">
-              <BalanceCard balance={balance} projectedBalance={projectedBalance} />
-              <SummaryCards 
-                totalIncome={totalIncome} 
-                totalExpenses={totalExpenses} 
+              <BalanceCard
+                balance={balance}
+                projectedBalance={projectedBalance}
+              />
+              <SummaryCards
+                totalIncome={totalIncome}
+                totalExpenses={totalExpenses}
                 history={history}
                 spendingPace={spendingPace}
                 transactions={regularTransactions}
@@ -509,63 +587,61 @@ const Index = () => {
           <div className="space-y-8 pb-24 items-start">
             {/* Breakdowns */}
             <div className="space-y-8">
-                <div className="grid grid-cols-1 gap-8 items-start">
-                    {/* Category Breakdowns */}
-                    <div className="space-y-8">
-                        {expenseCategories.length > 0 && (
-                        <CategoryBreakdown 
-                            categories={expenseCategories} 
-                            type="expense" 
-                            isPending={false} 
-                            categoryCatalog={data.categories}
-                            transactions={data.transactions}
-                            selectedAccount={accountFilter}
-                            baseDate={baseDate}
-                            budgets={data.budgets}
-                            onEditTransaction={handleEditTransaction}
-                            onDeleteTransaction={handleDeleteTransaction}
-                        />
-                        )}
+              <div className="grid grid-cols-1 gap-8 items-start">
+                {/* Category Breakdowns */}
+                <div className="space-y-8">
+                  {expenseCategories.length > 0 && (
+                    <CategoryBreakdown
+                      categories={expenseCategories}
+                      type="expense"
+                      isPending={false}
+                      categoryCatalog={data.categories}
+                      transactions={data.transactions}
+                      selectedAccount={accountFilter}
+                      baseDate={baseDate}
+                      budgets={data.budgets}
+                      onEditTransaction={handleEditTransaction}
+                      onDeleteTransaction={handleDeleteTransaction}
+                    />
+                  )}
 
-                        {/* 3. Current Income Categories */}
-                        {incomeCategories.length > 0 && (
-                        <CategoryBreakdown 
-                            categories={incomeCategories} 
-                            type="income" 
-                            isPending={false} 
-                            categoryCatalog={data.categories}
-                            transactions={data.transactions}
-                            selectedAccount={accountFilter}
-                            baseDate={baseDate}
-                            onEditTransaction={handleEditTransaction}
-                            onDeleteTransaction={handleDeleteTransaction}
-                        />
-                        )}
-                    </div>
-
-
+                  {/* 3. Current Income Categories */}
+                  {incomeCategories.length > 0 && (
+                    <CategoryBreakdown
+                      categories={incomeCategories}
+                      type="income"
+                      isPending={false}
+                      categoryCatalog={data.categories}
+                      transactions={data.transactions}
+                      selectedAccount={accountFilter}
+                      baseDate={baseDate}
+                      onEditTransaction={handleEditTransaction}
+                      onDeleteTransaction={handleDeleteTransaction}
+                    />
+                  )}
                 </div>
+              </div>
             </div>
 
             {/* Bottom Section: Transaction List */}
             <div>
-                <TransactionList
+              <TransactionList
                 transactions={regularTransactions}
                 onEdit={handleEditTransaction}
                 onDelete={handleDeleteTransaction}
-                />
-                
-                {/* Empty State */}
-                {!hasAnyData && (
+              />
+
+              {/* Empty State */}
+              {!hasAnyData && (
                 <div className="text-center py-12 bg-card rounded-3xl border border-dashed border-border p-8 mt-8">
-                    <p className="text-muted-foreground text-lg font-bold">
+                  <p className="text-muted-foreground text-lg font-bold">
                     Aún no hay transacciones registradas.
-                    </p>
-                    <p className="text-muted-foreground mt-2 text-sm">
+                  </p>
+                  <p className="text-muted-foreground mt-2 text-sm">
                     Usa los botones de Ingreso y Gasto arriba a la derecha.
-                    </p>
+                  </p>
                 </div>
-                )}
+              )}
             </div>
           </div>
         </div>
@@ -581,7 +657,9 @@ const Index = () => {
           type={transactionType}
           categories={data.categories}
           editingTransaction={editingTransaction}
-          defaultAccountId={selectedAccount === 'total' ? undefined : selectedAccount}
+          defaultAccountId={
+            selectedAccount === "total" ? undefined : selectedAccount
+          }
         />
 
         {/* Quick Amount Modal */}
