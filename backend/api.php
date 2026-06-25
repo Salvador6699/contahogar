@@ -14,6 +14,13 @@ $action = isset($_GET['action']) ? $_GET['action'] : '';
 
 if ($action === 'load') {
     $db = getDB();
+    
+    // Auto-add isIgnored column if missing
+    $colCheck = $db->query("SHOW COLUMNS FROM transactions LIKE 'isIgnored'");
+    if ($colCheck->num_rows == 0) {
+        $db->query("ALTER TABLE transactions ADD COLUMN isIgnored BOOLEAN DEFAULT 0");
+    }
+
     $data = [
         'accounts' => [],
         'transactions' => [],
@@ -49,10 +56,11 @@ if ($action === 'load') {
     }
 
     // Cargar transactions
-    $rows = fetchTable($db, "SELECT * FROM transactions");
-    foreach ($rows as $row) {
+    $res = $db->query("SELECT * FROM transactions");
+    while ($row = $res->fetch_assoc()) {
         $row['amount'] = (float)$row['amount'];
         $row['isPending'] = (bool)$row['isPending'];
+        $row['isIgnored'] = isset($row['isIgnored']) ? (bool)$row['isIgnored'] : false;
         $data['transactions'][] = $row;
     }
 
@@ -125,6 +133,12 @@ if ($action === 'save') {
     $db->begin_transaction();
 
     try {
+        // Auto-add isIgnored column if missing
+        $colCheck = $db->query("SHOW COLUMNS FROM transactions LIKE 'isIgnored'");
+        if ($colCheck->num_rows == 0) {
+            $db->query("ALTER TABLE transactions ADD COLUMN isIgnored BOOLEAN DEFAULT 0");
+        }
+
         // Como la app actualmente manda el estado completo (como en localStorage),
         // vaciamos las tablas y las volvemos a llenar. Esto asegura que los elementos
         // eliminados también desaparezcan de la DB.
@@ -172,12 +186,13 @@ if ($action === 'save') {
             }
         }
 
-        $stmtTx = $db->prepare("REPLACE INTO transactions (id, date, amount, category, type, accountId, description, isPending) VALUES (?, ?, ?, ?, ?, ?, ?, ?)");
+        $stmtTx = $db->prepare("INSERT INTO transactions (id, date, amount, category, type, accountId, description, isPending, isIgnored) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)");
         if (!empty($data['transactions'])) {
             foreach ($data['transactions'] as $item) {
-                $desc = isset($item['description']) ? $item['description'] : null;
+                $desc = $item['description'] ?? null;
                 $pending = !empty($item['isPending']) ? 1 : 0;
-                $stmtTx->bind_param("ssdssssi", $item['id'], $item['date'], $item['amount'], $item['category'], $item['type'], $item['accountId'], $desc, $pending);
+                $ignored = !empty($item['isIgnored']) ? 1 : 0;
+                $stmtTx->bind_param("ssdssssii", $item['id'], $item['date'], $item['amount'], $item['category'], $item['type'], $item['accountId'], $desc, $pending, $ignored);
                 if ($stmtTx->execute() === false) throw new Exception("Error insertando transacción: " . $stmtTx->error);
             }
         }

@@ -28,6 +28,7 @@ CREATE TABLE IF NOT EXISTS transactions (
     accountId VARCHAR(100) NOT NULL,
     description TEXT NULL,
     isPending BOOLEAN DEFAULT 0,
+    isIgnored BOOLEAN DEFAULT 0,
     FOREIGN KEY (accountId) REFERENCES accounts(id) ON DELETE CASCADE
 );
 

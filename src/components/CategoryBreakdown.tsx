@@ -20,6 +20,7 @@ interface CategoryBreakdownProps {
   onEditTransaction?: (transaction: Transaction) => void;
   onDeleteTransaction?: (transactionId: string) => void;
   onConfirmTransaction?: (transaction: Transaction) => void;
+  onToggleIgnoreTransaction?: (transaction: Transaction) => void;
   categoryCatalog?: Category[];
   selectedAccount?: string;
   baseDate?: Date;
@@ -38,6 +39,7 @@ const CategoryBreakdown = ({
   onEditTransaction,
   onDeleteTransaction,
   onConfirmTransaction,
+  onToggleIgnoreTransaction,
   categoryCatalog = [],
   selectedAccount = 'total',
   baseDate = new Date(),
@@ -158,7 +160,7 @@ const CategoryBreakdown = ({
     const startIndex = (safeCurrentPage - 1) * ITEMS_PER_PAGE;
     const isLastPage = safeCurrentPage === totalPages;
     const paginatedItems = pendingItems.slice(startIndex, isLastPage ? pendingItems.length : startIndex + ITEMS_PER_PAGE);
-    const pendingTotal = pendingItems.reduce((sum, t) => sum + t.amount, 0);
+    const pendingTotal = pendingItems.filter(t => !t.isIgnored).reduce((sum, t) => sum + t.amount, 0);
 
     if (pendingItems.length === 0) return null;
 
@@ -242,10 +244,21 @@ const CategoryBreakdown = ({
                     </div>
                 </div>
                 <div className="flex flex-col items-end gap-2 flex-shrink-0">
-                  <p className={`text-lg font-bold ${colorClass} whitespace-nowrap leading-none mt-1`}>
+                  <p className={`text-lg font-bold ${transaction.isIgnored ? 'text-muted-foreground line-through opacity-50' : colorClass} whitespace-nowrap leading-none mt-1`}>
                     {formatCurrency(transaction.amount)}
                   </p>
                   <div className="flex items-center gap-1">
+                    {onToggleIgnoreTransaction && (
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        onClick={() => onToggleIgnoreTransaction(transaction)}
+                        className={`h-8 w-8 ${transaction.isIgnored ? 'text-muted-foreground opacity-50' : 'text-primary'} hover:bg-background/50`}
+                        title={transaction.isIgnored ? "Incluir en previsión" : "Excluir de previsión"}
+                      >
+                        {transaction.isIgnored ? <Icons.EyeOff className="h-4 w-4" /> : <Icons.Eye className="h-4 w-4" />}
+                      </Button>
+                    )}
                     {onEditTransaction && (
                       <Button
                         variant="ghost"

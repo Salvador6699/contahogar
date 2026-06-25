@@ -8,7 +8,7 @@ export const calculateBalance = (
   upToEndOfMonth?: string // 'yyyy-MM' format, include transactions up to end of this month
 ): number => {
   let filteredTransactions = includePending 
-    ? transactions 
+    ? transactions.filter(t => !t.isIgnored) 
     : transactions.filter(t => !t.isPending);
   
   // Filter by account if specified
@@ -66,6 +66,8 @@ export const calculateTotalIncome = (
   
   if (!includePending) {
     filtered = filtered.filter(t => !t.isPending);
+  } else {
+    filtered = filtered.filter(t => !t.isIgnored);
   }
   
   if (accountId) {
@@ -84,6 +86,8 @@ export const calculateTotalExpenses = (
   
   if (!includePending) {
     filtered = filtered.filter(t => !t.isPending);
+  } else {
+    filtered = filtered.filter(t => !t.isIgnored);
   }
   
   if (accountId) {
@@ -205,6 +209,7 @@ export const filterTransactions = (
   return transactions.filter(t => {
     // Filter by pending status
     if (!criteria.includePending && t.isPending) return false;
+    if (criteria.includePending && t.isIgnored) return false;
 
     // Filter by type
     if (criteria.type && criteria.type !== 'all' && t.type !== criteria.type) return false;

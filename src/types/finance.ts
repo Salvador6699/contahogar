@@ -18,6 +18,7 @@ export interface Transaction {
   accountId: string; // Link to the Account's id
   description?: string;
   isPending?: boolean;
+  isIgnored?: boolean; // If true, this pending transaction is not included in forecast
 }
 
 export interface Category {

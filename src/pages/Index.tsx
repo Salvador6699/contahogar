@@ -319,6 +319,14 @@ const Index = () => {
     });
   };
 
+  const handleToggleIgnoreTransaction = (transaction: Transaction) => {
+    updateTransaction({
+      ...transaction,
+      isIgnored: !transaction.isIgnored
+    });
+    setData(loadData());
+  };
+
   const openExpenseModal = () => {
     setEditingTransaction(null);
     setTransactionType("expense");
@@ -560,6 +568,7 @@ const Index = () => {
                   onEditTransaction={handleEditTransaction}
                   onDeleteTransaction={handleDeleteTransaction}
                   onConfirmTransaction={handleConfirmTransaction}
+                  onToggleIgnoreTransaction={handleToggleIgnoreTransaction}
                   categoryCatalog={data.categories}
                   accounts={data.accounts}
                 />
@@ -573,6 +582,7 @@ const Index = () => {
                   onEditTransaction={handleEditTransaction}
                   onDeleteTransaction={handleDeleteTransaction}
                   onConfirmTransaction={handleConfirmTransaction}
+                  onToggleIgnoreTransaction={handleToggleIgnoreTransaction}
                   categoryCatalog={data.categories}
                   accounts={data.accounts}
                   budgets={data.budgets}
