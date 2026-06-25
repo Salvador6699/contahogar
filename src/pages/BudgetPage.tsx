@@ -7,7 +7,7 @@ import { format } from 'date-fns';
 import { v4 as uuidv4 } from 'uuid';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { PiggyBank, PlusCircle, Save, Trash2, Plus, Minus, Search, X, ChevronLeft, ChevronRight } from 'lucide-react';
+import { PiggyBank, PlusCircle, Save, Trash2, Plus, Minus, Search, X, ChevronLeft, ChevronRight, Copy } from 'lucide-react';
 import { toast } from 'sonner';
 import { cn } from '@/lib/utils';
 import {
@@ -119,12 +119,40 @@ const BudgetPage = () => {
                 }
             });
 
-            if (assignedCount === 0) {
-                toast.info('No se encontraron nuevos gastos sin presupuesto.');
+            if (assignedCount > 0) {
+                toast.success(`${assignedCount} gastos futuros autoasignados`);
             } else {
-                toast.success(`Se añadieron ${assignedCount} categorías autoasignadas.`);
+                toast.info('No hay gastos futuros nuevos que autoasignar');
             }
+            return next;
+        });
+    };
 
+    const handleCopyPreviousMonth = () => {
+        const current = parseISO(activeMonth + "-01");
+        const prevMonthStr = format(subMonths(current, 1), "yyyy-MM");
+        
+        const prevMonthBudgets = data.budgets.filter(b => b.month === prevMonthStr && b.category !== 'Transferencia');
+        
+        setLocalAssignments(prev => {
+            const next = { ...prev };
+            let copiedCount = 0;
+            
+            prevMonthBudgets.forEach(b => {
+                if (!b.isAuto) {
+                    const currentAmount = next[b.category]?.amount || 0;
+                    if (currentAmount === 0) {
+                        next[b.category] = { amount: b.amount, isAuto: false };
+                        copiedCount++;
+                    }
+                }
+            });
+            
+            if (copiedCount > 0) {
+                toast.success(`${copiedCount} presupuestos copiados del mes anterior`);
+            } else {
+                toast.info('No hay presupuestos manuales nuevos que copiar');
+            }
             return next;
         });
     };
@@ -162,17 +190,15 @@ const BudgetPage = () => {
     const handleSave = () => {
         const newData = { ...data };
         
-        // Remove all budgets for the current month
         newData.budgets = newData.budgets.filter(b => b.month !== activeMonth);
         
-        // Add the new budgets from local state
         Object.entries(localAssignments).forEach(([category, { amount }]) => {
             newData.budgets.push({
                 id: uuidv4(),
                 category,
                 amount,
                 month: activeMonth,
-                isAuto: false, // Guardado manual
+                isAuto: false,
                 createdAt: new Date().toISOString()
             });
         });
@@ -189,7 +215,6 @@ const BudgetPage = () => {
             if (t.type === 'income') incomeCats.add(t.category);
             if (t.type === 'expense') expenseCats.add(t.category);
         });
-        // También añadimos la palabra "Sueldo" por defecto si no tiene gastos
         if (!expenseCats.has('Sueldo')) incomeCats.add('Sueldo');
         if (!expenseCats.has('Nómina')) incomeCats.add('Nómina');
         
@@ -202,21 +227,16 @@ const BudgetPage = () => {
         !incomeOnlyCategories.has(c.name)
     );
 
-    // Calculos globales
     const capitalDisponible = useMemo(() => {
-        // Obtenemos el balance proyectado total hasta final del mes seleccionado
-        // Esto es exactamente lo que hace el Dashboard para calcular el "Capital"
         const balanceActual = calculateTotalBalance(data.accounts, data.transactions, true, activeMonth);
-        
-        // A este balance le sumamos los gastos del mes actual, 
-        // ya que los gastos del mes no deben reducir tu dinero "Disponible para asignar" 
-        // (esos gastos ya se van descontando de los presupuestos asignados en la tabla de abajo)
-        const gastosMesActual = Number(data.transactions
+        return Number(balanceActual.toFixed(2));
+    }, [data, activeMonth]);
+
+    const gastosMesActual = useMemo(() => {
+        return Number(data.transactions
             .filter(t => t.type === 'expense' && t.category !== 'Transferencia' && t.date.startsWith(activeMonth) && (!t.isPending || !t.isIgnored))
             .reduce((sum, t) => sum + t.amount, 0).toFixed(2));
-
-        return Number((balanceActual + gastosMesActual).toFixed(2));
-    }, [data, activeMonth]);
+    }, [data.transactions, activeMonth]);
 
     const ingresosDelMes = useMemo(() => {
         return Number(data.transactions
@@ -246,7 +266,43 @@ const BudgetPage = () => {
 
     const sumManualBudgets = Number(manualCategories.reduce((sum, cat) => sum + localAssignments[cat].amount, 0).toFixed(2));
     const sumAutoBudgets = Number(autoCategories.reduce((sum, cat) => sum + localAssignments[cat].amount, 0).toFixed(2));
-    const disponibleParaAsignar = Number((capitalDisponible - sumManualBudgets - sumAutoBudgets).toFixed(2));
+    
+    const disponibleParaAsignar = useMemo(() => {
+        const baseCapital = calculateTotalBalance(data.accounts, data.transactions, true, currentMonthKey);
+        const baseGastos = Number(data.transactions
+            .filter(t => t.type === 'expense' && t.category !== 'Transferencia' && t.date.startsWith(currentMonthKey) && (!t.isPending || !t.isIgnored))
+            .reduce((sum, t) => sum + t.amount, 0).toFixed(2));
+        const baseBudgets = Number(data.budgets
+            .filter(b => b.month === currentMonthKey && b.category !== 'Transferencia')
+            .reduce((sum, b) => sum + b.amount, 0).toFixed(2));
+        
+        let noAsignada = baseCapital + baseGastos - baseBudgets;
+
+        let m = addMonths(parseISO(currentMonthKey + "-01"), 1);
+        const end = parseISO(activeMonth + "-01");
+
+        while (m <= end) {
+            const mStr = format(m, 'yyyy-MM');
+            const monthIngresos = Number(data.transactions
+                .filter(t => t.type === 'income' && t.category !== 'Transferencia' && t.date.startsWith(mStr) && (!t.isPending || !t.isIgnored))
+                .reduce((sum, t) => sum + t.amount, 0).toFixed(2));
+            
+            let monthBudgets = 0;
+            if (mStr === activeMonth) {
+                monthBudgets = sumManualBudgets + sumAutoBudgets;
+            } else {
+                monthBudgets = Number(data.budgets
+                    .filter(b => b.month === mStr && b.category !== 'Transferencia')
+                    .reduce((sum, b) => sum + b.amount, 0).toFixed(2));
+            }
+
+            noAsignada = noAsignada + monthIngresos - monthBudgets;
+            m = addMonths(m, 1);
+        }
+
+        return Number(noAsignada.toFixed(2));
+    }, [activeMonth, currentMonthKey, sumManualBudgets, sumAutoBudgets, data]);
+
     const disponibleBasadoEnIngresos = Number((ingresosDelMes - sumManualBudgets - sumAutoBudgets).toFixed(2));
 
     const filteredManualCategories = manualCategories.filter(cat => cat.toLowerCase().includes(searchQuery.toLowerCase()));
@@ -270,9 +326,35 @@ const BudgetPage = () => {
 
     return (
         <div className="w-full">
+            <Dialog open={isAddModalOpen} onOpenChange={setIsAddModalOpen}>
+                <DialogContent>
+                    <DialogHeader>
+                        <DialogTitle>Añadir Presupuesto</DialogTitle>
+                    </DialogHeader>
+                    <div className="flex flex-col gap-4">
+                        <Select onValueChange={setNewCategoryName}>
+                            <SelectTrigger>
+                                <SelectValue placeholder="Seleccionar categoría" />
+                            </SelectTrigger>
+                            <SelectContent>
+                                {availableCategoriesToAdd.map(c => (
+                                    <SelectItem key={c.id} value={c.name}>{c.name}</SelectItem>
+                                ))}
+                            </SelectContent>
+                        </Select>
+                        <Input 
+                            type="number" 
+                            placeholder="Importe" 
+                            value={newCategoryAmount}
+                            onChange={(e) => setNewCategoryAmount(e.target.value)}
+                        />
+                        <Button onClick={handleConfirmAddCategory}>Guardar</Button>
+                    </div>
+                </DialogContent>
+            </Dialog>
+
             <div className="w-full max-w-full mx-auto px-4 lg:px-12 pt-2 sm:pt-8">
                 
-                {/* Month Navigator */}
                 <div className="flex items-center justify-between p-4 bg-white dark:bg-card rounded-2xl shadow-sm border border-border/50 mb-6 overflow-hidden">
                     <div className="flex items-center gap-2 mx-auto">
                         <Button
@@ -312,54 +394,55 @@ const BudgetPage = () => {
                     </div>
                 </div>
 
-                {/* PAGE TITLE & ACTION BUTTONS (Scrolls away) */}
                 <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 mb-6">
                     <h1 className="text-3xl font-black text-foreground flex items-center gap-2 mt-2 sm:mt-0">
                         <PiggyBank className="w-8 h-8 text-primary" />
                         Presupuestos
                     </h1>
 
-                    <div className="flex flex-wrap items-center justify-start sm:justify-end gap-2 w-full sm:w-auto">
+                    <div className="flex flex-col sm:flex-row w-full sm:w-auto items-stretch sm:items-center gap-2 mt-2 sm:mt-0 z-10">
                         <Button 
                             onClick={() => setIsAddModalOpen(true)}
                             variant="outline"
-                            className="font-bold border-2 flex-1 sm:flex-none h-11"
-                            title="Añadir presupuesto manualmente"
+                            className="font-bold border-2"
                         >
-                            <PlusCircle className="w-5 h-5 mr-2" />
+                            <PlusCircle className="w-4 h-4 mr-2" />
                             Añadir manual
                         </Button>
-
+                        <Button 
+                            onClick={handleCopyPreviousMonth}
+                            variant="secondary"
+                            className="bg-primary/5 hover:bg-primary/15 text-primary border border-primary/20 hover:border-primary/40 font-bold shadow-sm transition-all"
+                        >
+                            <Copy className="w-4 h-4 mr-2" />
+                            Copiar mes anterior
+                        </Button>
                         <Button 
                             onClick={handleAutoAssignFutureExpenses}
                             variant="secondary"
-                            className="font-bold flex-1 sm:flex-none h-11"
-                            title="Autoasignar gastos no presupuestados"
+                            className="bg-primary/10 hover:bg-primary/20 text-primary border border-primary/20 font-bold shadow-sm transition-all"
                         >
-                            <PlusCircle className="w-5 h-5 sm:mr-2" />
-                            <span className="hidden sm:inline">Autoasignar</span>
+                            <PlusCircle className="w-4 h-4 mr-2" />
+                            Autoasignar
                         </Button>
-
                         <Button 
-                            onClick={handleSave}
-                            className="font-black px-6 flex-1 sm:flex-none h-11"
+                            onClick={handleSave} 
+                            className="font-bold shadow-md hover:shadow-lg transition-all"
                         >
-                            <Save className="w-5 h-5 sm:mr-2" />
-                            <span className="hidden sm:inline text-base">Guardar Cambios</span>
+                            <Save className="w-4 h-4 mr-2" />
+                            Guardar Cambios
                         </Button>
                     </div>
                 </div>
 
-                {/* STICKY SUMMARY CARDS & SEARCH */}
                 <div className="sticky top-14 lg:top-20 z-30 bg-background/95 backdrop-blur-xl pt-2 pb-4 mb-8 border-b border-border/20 -mx-4 px-4 sm:mx-0 sm:px-0 shadow-sm">
-                    {/* GLOBAL SUMMARY CARDS */}
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                         {/* TOTAL CAPITAL ROW */}
                         <div className="bg-card rounded-2xl border border-border/50 shadow-sm p-5 flex flex-col justify-center">
                             <div className="flex justify-between items-start gap-4">
                                 <div>
                                     <div className="text-[11px] sm:text-xs font-bold uppercase tracking-widest text-muted-foreground mb-1">
-                                        CAPITAL TOTAL
+                                        SALDO PREVISTO (FIN DE MES)
                                     </div>
                                     <div className="font-black text-2xl sm:text-3xl text-foreground">
                                         {formatCurrency(capitalDisponible)}
