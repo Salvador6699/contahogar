@@ -39,6 +39,7 @@ import {
 import { useScrollOnFocus } from "@/hooks/useScrollOnFocus";
 import { withKeyboardClose } from "@/lib/utils";
 import { Textarea } from "@/components/ui/textarea";
+import { Switch } from "@/components/ui/switch";
 import { toast } from "sonner";
 
 interface TransactionModalProps {
@@ -77,6 +78,8 @@ const TransactionModal = ({
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [step, setStep] = useState<"account" | "form">("account");
   const [showAllCategories, setShowAllCategories] = useState(false);
+  const [suggestions, setSuggestions] = useState<string[]>([]);
+  const [showSuggestions, setShowSuggestions] = useState(false);
 
   useEffect(() => {
     if (isOpen && !editingTransaction) {
@@ -487,7 +490,23 @@ const TransactionModal = ({
                     />
                   </div>
 
-
+                  <div className="space-y-4 pt-4 border-t border-border/30 mt-auto">
+                    <div className="flex items-center justify-between">
+                      <div className="space-y-0.5">
+                        <Label className="flex items-center gap-2">
+                          <Clock className="w-4 h-4 text-primary" />
+                          Gasto Pendiente (Futuro)
+                        </Label>
+                        <p className="text-xs text-muted-foreground">
+                          Márcalo si es un cobro futuro que aún no se ha pagado
+                        </p>
+                      </div>
+                      <Switch
+                        checked={isPending}
+                        onCheckedChange={setIsPending}
+                      />
+                    </div>
+                  </div>
                 </div>
               </div>
             </div>
