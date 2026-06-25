@@ -226,7 +226,7 @@ const BudgetPage = () => {
 
     const getGastado = (catName: string) => {
         return Number(data.transactions
-            .filter(t => t.type === 'expense' && t.category === catName && t.date.startsWith(activeMonth) && (!t.isPending || !t.isIgnored))
+            .filter(t => !t.isPending && t.type === 'expense' && t.category === catName && t.date.startsWith(activeMonth))
             .reduce((sum, t) => sum + t.amount, 0).toFixed(2));
     };
 
