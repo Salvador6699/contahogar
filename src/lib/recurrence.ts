@@ -51,10 +51,19 @@ export const syncRecurringTransactions = (data: FinanceData): FinanceData => {
     }
 
     let currentDate = parseISO(rule.startDate);
+    if (isNaN(currentDate.getTime())) {
+      // If startDate is invalid (e.g. '0000-00-00'), use today as fallback
+      currentDate = new Date();
+    }
     const generatedIds = new Set<string>();
 
+    // Safeguard to prevent infinite loops
+    let iterations = 0;
+    const MAX_ITERATIONS = 500;
+
     // Generate dates until we pass the limitDate
-    while (!isAfter(currentDate, limitDate)) {
+    while (!isAfter(currentDate, limitDate) && iterations < MAX_ITERATIONS) {
+      iterations++;
       const dateStr = format(currentDate, "yyyy-MM-dd");
       const txId = `rec_${rule.id}_${dateStr}`;
       generatedIds.add(txId);
@@ -91,13 +100,14 @@ export const syncRecurringTransactions = (data: FinanceData): FinanceData => {
         transactions.push(newTx);
       }
 
-      // Advance date
-      if (rule.frequency === "weekly") {
+      // Advance date (support older translated frequencies like 'Mensual')
+      if (rule.frequency === "weekly" || rule.frequency === "Semanal" as any) {
         currentDate = addWeeks(currentDate, 1);
-      } else if (rule.frequency === "monthly") {
-        currentDate = addMonths(currentDate, 1);
-      } else if (rule.frequency === "yearly") {
+      } else if (rule.frequency === "yearly" || rule.frequency === "Anual" as any) {
         currentDate = addYears(currentDate, 1);
+      } else {
+        // Default to monthly for "monthly", "Mensual", or any unknown frequency
+        currentDate = addMonths(currentDate, 1);
       }
     }
 

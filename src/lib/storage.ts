@@ -107,6 +107,7 @@ export const migrateData = (data: any): FinanceData => {
 
     alertSettings: data.alertSettings,
     savingsGoals: Array.isArray(data.savingsGoals) ? data.savingsGoals : [],
+    recurringRules: Array.isArray(data.recurringRules) ? data.recurringRules : [],
   };
 
   if (Array.isArray(data.transactions)) {

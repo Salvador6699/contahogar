@@ -10,7 +10,7 @@ if (strpos(isset($_SERVER['HTTP_HOST']) ? $_SERVER['HTTP_HOST'] : '', 'localhost
     // Entorno SERVIDOR (CDmon)
     define('DB_HOST', 'localhost');
     define('DB_USER', 'mytabsyste03');
-    define('DB_PASS', 'Resiliencia@2025');
+    define('DB_PASS', 'Ganbaru@6699');
     // En la captura de phpMyAdmin la DB se llama 'contahogar', no 'mytabsyste03_contahogar'
     define('DB_NAME', 'contahogar');
 }

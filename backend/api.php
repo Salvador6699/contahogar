@@ -19,7 +19,7 @@ if ($action === 'load') {
         'transactions' => [],
         'categories' => [],
         'budgets' => [],
-        'recurringTransactions' => [],
+        'recurringRules' => [],
         'favorites' => [],
         'savingsGoals' => [],
         'alertSettings' => null
@@ -78,7 +78,7 @@ if ($action === 'load') {
         $row['isActive'] = (bool)$row['isActive'];
         if ($row['intervalMonths'] !== null) $row['intervalMonths'] = (int)$row['intervalMonths'];
         if ($row['endAfterMonths'] !== null) $row['endAfterMonths'] = (int)$row['endAfterMonths'];
-        $data['recurringTransactions'][] = $row;
+        $data['recurringRules'][] = $row;
     }
 
     // Cargar favorites
@@ -183,12 +183,12 @@ if ($action === 'save') {
         }
 
         $stmtRec = $db->prepare("REPLACE INTO recurring_transactions (id, name, amount, type, category, accountId, frequency, intervalMonths, endAfterMonths, startDate, lastGeneratedDate, isActive) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)");
-        if (!empty($data['recurringTransactions'])) {
-            foreach ($data['recurringTransactions'] as $item) {
+        if (!empty($data['recurringRules'])) {
+            foreach ($data['recurringRules'] as $item) {
                 $intM = isset($item['intervalMonths']) ? $item['intervalMonths'] : null;
                 $endM = isset($item['endAfterMonths']) ? $item['endAfterMonths'] : null;
                 $lastD = isset($item['lastGeneratedDate']) ? $item['lastGeneratedDate'] : null;
-                $active = !empty($item['isActive']) ? 1 : 0;
+                $active = isset($item['isActive']) ? (int)$item['isActive'] : 1;
                 $stmtRec->bind_param("ssdssssiisss", $item['id'], $item['name'], $item['amount'], $item['type'], $item['category'], $item['accountId'], $item['frequency'], $intM, $endM, $item['startDate'], $lastD, $active);
                 if ($stmtRec->execute() === false) throw new Exception("Error insertando automatización: " . $stmtRec->error);
             }
