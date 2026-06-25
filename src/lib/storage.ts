@@ -5,6 +5,7 @@ import {
   Category,
   FavoriteExpense,
   SavingsGoal,
+  RecurringExpenseRule,
 } from "@/types/finance";
 import { v4 as uuidv4 } from "uuid";
 
@@ -43,6 +44,7 @@ const getDefaultData = (): FinanceData => ({
     dismissedTotal: false,
   },
   savingsGoals: [],
+  recurringRules: [],
 });
 
 export const migrateData = (data: any): FinanceData => {
@@ -70,6 +72,7 @@ export const migrateData = (data: any): FinanceData => {
   }
 
   if (data.savingsGoals === undefined) data.savingsGoals = [];
+  if (data.recurringRules === undefined) data.recurringRules = [];
 
   // If accounts array exists, assume it's new format or already partially migrated
   if (Array.isArray(data.accounts)) {
@@ -732,4 +735,36 @@ export const deleteSavingsGoal = (id: string): void => {
 export const loadSavingsGoals = (): SavingsGoal[] => {
   const data = loadData();
   return data.savingsGoals || [];
+};
+
+// Recurring Expense Rules Management
+export const loadRecurringRules = (): RecurringExpenseRule[] => {
+  const data = loadData();
+  return data.recurringRules || [];
+};
+
+export const addRecurringRule = (rule: Omit<RecurringExpenseRule, "id">): RecurringExpenseRule => {
+  const data = loadData();
+  const newRule: RecurringExpenseRule = { ...rule, id: uuidv4() };
+  if (!data.recurringRules) data.recurringRules = [];
+  data.recurringRules.push(newRule);
+  saveData(data);
+  return newRule;
+};
+
+export const updateRecurringRule = (updated: RecurringExpenseRule): void => {
+  const data = loadData();
+  if (!data.recurringRules) return;
+  const index = data.recurringRules.findIndex((r) => r.id === updated.id);
+  if (index !== -1) {
+    data.recurringRules[index] = updated;
+    saveData(data);
+  }
+};
+
+export const deleteRecurringRule = (id: string): void => {
+  const data = loadData();
+  if (!data.recurringRules) return;
+  data.recurringRules = data.recurringRules.filter((r) => r.id !== id);
+  saveData(data);
 };

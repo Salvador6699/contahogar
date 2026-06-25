@@ -76,12 +76,13 @@ import { toast } from "sonner";
 import { cn } from "@/lib/utils";
 import { format, addMonths } from "date-fns";
 import { AccountManager } from "@/components/AccountManager";
+import { RecurringExpensesManager } from "@/components/RecurringExpensesManager";
 
 const SettingsPage = () => {
   const { setTheme } = useTheme();
 
   const [activeTab, setActiveTab] = useState<
-    "cuentas" | "categorias" | "apariencia"
+    "cuentas" | "categorias" | "apariencia" | "gastos_fijos"
   >("cuentas");
 
   const [categories, setCategories] = useState<Category[]>([]);
@@ -321,11 +322,11 @@ const SettingsPage = () => {
         </div>
 
         {/* Custom Tabs Navigation */}
-        <div className="flex overflow-x-auto gap-2 pb-2 mb-6 scrollbar-hide">
+        <div className="grid grid-cols-2 gap-2 mb-6">
           <Button
             variant={activeTab === "cuentas" ? "default" : "outline"}
             onClick={() => setActiveTab("cuentas")}
-            className="rounded-full px-6 flex-shrink-0"
+            className="w-full flex items-center justify-center rounded-xl"
           >
             <Wallet className="w-4 h-4 mr-2" />
             Cuentas
@@ -333,16 +334,25 @@ const SettingsPage = () => {
           <Button
             variant={activeTab === "categorias" ? "default" : "outline"}
             onClick={() => setActiveTab("categorias")}
-            className="rounded-full px-6 flex-shrink-0"
+            className="w-full flex items-center justify-center rounded-xl"
           >
             <Tag className="w-4 h-4 mr-2" />
             Categorías
           </Button>
 
           <Button
+            variant={activeTab === "gastos_fijos" ? "default" : "outline"}
+            onClick={() => setActiveTab("gastos_fijos")}
+            className="w-full flex items-center justify-center rounded-xl"
+          >
+            <Clock className="w-4 h-4 mr-2" />
+            Gastos Fijos
+          </Button>
+
+          <Button
             variant={activeTab === "apariencia" ? "default" : "outline"}
             onClick={() => setActiveTab("apariencia")}
-            className="rounded-full px-6 flex-shrink-0"
+            className="w-full flex items-center justify-center rounded-xl"
           >
             <Sun className="w-4 h-4 mr-2" />
             Apariencia
@@ -355,6 +365,11 @@ const SettingsPage = () => {
             <div className="animate-in fade-in slide-in-from-bottom-2 duration-300">
               <AccountManager />
             </div>
+          )}
+
+          {/* TAB: GASTOS FIJOS */}
+          {activeTab === "gastos_fijos" && (
+            <RecurringExpensesManager />
           )}
 
           {/* TAB: CATEGORÍAS */}

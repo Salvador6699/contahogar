@@ -6,7 +6,8 @@ import { ThemeProvider } from "next-themes";
 import ScrollToTop from "./components/ScrollToTop";
 import AppLayout from "./components/AppLayout";
 
-import { syncFromBackend } from "@/lib/storage";
+import { syncFromBackend, loadData } from "@/lib/storage";
+import { syncAndSaveRecurringTransactions } from "@/lib/recurrence";
 
 import Index from "./pages/Index";
 import HistoryPage from "./pages/HistoryPage";
@@ -28,6 +29,9 @@ const App = () => {
       // Intentar sincronizar con el backend antes de arrancar
       await syncFromBackend();
       
+      // Sincronizar transacciones recurrentes
+      const data = loadData();
+      syncAndSaveRecurringTransactions(data);
       
       setIsReady(true);
     };

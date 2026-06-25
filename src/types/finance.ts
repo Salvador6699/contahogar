@@ -75,6 +75,19 @@ export interface Budget {
   isAuto?: boolean;
 }
 
+export type RecurrenceFrequency = "weekly" | "monthly" | "yearly";
+
+export interface RecurringExpenseRule {
+  id: string;
+  name: string;
+  amount: number;
+  category: string;
+  accountId: string;
+  frequency: RecurrenceFrequency;
+  startDate: string; // yyyy-MM-dd
+  type: TransactionType;
+}
+
 export interface FinanceData {
   accounts: Account[];
   transactions: Transaction[];
@@ -83,4 +96,5 @@ export interface FinanceData {
   favorites?: FavoriteExpense[];
   alertSettings?: AlertSettings;
   savingsGoals?: SavingsGoal[];
+  recurringRules?: RecurringExpenseRule[];
 }
