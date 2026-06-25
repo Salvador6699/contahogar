@@ -101,7 +101,8 @@ const BudgetPage = () => {
             const monthExpenses = data.transactions.filter(t => 
                 t.type === 'expense' && 
                 t.date.startsWith(activeMonth) &&
-                t.category !== 'Transferencia'
+                t.category !== 'Transferencia' &&
+                (!t.isPending || !t.isIgnored)
             );
 
             // Agrupar por categoría
@@ -225,7 +226,7 @@ const BudgetPage = () => {
 
     const getGastado = (catName: string) => {
         return Number(data.transactions
-            .filter(t => !t.isPending && t.type === 'expense' && t.category === catName && t.date.startsWith(activeMonth))
+            .filter(t => t.type === 'expense' && t.category === catName && t.date.startsWith(activeMonth) && (!t.isPending || !t.isIgnored))
             .reduce((sum, t) => sum + t.amount, 0).toFixed(2));
     };
 
