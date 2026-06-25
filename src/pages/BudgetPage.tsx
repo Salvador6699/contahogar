@@ -241,7 +241,7 @@ const BudgetPage = () => {
     const filteredAutoCategories = autoCategories.filter(cat => cat.toLowerCase().includes(searchQuery.toLowerCase()));
 
     return (
-        <div className="min-h-screen bg-background pt-24 pb-24 lg:pb-8">
+        <div className="w-full">
             <div className="w-full max-w-full mx-auto px-4 lg:px-12 pt-2 sm:pt-8">
                 
                 {/* PAGE TITLE & ACTION BUTTONS (Scrolls away) */}

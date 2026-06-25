@@ -13,7 +13,7 @@ import {
   Filter
 } from 'lucide-react';
 import { loadData, updateTransaction, deleteTransaction } from '@/lib/storage';
-import { Transaction, Account, Category } from '@/types/finance';
+import { Transaction, Account, Category, TransactionType } from '@/types/finance';
 import { filterTransactions, FilterCriteria, formatCurrency } from '@/lib/calculations';
 import TransactionList from '@/components/TransactionList';
 import TransactionModal from '@/components/TransactionModal';
@@ -63,7 +63,7 @@ const SearchPage = () => {
     toast.success('Transacción eliminada');
   };
 
-  const handleSave = (transaction: any) => {
+  const handleSave = (transaction: Transaction) => {
     updateTransaction(transaction as Transaction);
     setData(loadData());
     setIsModalOpen(false);
@@ -115,7 +115,7 @@ const SearchPage = () => {
   }, [criteria]);
 
   return (
-    <div className="min-h-screen bg-background pb-32 pt-24 lg:pt-32 px-4 md:px-8 lg:px-12 w-full max-w-6xl mx-auto">
+    <div className="w-full px-4 md:px-8 lg:px-12 max-w-6xl mx-auto">
       
       <div className="flex flex-col gap-6">
         {/* Search Header */}
@@ -175,7 +175,7 @@ const SearchPage = () => {
                     key={t}
                     size="sm"
                     variant={criteria.type === t ? 'default' : 'outline'}
-                    onClick={() => setCriteria(prev => ({ ...prev, type: t as any }))}
+                    onClick={() => setCriteria(prev => ({ ...prev, type: t as TransactionType | 'all' }))}
                     className="flex-1 rounded-xl h-10 capitalize text-xs font-bold"
                   >
                     {t === 'all' ? 'Todos' : t === 'income' ? 'Ingresos' : 'Gastos'}

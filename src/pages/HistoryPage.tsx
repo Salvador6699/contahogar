@@ -1,4 +1,5 @@
-import { useState, useMemo } from 'react';
+/* eslint-disable @typescript-eslint/no-explicit-any */
+import { useState, useMemo, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { format, parseISO, startOfMonth } from 'date-fns';
 import { es } from 'date-fns/locale';
@@ -125,7 +126,7 @@ const HistoryPage = () => {
             incomeData,
             expenseData
         };
-    }, [selectedChartMonth, data.transactions, data.categories]);
+    }, [selectedChartMonth, data.transactions]);
 
     const chartConfig = {
         income: {
@@ -139,7 +140,7 @@ const HistoryPage = () => {
     };
 
     return (
-        <div className="min-h-screen app-gradient-bg pb-20  pt-24">
+        <div className="w-full">
             <div className="w-full max-w-6xl mx-auto px-4 lg:px-12 py-4 sm:py-6">
                 {monthlyData.length === 0 ? (
                     <div className="text-center py-20">

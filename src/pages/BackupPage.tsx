@@ -88,7 +88,7 @@ const BackupPage = () => {
     };
 
     return (
-        <div className="min-h-screen app-gradient-bg pb-20  pt-24">
+        <div className="w-full">
             <div className="w-full max-w-4xl mx-auto px-4 lg:px-12 py-4 sm:py-6">
                 <div className="space-y-6">
                     <div className="flex flex-col gap-1 mb-2">

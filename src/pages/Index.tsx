@@ -3,8 +3,6 @@ import {
   Transaction,
   TransactionType,
   FavoriteExpense,
-  TransactionType,
-  FavoriteExpense,
 } from "@/types/finance";
 import {
   loadData,
@@ -286,7 +284,7 @@ const Index = () => {
     });
   };
 
-  const handleUpdateAlertSettings = (newSettings: any) => {
+  const handleUpdateAlertSettings = (newSettings: Parameters<typeof updateAlertSettings>[0]) => {
     updateAlertSettings(newSettings);
     setData(loadData());
   };
@@ -481,7 +479,7 @@ const Index = () => {
 
   return (
     <>
-      <div className="min-h-screen app-gradient-bg pt-24">
+      <div className="w-full">
         <div className="w-full max-w-full mx-auto px-4 lg:px-12 py-6 sm:py-8 transition-all duration-500 pb-32">
           <div className="mb-6 sm:mb-8">
             {/* Month Navigator Header */}

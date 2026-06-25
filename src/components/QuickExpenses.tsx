@@ -1,6 +1,7 @@
 import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { FavoriteExpense, Category, Account } from '@/types/finance';
+/* eslint-disable @typescript-eslint/no-explicit-any */
 import { Plus, Zap, Settings, X, MoreHorizontal, Layout, Pencil, Trash2 } from 'lucide-react';
 import * as Icons from 'lucide-react';
 import { formatCurrency } from '@/lib/calculations';

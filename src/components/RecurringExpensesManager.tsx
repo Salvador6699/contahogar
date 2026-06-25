@@ -313,7 +313,7 @@ export const RecurringExpensesManager = () => {
               <Label>Frecuencia</Label>
               <Select
                 value={frequency}
-                onValueChange={(v: any) => setFrequency(v)}
+                onValueChange={(v: "monthly" | "weekly" | "yearly") => setFrequency(v)}
               >
                 <SelectTrigger>
                   <SelectValue placeholder="Selecciona..." />

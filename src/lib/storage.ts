@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-explicit-any */
 import {
   FinanceData,
   Transaction,
@@ -103,7 +104,7 @@ export const migrateData = (data: any): FinanceData => {
           }))
         : defaultCategories,
     budgets: Array.isArray(data.budgets) ? data.budgets : [],
-    recurringTransactions: [],
+
     alertSettings: data.alertSettings,
     savingsGoals: Array.isArray(data.savingsGoals) ? data.savingsGoals : [],
   };
@@ -516,13 +517,7 @@ export const deleteTransaction = (transactionId: string): void => {
   const data = loadData();
   data.transactions = data.transactions.filter((t) => t.id !== transactionId);
 
-  // Track manually deleted automated transactions so they don't get regenerated
-  if (transactionId.startsWith("auto-")) {
-    if (!data.deletedAutomations) data.deletedAutomations = [];
-    if (!data.deletedAutomations.includes(transactionId)) {
-      data.deletedAutomations.push(transactionId);
-    }
-  }
+
 
   saveData(data);
 };

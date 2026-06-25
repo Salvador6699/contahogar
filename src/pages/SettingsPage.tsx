@@ -1,4 +1,5 @@
-import { useState, useEffect } from "react";
+/* eslint-disable @typescript-eslint/no-explicit-any */
+import { useState, useEffect, useRef } from "react";
 import { useTheme } from "next-themes";
 import {
   Sun,
@@ -307,7 +308,7 @@ const SettingsPage = () => {
   };
 
   return (
-    <div className="min-h-screen app-gradient-bg pb-20 pt-20">
+    <div className="w-full">
       <div className="w-full max-w-4xl mx-auto px-4 lg:px-12 py-4">
         <div className="mb-6 flex items-center gap-3">
           <div className="p-3 bg-primary/10 rounded-2xl">

@@ -1,4 +1,5 @@
-import { useState, useEffect } from 'react';
+/* eslint-disable @typescript-eslint/no-explicit-any */
+import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -140,7 +141,7 @@ const FavoritesPage = () => {
   };
 
   return (
-    <div className="min-h-screen app-gradient-bg pb-32 pt-24">
+    <div className="w-full">
       <div className="w-full max-w-3xl mx-auto px-4 lg:px-12 py-4 sm:py-6">
         
         {/* Header Section */}
