@@ -7,7 +7,7 @@ import { format } from 'date-fns';
 import { v4 as uuidv4 } from 'uuid';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { PiggyBank, PlusCircle, Save, Trash2, Plus, Minus, Search, X } from 'lucide-react';
+import { PiggyBank, PlusCircle, Save, Trash2, Plus, Minus, Search, X, ChevronLeft, ChevronRight } from 'lucide-react';
 import { toast } from 'sonner';
 import { cn } from '@/lib/utils';
 import {
@@ -23,10 +23,22 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
+import { useMonthFilter } from "@/hooks/useMonthFilter";
+import { parseISO, subMonths, addMonths } from "date-fns";
 
 const BudgetPage = () => {
     const [data, setData] = useState(loadData());
-    const [currentMonth] = useState(format(new Date(), 'yyyy-MM'));
+    const [searchParams] = useSearchParams();
+    const [selectedMonth, setSelectedMonth] = useState<string | null>(searchParams.get("month"));
+    
+    const {
+      isCurrentMonth,
+      selectedMonthLabel,
+      currentMonthKey,
+    } = useMonthFilter(data.transactions, selectedMonth);
+
+    const activeMonth = selectedMonth || currentMonthKey;
+
     const [isAddModalOpen, setIsAddModalOpen] = useState(false);
     const [newCategoryName, setNewCategoryName] = useState('');
     const [newCategoryAmount, setNewCategoryAmount] = useState('');
@@ -39,18 +51,17 @@ const BudgetPage = () => {
     const [addAmounts, setAddAmounts] = useState<Record<string, string>>({});
 
     // State for searching categories
-    const [searchParams] = useSearchParams();
     const [searchQuery, setSearchQuery] = useState(searchParams.get('category') || '');
 
     // Initialize local assignments from DB
     useEffect(() => {
         const assignments: Record<string, { amount: number, isAuto: boolean }> = {};
-        const monthBudgets = data.budgets.filter(b => b.month === currentMonth && b.category !== 'Transferencia');
+        const monthBudgets = data.budgets.filter(b => b.month === activeMonth && b.category !== 'Transferencia');
         monthBudgets.forEach(b => {
             assignments[b.category] = { amount: b.amount, isAuto: !!b.isAuto };
         });
         setLocalAssignments(assignments);
-    }, [data, currentMonth]);
+    }, [data, activeMonth]);
 
     const handleAssignChange = (categoryName: string, value: string) => {
         const numValue = value === '' ? 0 : parseFloat(value);
@@ -89,7 +100,7 @@ const BudgetPage = () => {
             // Encontrar gastos reales y futuros del mes (excluyendo transferencias)
             const monthExpenses = data.transactions.filter(t => 
                 t.type === 'expense' && 
-                t.date.startsWith(currentMonth) &&
+                t.date.startsWith(activeMonth) &&
                 t.category !== 'Transferencia'
             );
 
@@ -151,7 +162,7 @@ const BudgetPage = () => {
         const newData = { ...data };
         
         // Remove all budgets for the current month
-        newData.budgets = newData.budgets.filter(b => b.month !== currentMonth);
+        newData.budgets = newData.budgets.filter(b => b.month !== activeMonth);
         
         // Add the new budgets from local state
         Object.entries(localAssignments).forEach(([category, { amount }]) => {
@@ -159,7 +170,7 @@ const BudgetPage = () => {
                 id: uuidv4(),
                 category,
                 amount,
-                month: currentMonth,
+                month: activeMonth,
                 isAuto: false, // Guardado manual
                 createdAt: new Date().toISOString()
             });
@@ -194,27 +205,27 @@ const BudgetPage = () => {
     const capitalDisponible = useMemo(() => {
         // Obtenemos el balance proyectado total hasta final del mes seleccionado
         // Esto es exactamente lo que hace el Dashboard para calcular el "Capital"
-        const balanceActual = calculateTotalBalance(data.accounts, data.transactions, true, currentMonth);
+        const balanceActual = calculateTotalBalance(data.accounts, data.transactions, true, activeMonth);
         
         // A este balance le sumamos los gastos del mes actual, 
         // ya que los gastos del mes no deben reducir tu dinero "Disponible para asignar" 
         // (esos gastos ya se van descontando de los presupuestos asignados en la tabla de abajo)
         const gastosMesActual = Number(data.transactions
-            .filter(t => t.type === 'expense' && t.category !== 'Transferencia' && t.date.startsWith(currentMonth))
+            .filter(t => t.type === 'expense' && t.category !== 'Transferencia' && t.date.startsWith(activeMonth) && (!t.isPending || !t.isIgnored))
             .reduce((sum, t) => sum + t.amount, 0).toFixed(2));
 
         return Number((balanceActual + gastosMesActual).toFixed(2));
-    }, [data, currentMonth]);
+    }, [data, activeMonth]);
 
     const ingresosDelMes = useMemo(() => {
         return Number(data.transactions
-            .filter(t => t.type === 'income' && t.category !== 'Transferencia' && t.date.startsWith(currentMonth))
+            .filter(t => t.type === 'income' && t.category !== 'Transferencia' && t.date.startsWith(activeMonth) && (!t.isPending || !t.isIgnored))
             .reduce((sum, t) => sum + t.amount, 0).toFixed(2));
-    }, [data.transactions, currentMonth]);
+    }, [data.transactions, activeMonth]);
 
     const getGastado = (catName: string) => {
         return Number(data.transactions
-            .filter(t => !t.isPending && t.type === 'expense' && t.category === catName && t.date.startsWith(currentMonth))
+            .filter(t => !t.isPending && t.type === 'expense' && t.category === catName && t.date.startsWith(activeMonth))
             .reduce((sum, t) => sum + t.amount, 0).toFixed(2));
     };
 
@@ -240,10 +251,66 @@ const BudgetPage = () => {
     const filteredManualCategories = manualCategories.filter(cat => cat.toLowerCase().includes(searchQuery.toLowerCase()));
     const filteredAutoCategories = autoCategories.filter(cat => cat.toLowerCase().includes(searchQuery.toLowerCase()));
 
+    const handlePrevMonth = () => {
+        const current = parseISO(activeMonth + "-01");
+        const prevMonth = subMonths(current, 1);
+        setSelectedMonth(format(prevMonth, "yyyy-MM"));
+    };
+
+    const handleNextMonth = () => {
+        const current = parseISO(activeMonth + "-01");
+        const nextMonth = addMonths(current, 1);
+        setSelectedMonth(format(nextMonth, "yyyy-MM"));
+    };
+
+    const handleBackToCurrentMonth = () => {
+        setSelectedMonth(null);
+    };
+
     return (
         <div className="w-full">
             <div className="w-full max-w-full mx-auto px-4 lg:px-12 pt-2 sm:pt-8">
                 
+                {/* Month Navigator */}
+                <div className="flex items-center justify-between p-4 bg-white dark:bg-card rounded-2xl shadow-sm border border-border/50 mb-6 overflow-hidden">
+                    <div className="flex items-center gap-2 mx-auto">
+                        <Button
+                            variant="outline"
+                            size="icon"
+                            className="h-9 w-9 rounded-full"
+                            onClick={handlePrevMonth}
+                        >
+                            <ChevronLeft className="w-4 h-4" />
+                        </Button>
+                        <div className="flex flex-col items-center min-w-[120px] px-2">
+                            <span className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground/70">
+                                Periodo
+                            </span>
+                            <span className="text-base font-extrabold text-primary capitalize leading-tight">
+                                {selectedMonthLabel}
+                            </span>
+                        </div>
+                        <Button
+                            variant="outline"
+                            size="icon"
+                            className="h-9 w-9 rounded-full border-primary/20 hover:border-primary/40 hover:bg-primary/5 transition-all"
+                            onClick={handleNextMonth}
+                        >
+                            <ChevronRight className="w-4 h-4 text-primary" />
+                        </Button>
+                        {!isCurrentMonth && (
+                            <Button
+                                variant="ghost"
+                                size="sm"
+                                onClick={handleBackToCurrentMonth}
+                                className="text-xs h-8"
+                            >
+                                Hoy
+                            </Button>
+                        )}
+                    </div>
+                </div>
+
                 {/* PAGE TITLE & ACTION BUTTONS (Scrolls away) */}
                 <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 mb-6">
                     <h1 className="text-3xl font-black text-foreground flex items-center gap-2 mt-2 sm:mt-0">
