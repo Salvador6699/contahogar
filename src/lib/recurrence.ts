@@ -4,6 +4,7 @@ import {
   RecurringExpenseRule,
 } from "@/types/finance";
 import {
+  addDays,
   addWeeks,
   addMonths,
   addYears,
@@ -44,8 +45,12 @@ export const syncRecurringTransactions = (data: FinanceData): FinanceData => {
   rules.forEach((rule) => {
     // Determine the projection limit based on frequency
     let limitDate = new Date();
-    if (rule.frequency === "weekly") {
-      limitDate = addMonths(today, 1);
+    if (rule.frequency === "weekly" || rule.frequency === "Semanal" as any) {
+      limitDate = addMonths(today, 6);
+    } else if (rule.frequency === "yearly" || rule.frequency === "Anual" as any) {
+      limitDate = addYears(today, 2);
+    } else if (rule.frequency === "custom") {
+      limitDate = addYears(today, 2);
     } else {
       limitDate = addYears(today, 1);
     }
@@ -105,6 +110,15 @@ export const syncRecurringTransactions = (data: FinanceData): FinanceData => {
         currentDate = addWeeks(currentDate, 1);
       } else if (rule.frequency === "yearly" || rule.frequency === "Anual" as any) {
         currentDate = addYears(currentDate, 1);
+      } else if (rule.frequency === "custom") {
+        const interval = rule.customInterval || 1;
+        if (rule.customIntervalUnit === "days") {
+          currentDate = addDays(currentDate, interval);
+        } else if (rule.customIntervalUnit === "years") {
+          currentDate = addYears(currentDate, interval);
+        } else {
+          currentDate = addMonths(currentDate, interval);
+        }
       } else {
         // Default to monthly for "monthly", "Mensual", or any unknown frequency
         currentDate = addMonths(currentDate, 1);

@@ -43,6 +43,8 @@ export const RecurringExpensesManager = () => {
   const [accountId, setAccountId] = useState("");
   const [type, setType] = useState<"income" | "expense">("expense");
   const [frequency, setFrequency] = useState<RecurrenceFrequency>("monthly");
+  const [customInterval, setCustomInterval] = useState("1");
+  const [customIntervalUnit, setCustomIntervalUnit] = useState<"days" | "months" | "years">("months");
   const [startDate, setStartDate] = useState(format(new Date(), "yyyy-MM-dd"));
 
   useEffect(() => {
@@ -64,6 +66,8 @@ export const RecurringExpensesManager = () => {
     setAccountId(rule.accountId);
     setType(rule.type);
     setFrequency(rule.frequency);
+    setCustomInterval(rule.customInterval?.toString() || "1");
+    setCustomIntervalUnit(rule.customIntervalUnit || "months");
     setStartDate(rule.startDate);
   };
 
@@ -91,6 +95,8 @@ export const RecurringExpensesManager = () => {
     // We don't reset accountId so it remembers the last one
     setType("expense");
     setFrequency("monthly");
+    setCustomInterval("1");
+    setCustomIntervalUnit("months");
     setStartDate(format(new Date(), "yyyy-MM-dd"));
   };
 
@@ -112,6 +118,8 @@ export const RecurringExpensesManager = () => {
         ...editingRule,
         amount: numAmount,
         frequency,
+        customInterval: frequency === "custom" ? parseInt(customInterval) || 1 : undefined,
+        customIntervalUnit: frequency === "custom" ? customIntervalUnit : undefined,
       });
       toast.success("Automatización actualizada");
     } else {
@@ -122,6 +130,8 @@ export const RecurringExpensesManager = () => {
         accountId,
         type,
         frequency,
+        customInterval: frequency === "custom" ? parseInt(customInterval) || 1 : undefined,
+        customIntervalUnit: frequency === "custom" ? customIntervalUnit : undefined,
         startDate,
       });
       toast.success("Automatización creada");
@@ -176,7 +186,9 @@ export const RecurringExpensesManager = () => {
                             ? "Mensual"
                             : rule.frequency === "weekly"
                             ? "Semanal"
-                            : "Anual"}{" "}
+                            : rule.frequency === "yearly"
+                            ? "Anual"
+                            : `Cada ${rule.customInterval} ${rule.customIntervalUnit === "days" ? "días" : rule.customIntervalUnit === "months" ? "meses" : "años"}`}{" "}
                           • {rule.category}
                         </p>
                       </div>
@@ -313,18 +325,48 @@ export const RecurringExpensesManager = () => {
               <Label>Frecuencia</Label>
               <Select
                 value={frequency}
-                onValueChange={(v: "monthly" | "weekly" | "yearly") => setFrequency(v)}
+                onValueChange={(v: RecurrenceFrequency) => setFrequency(v)}
               >
                 <SelectTrigger>
                   <SelectValue placeholder="Selecciona..." />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="weekly">Semanal</SelectItem>
                   <SelectItem value="monthly">Mensual</SelectItem>
                   <SelectItem value="yearly">Anual</SelectItem>
+                  <SelectItem value="custom">Personalizado...</SelectItem>
                 </SelectContent>
               </Select>
             </div>
+
+            {frequency === "custom" && (
+              <div className="flex gap-4">
+                <div className="space-y-2 flex-1">
+                  <Label>Cada</Label>
+                  <Input
+                    type="number"
+                    min="1"
+                    value={customInterval}
+                    onChange={(e) => setCustomInterval(e.target.value)}
+                  />
+                </div>
+                <div className="space-y-2 flex-1">
+                  <Label>Unidad</Label>
+                  <Select
+                    value={customIntervalUnit}
+                    onValueChange={(v: "days" | "months" | "years") => setCustomIntervalUnit(v)}
+                  >
+                    <SelectTrigger>
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="days">Días</SelectItem>
+                      <SelectItem value="months">Meses</SelectItem>
+                      <SelectItem value="years">Años</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+              </div>
+            )}
           </div>
 
           <div className="pt-4 flex justify-end gap-2">

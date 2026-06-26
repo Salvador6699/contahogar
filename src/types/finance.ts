@@ -76,7 +76,8 @@ export interface Budget {
   isAuto?: boolean;
 }
 
-export type RecurrenceFrequency = "weekly" | "monthly" | "yearly";
+export type RecurrenceFrequency = "weekly" | "monthly" | "yearly" | "custom";
+export type CustomIntervalUnit = "days" | "months" | "years";
 
 export interface RecurringExpenseRule {
   id: string;
@@ -85,6 +86,8 @@ export interface RecurringExpenseRule {
   category: string;
   accountId: string;
   frequency: RecurrenceFrequency;
+  customInterval?: number;
+  customIntervalUnit?: CustomIntervalUnit;
   startDate: string; // yyyy-MM-dd
   type: TransactionType;
 }
