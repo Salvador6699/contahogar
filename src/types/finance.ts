@@ -7,6 +7,7 @@ export interface Account {
   initialBalance: number;
   linkedAccountId?: string;
   logo?: string;
+  excludeFromTotals?: boolean;
 }
 
 export interface Transaction {
@@ -64,6 +65,8 @@ export interface SavingsGoal {
   accountId?: string; // Optional: Link to a specific account
   color?: string;
   category?: string; // e.g. "Viajes", "Vivienda"
+  priority?: number; // Added to support prioritization in Sinking Funds
+  isIgnored?: boolean;
 }
 
 // Updated FinanceData to support multiple accounts, structured categories and automations
@@ -90,6 +93,7 @@ export interface RecurringExpenseRule {
   customIntervalUnit?: CustomIntervalUnit;
   startDate: string; // yyyy-MM-dd
   type: TransactionType;
+  savingsPriority?: number; // Priority for sinking funds
 }
 
 export interface FinanceData {

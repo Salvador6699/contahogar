@@ -430,6 +430,7 @@ export const addAccount = (
   initialBalance: number,
   linkedAccountId?: string,
   logo?: string,
+  excludeFromTotals?: boolean
 ): Account => {
   const data = loadData();
   const newAccount: Account = {
@@ -438,6 +439,7 @@ export const addAccount = (
     initialBalance,
     linkedAccountId,
     logo,
+    excludeFromTotals,
   };
   data.accounts.push(newAccount);
   saveData(data);

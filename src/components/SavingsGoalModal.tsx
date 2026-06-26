@@ -43,7 +43,6 @@ const SavingsGoalModal = ({
   
   const [name, setName] = useState('');
   const [targetAmount, setTargetAmount] = useState('');
-  const [currentAmount, setCurrentAmount] = useState('');
   const [deadline, setDeadline] = useState('');
   const [category, setCategory] = useState('');
   const [accountId, setAccountId] = useState('');
@@ -52,7 +51,6 @@ const SavingsGoalModal = ({
     if (editingGoal) {
       setName(editingGoal.name);
       setTargetAmount(editingGoal.targetAmount.toString());
-      setCurrentAmount(editingGoal.currentAmount.toString());
       setDeadline(editingGoal.deadline || '');
       setCategory(editingGoal.category || '');
       setAccountId(editingGoal.accountId || '');
@@ -64,7 +62,6 @@ const SavingsGoalModal = ({
   const resetForm = () => {
     setName('');
     setTargetAmount('');
-    setCurrentAmount('');
     setDeadline('');
     setCategory('');
     setAccountId('');
@@ -76,7 +73,7 @@ const SavingsGoalModal = ({
     const goalData = {
       name: name.trim(),
       targetAmount: parseFloat(targetAmount),
-      currentAmount: parseFloat(currentAmount || '0'),
+      currentAmount: 0,
       deadline: deadline || undefined,
       category: category.trim() || undefined,
       accountId: accountId || undefined,
@@ -129,36 +126,19 @@ const SavingsGoalModal = ({
             </div>
 
             {/* Target Amount */}
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-              <div className="space-y-2">
-                <Label className="text-[10px] font-black uppercase text-muted-foreground ml-1">Objetivo (€)</Label>
-                <div className="relative group">
-                  <div className="absolute left-4 top-1/2 -translate-y-1/2 text-muted-foreground/40 group-focus-within:text-income transition-colors">
-                    <DollarSign className="w-4 h-4" />
-                  </div>
-                  <Input
-                    type="number"
-                    value={targetAmount}
-                    onChange={(e) => setTargetAmount(e.target.value)}
-                    placeholder="0.00"
-                    className="pl-12 h-14 rounded-2xl bg-muted/30 border-none text-base font-bold focus:ring-2 ring-income"
-                  />
+            <div className="space-y-2">
+              <Label className="text-[10px] font-black uppercase text-muted-foreground ml-1">Objetivo (€)</Label>
+              <div className="relative group">
+                <div className="absolute left-4 top-1/2 -translate-y-1/2 text-muted-foreground/40 group-focus-within:text-income transition-colors">
+                  <DollarSign className="w-4 h-4" />
                 </div>
-              </div>
-              <div className="space-y-2">
-                <Label className="text-[10px] font-black uppercase text-muted-foreground ml-1">Llevo ahorrado (€)</Label>
-                <div className="relative group">
-                  <div className="absolute left-4 top-1/2 -translate-y-1/2 text-muted-foreground/40 group-focus-within:text-primary transition-colors">
-                    <CheckCircle2 className="w-4 h-4" />
-                  </div>
-                  <Input
-                    type="number"
-                    value={currentAmount}
-                    onChange={(e) => setCurrentAmount(e.target.value)}
-                    placeholder="0.00"
-                    className="pl-12 h-14 rounded-2xl bg-muted/30 border-none text-base font-bold focus:ring-2 ring-primary"
-                  />
-                </div>
+                <Input
+                  type="number"
+                  value={targetAmount}
+                  onChange={(e) => setTargetAmount(e.target.value)}
+                  placeholder="0.00"
+                  className="pl-12 h-14 rounded-2xl bg-muted/30 border-none text-base font-bold focus:ring-2 ring-income"
+                />
               </div>
             </div>
 

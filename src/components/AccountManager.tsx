@@ -11,6 +11,7 @@ import { Label } from '@/components/ui/label';
 import { Plus, Pencil, Trash2, Wallet } from 'lucide-react';
 import { toast } from 'sonner';
 import { formatCurrency } from '@/lib/calculations';
+import { Switch } from '@/components/ui/switch';
 
 const BANK_LOGOS = [
   { name: 'CaixaBank', url: 'https://icon.horse/icon/caixabank.es' },
@@ -39,6 +40,7 @@ export const AccountManager = () => {
     const [linkedAccountId, setLinkedAccountId] = useState<string>('none');
     const [logo, setLogo] = useState('');
     const [isCustomLogo, setIsCustomLogo] = useState(false);
+    const [excludeFromTotals, setExcludeFromTotals] = useState(false);
 
     useEffect(() => {
         setAccounts(loadData().accounts);
@@ -55,6 +57,7 @@ export const AccountManager = () => {
         setLinkedAccountId(account && account.linkedAccountId ? account.linkedAccountId : 'none');
         setLogo(account?.logo || '');
         setIsCustomLogo(account?.logo ? !BANK_LOGOS.some(b => b.url === account.logo) : false);
+        setExcludeFromTotals(account?.excludeFromTotals || false);
         setIsDialogOpen(true);
     };
 
@@ -69,10 +72,10 @@ export const AccountManager = () => {
         const finalLogo = logo.trim() || undefined;
 
         if (editingAccount) {
-            updateAccount({ ...editingAccount, name: accountName.trim(), initialBalance: balance, linkedAccountId: finalLinkedId, logo: finalLogo });
+            updateAccount({ ...editingAccount, name: accountName.trim(), initialBalance: balance, linkedAccountId: finalLinkedId, logo: finalLogo, excludeFromTotals });
             toast.success('Cuenta actualizada correctamente.');
         } else {
-            addAccount(accountName.trim(), balance, finalLinkedId, finalLogo);
+            addAccount(accountName.trim(), balance, finalLinkedId, finalLogo, excludeFromTotals);
             toast.success('Cuenta añadida correctamente.');
         }
 
@@ -120,6 +123,7 @@ export const AccountManager = () => {
                                         <p className="font-semibold">{account.name}</p>
                                         <p className="text-sm text-muted-foreground">
                                             Saldo inicial: {formatCurrency(account.initialBalance)}
+                                            {account.excludeFromTotals && <span className="ml-2 text-[10px] bg-primary/10 text-primary px-1.5 py-0.5 rounded uppercase font-bold tracking-wider">Ahorro</span>}
                                         </p>
                                     </div>
                                 </div>
@@ -226,6 +230,19 @@ export const AccountManager = () => {
                                     ))}
                                 </SelectContent>
                             </Select>
+                        </div>
+
+                        <div className="flex items-center justify-between space-y-0 rounded-lg border p-4 border-border/50 bg-muted/20">
+                            <div className="space-y-0.5">
+                                <Label className="text-base font-bold">Cuenta de Ahorro</Label>
+                                <p className="text-xs text-muted-foreground">
+                                    El saldo no se sumará a los totales ni al disponible general.
+                                </p>
+                            </div>
+                            <Switch 
+                                checked={excludeFromTotals}
+                                onCheckedChange={setExcludeFromTotals}
+                            />
                         </div>
                     </div>
                     <DialogFooter>

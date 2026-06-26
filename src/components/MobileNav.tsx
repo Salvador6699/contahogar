@@ -80,6 +80,7 @@ const MobileNav = () => {
         { icon: ArrowLeftRight, label: 'Transf.', path: '/transferir' },
         { icon: SearchIcon, label: 'Buscar', path: '/buscar' },
         { icon: PiggyBank, label: 'Presupuestos', path: '/presupuestos' },
+        { icon: Target, label: 'Ahorros', path: '/ahorros' },
         { icon: History, label: 'Historial', path: '/historial' },
         { icon: Zap, label: 'Botones Rápidos', path: '/favorites' },
         { icon: Settings, label: 'Ajustes', path: '/ajustes' },
@@ -112,7 +113,7 @@ const MobileNav = () => {
 
     const { title, icon } = getPageDetails();
 
-    const primaryNavPaths = ['/', '/comparativa', '/presupuestos', '/calendario', '/ahorro', '/historial', '/buscar'];
+    const primaryNavPaths = ['/', '/comparativa', '/presupuestos', '/calendario', '/ahorros', '/historial', '/buscar'];
     const primaryNavItems = allDrawerNavItems.filter(item => primaryNavPaths.includes(item.path));
     const secondaryNavItems = allDrawerNavItems.filter(item => !primaryNavPaths.includes(item.path));
 
