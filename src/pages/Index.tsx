@@ -16,6 +16,7 @@ import {
   updateFavorite as modifyFavorite,
   deleteFavorite as removeFavorite,
   updateAlertSettings,
+  applyFractionatedTransaction,
 } from "@/lib/storage";
 import {
   calculateBalance,
@@ -148,19 +149,26 @@ const Index = () => {
   const handleAddTransaction = (
     transaction: Omit<Transaction, "id">,
     copyToNextMonth?: boolean,
+    fractionationData?: { isFractionated: boolean; installments: number; installmentAmount: number; firstInstallmentDate: string; setupFee: number; setupFeeDate: string; }
   ) => {
 
     // Save previous state for Undo
     const previousTransactions = [...data.transactions];
 
-
-
     if (editingTransaction) {
-      // Normal edit without automation
-      updateTransaction({ ...transaction, id: editingTransaction.id });
+      if (fractionationData?.isFractionated) {
+        applyFractionatedTransaction(transaction, fractionationData, editingTransaction?.id);
+      } else {
+        // Normal edit without automation
+        updateTransaction({ ...transaction, id: editingTransaction.id });
+      }
     } else {
-      // New plain transaction
-      saveTransaction(transaction);
+      if (fractionationData?.isFractionated) {
+        applyFractionatedTransaction(transaction, fractionationData);
+      } else {
+        // New plain transaction
+        saveTransaction(transaction);
+      }
     }
 
     setEditingTransaction(null);

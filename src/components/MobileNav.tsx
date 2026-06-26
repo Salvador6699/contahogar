@@ -22,7 +22,8 @@ import {
   Search as SearchIcon,
   Target,
   PiggyBank,
-  Zap
+  Zap,
+  Landmark
 } from 'lucide-react';
 import * as Icons from 'lucide-react';
 import { cn, withKeyboardClose } from '@/lib/utils';
@@ -81,6 +82,7 @@ const MobileNav = () => {
         { icon: SearchIcon, label: 'Buscar', path: '/buscar' },
         { icon: PiggyBank, label: 'Presupuestos', path: '/presupuestos' },
         { icon: Target, label: 'Ahorros', path: '/ahorros' },
+        { icon: Landmark, label: 'Préstamos', path: '/prestamos' },
         { icon: History, label: 'Historial', path: '/historial' },
         { icon: Zap, label: 'Botones Rápidos', path: '/favorites' },
         { icon: Settings, label: 'Ajustes', path: '/ajustes' },
@@ -113,7 +115,7 @@ const MobileNav = () => {
 
     const { title, icon } = getPageDetails();
 
-    const primaryNavPaths = ['/', '/comparativa', '/presupuestos', '/calendario', '/ahorros', '/historial', '/buscar'];
+    const primaryNavPaths = ['/', '/comparativa', '/presupuestos', '/calendario', '/ahorros', '/prestamos', '/historial', '/buscar'];
     const primaryNavItems = allDrawerNavItems.filter(item => primaryNavPaths.includes(item.path));
     const secondaryNavItems = allDrawerNavItems.filter(item => !primaryNavPaths.includes(item.path));
 

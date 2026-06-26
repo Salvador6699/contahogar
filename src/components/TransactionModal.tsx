@@ -42,12 +42,22 @@ import { Textarea } from "@/components/ui/textarea";
 import { Switch } from "@/components/ui/switch";
 import { toast } from "sonner";
 
+export interface FractionationData {
+  isFractionated: boolean;
+  installments: number;
+  installmentAmount: number;
+  firstInstallmentDate: string;
+  setupFee: number;
+  setupFeeDate: string;
+}
+
 interface TransactionModalProps {
   isOpen: boolean;
   onClose: () => void;
   onSave: (
     transaction: Omit<Transaction, "id">,
     copyToNextMonth?: boolean,
+    fractionationData?: FractionationData
   ) => void;
   type: TransactionType;
   categories: (string | Category)[];
@@ -80,6 +90,23 @@ const TransactionModal = ({
   const [showAllCategories, setShowAllCategories] = useState(false);
   const [suggestions, setSuggestions] = useState<string[]>([]);
   const [showSuggestions, setShowSuggestions] = useState(false);
+  const [isFractionated, setIsFractionated] = useState(false);
+  const [installments, setInstallments] = useState("3");
+  const [installmentAmount, setInstallmentAmount] = useState("");
+  const [firstInstallmentDate, setFirstInstallmentDate] = useState("");
+  const [setupFee, setSetupFee] = useState("");
+  const [setupFeeDate, setSetupFeeDate] = useState("");
+
+  useEffect(() => {
+    if (isFractionated && !firstInstallmentDate && date) {
+      const d = new Date(date);
+      d.setMonth(d.getMonth() + 1);
+      setFirstInstallmentDate(d.toISOString().split("T")[0]);
+      if (!setupFeeDate) {
+        setSetupFeeDate(date);
+      }
+    }
+  }, [isFractionated, date, firstInstallmentDate, setupFeeDate]);
 
   useEffect(() => {
     if (isOpen && !editingTransaction) {
@@ -147,6 +174,12 @@ const TransactionModal = ({
         setAccountId(contextualDefault);
         setIsPending(false);
         setCopyToNextMonth(false);
+        setIsFractionated(false);
+        setInstallments("3");
+        setInstallmentAmount("");
+        setFirstInstallmentDate("");
+        setSetupFee("");
+        setSetupFeeDate("");
       }
     }
   }, [isOpen, editingTransaction, defaultAccountId]);
@@ -184,6 +217,26 @@ const TransactionModal = ({
       return;
     }
 
+    let fractionData: FractionationData | undefined = undefined;
+    if (isFractionated && type === "expense") {
+      const instNum = parseInt(installments, 10);
+      const instAmountNum = parseFloat(installmentAmount);
+      const feeNum = parseFloat(setupFee || "0");
+      if (isNaN(instNum) || instNum < 2 || isNaN(instAmountNum) || instAmountNum <= 0 || !firstInstallmentDate) {
+        toast.error("Por favor, revisa los datos del fraccionamiento.");
+        setIsSubmitting(false);
+        return;
+      }
+      fractionData = {
+        isFractionated: true,
+        installments: instNum,
+        installmentAmount: instAmountNum,
+        firstInstallmentDate,
+        setupFee: isNaN(feeNum) ? 0 : feeNum,
+        setupFeeDate: setupFeeDate || date
+      };
+    }
+
     setIsSubmitting(true);
 
     // Check for similar category and use existing one if found
@@ -201,6 +254,7 @@ const TransactionModal = ({
         description,
       },
       copyToNextMonth,
+      fractionData
     );
 
     // Clear draft
@@ -215,6 +269,12 @@ const TransactionModal = ({
       // No reseteamos setAccountId para que recuerde la última cuenta seleccionada
       setIsPending(false);
       setCopyToNextMonth(false);
+      setIsFractionated(false);
+      setInstallmentAmount("");
+      setInstallments("3");
+      setFirstInstallmentDate("");
+      setSetupFee("");
+      setSetupFeeDate("");
       setShowAllCategories(false);
     }
     setSuggestions([]);
@@ -491,6 +551,110 @@ const TransactionModal = ({
                   </div>
 
                   <div className="space-y-4 pt-4 border-t border-border/30 mt-auto">
+                    {/* Only show Fraccionar for expenses */}
+                    {type === "expense" && (
+                      <div className="flex flex-col gap-3 pb-3 border-b border-border/20">
+                        <div className="flex items-center justify-between">
+                          <div className="space-y-0.5">
+                            <Label className="flex items-center gap-2">
+                              <DollarSign className="w-4 h-4 text-primary" />
+                              Fraccionar este pago
+                            </Label>
+                            <p className="text-xs text-muted-foreground">
+                              Divide el gasto en varias cuotas
+                            </p>
+                          </div>
+                          <Switch
+                            checked={isFractionated}
+                            onCheckedChange={setIsFractionated}
+                          />
+                        </div>
+                        
+                        {isFractionated && (
+                          <div className="grid grid-cols-2 gap-3 p-3 bg-muted/20 rounded-xl border border-border/50 animate-in fade-in zoom-in-95 duration-200">
+                            <div className="space-y-2">
+                              <Label className="text-xs">Nº Cuotas</Label>
+                              <Input
+                                type="number"
+                                min="2"
+                                step="1"
+                                value={installments}
+                                onChange={(e) => setInstallments(e.target.value)}
+                                className="h-10"
+                                required={isFractionated}
+                              />
+                            </div>
+                            <div className="space-y-2">
+                              <Label className="text-xs">Importe/Cuota real</Label>
+                              <Input
+                                type="number"
+                                min="0.01"
+                                step="0.01"
+                                value={installmentAmount}
+                                onChange={(e) => setInstallmentAmount(e.target.value)}
+                                className="h-10"
+                                placeholder="Ej: 148.00"
+                                required={isFractionated}
+                              />
+                            </div>
+                            <div className="space-y-2">
+                              <Label className="text-xs">Comisión apertura</Label>
+                              <Input
+                                type="number"
+                                min="0"
+                                step="0.01"
+                                value={setupFee}
+                                onChange={(e) => setSetupFee(e.target.value)}
+                                className="h-10"
+                                placeholder="Ej: 5.00"
+                              />
+                            </div>
+                            <div className="space-y-2">
+                              <Label className="text-xs">Fecha 1ª Cuota</Label>
+                              <Input
+                                type="date"
+                                value={firstInstallmentDate}
+                                onChange={(e) => setFirstInstallmentDate(e.target.value)}
+                                className="h-10"
+                                required={isFractionated}
+                              />
+                            </div>
+                            {parseFloat(setupFee) > 0 && (
+                              <div className="space-y-2 col-span-2">
+                                <Label className="text-xs">Fecha cobro comisión apertura</Label>
+                                <Input
+                                  type="date"
+                                  value={setupFeeDate}
+                                  onChange={(e) => setSetupFeeDate(e.target.value)}
+                                  className="h-10"
+                                  required={parseFloat(setupFee) > 0}
+                                />
+                              </div>
+                            )}
+                            {installments && installmentAmount && amount && (
+                              <div className="col-span-2 mt-1 text-xs font-medium px-1">
+                                {(() => {
+                                  const feeValue = parseFloat(setupFee || "0") || 0;
+                                  const totalReal = parseInt(installments) * parseFloat(installmentAmount) + feeValue;
+                                  const original = parseFloat(amount);
+                                  if (!isNaN(totalReal) && !isNaN(original)) {
+                                    const extra = totalReal - original;
+                                    return (
+                                      <p className={extra > 0 ? "text-amber-500" : "text-muted-foreground"}>
+                                        Total a pagar: <strong>{totalReal.toFixed(2)}€</strong> 
+                                        {extra > 0 ? ` (${extra.toFixed(2)}€ gastos fin.)` : ""}
+                                      </p>
+                                    );
+                                  }
+                                  return null;
+                                })()}
+                              </div>
+                            )}
+                          </div>
+                        )}
+                      </div>
+                    )}
+
                     <div className="flex items-center justify-between">
                       <div className="space-y-0.5">
                         <Label className="flex items-center gap-2">

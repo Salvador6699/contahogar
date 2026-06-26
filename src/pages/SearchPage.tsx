@@ -12,7 +12,7 @@ import {
   Tag,
   Filter
 } from 'lucide-react';
-import { loadData, updateTransaction, deleteTransaction } from '@/lib/storage';
+import { loadData, updateTransaction, deleteTransaction, applyFractionatedTransaction } from '@/lib/storage';
 import { Transaction, Account, Category, TransactionType } from '@/types/finance';
 import { filterTransactions, FilterCriteria, formatCurrency } from '@/lib/calculations';
 import TransactionList from '@/components/TransactionList';
@@ -57,17 +57,27 @@ const SearchPage = () => {
     setIsModalOpen(true);
   };
 
+  const handleSave = (
+    transaction: Omit<Transaction, 'id'>, 
+    copyToNextMonth?: boolean,
+    fractionationData?: { isFractionated: boolean; installments: number; installmentAmount: number; firstInstallmentDate: string; setupFee: number; setupFeeDate: string; }
+  ) => {
+    if (editingTransaction) {
+      if (fractionationData?.isFractionated) {
+        applyFractionatedTransaction(transaction, fractionationData, editingTransaction?.id);
+      } else {
+        updateTransaction({ ...transaction, id: editingTransaction.id } as Transaction);
+      }
+      setData(loadData());
+      setIsModalOpen(false);
+      toast.success('Transacción actualizada');
+    }
+  };
+
   const handleDelete = (id: string) => {
     deleteTransaction(id);
     setData(loadData());
     toast.success('Transacción eliminada');
-  };
-
-  const handleSave = (transaction: Transaction) => {
-    updateTransaction(transaction as Transaction);
-    setData(loadData());
-    setIsModalOpen(false);
-    toast.success('Transacción actualizada');
   };
 
   const toggleCategory = (cat: string) => {

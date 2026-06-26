@@ -46,6 +46,7 @@ const getDefaultData = (): FinanceData => ({
   },
   savingsGoals: [],
   recurringRules: [],
+  loans: [],
 });
 
 export const migrateData = (data: any): FinanceData => {
@@ -72,8 +73,9 @@ export const migrateData = (data: any): FinanceData => {
       data.alertSettings.dismissedTotal = false;
   }
 
-  if (data.savingsGoals === undefined) data.savingsGoals = [];
-  if (data.recurringRules === undefined) data.recurringRules = [];
+  if (!data.savingsGoals) data.savingsGoals = [];
+  if (!data.recurringRules) data.recurringRules = [];
+  if (!data.loans) data.loans = [];
 
   // If accounts array exists, assume it's new format or already partially migrated
   if (Array.isArray(data.accounts)) {
@@ -764,5 +766,211 @@ export const deleteRecurringRule = (id: string): void => {
   const data = loadData();
   if (!data.recurringRules) return;
   data.recurringRules = data.recurringRules.filter((r) => r.id !== id);
+  saveData(data);
+};
+
+export const applyFractionatedTransaction = (
+  transaction: Omit<Transaction, "id">,
+  fractionationData: { isFractionated: boolean; installments: number; installmentAmount: number; firstInstallmentDate: string; setupFee: number; setupFeeDate: string; },
+  editingId?: string
+): void => {
+  const data = loadData();
+  
+  if (editingId) {
+    data.transactions = data.transactions.filter(t => t.id !== editingId);
+  }
+
+  const { installments, installmentAmount, firstInstallmentDate, setupFee } = fractionationData;
+  const totalReal = installments * installmentAmount;
+  const originalTotal = transaction.amount;
+  const totalFees = totalReal - originalTotal;
+
+  const loanId = uuidv4();
+  
+  data.loans.push({
+    id: loanId,
+    name: transaction.description || "Fraccionamiento",
+    type: "fractionation",
+    amount: originalTotal,
+    installments,
+    installmentAmount,
+    setupFee,
+    startDate: firstInstallmentDate,
+    accountId: transaction.accountId,
+    status: "active"
+  });
+
+  if (setupFee > 0) {
+    const isSetupFeeFuture = new Date(fractionationData.setupFeeDate) > new Date();
+    data.transactions.push({
+      ...transaction,
+      id: uuidv4(),
+      amount: setupFee,
+      category: "Gastos Financieros",
+      date: fractionationData.setupFeeDate,
+      isPending: isSetupFeeFuture,
+      description: transaction.description ? `Comisión apertura: ${transaction.description}` : `Comisión apertura fraccionamiento`,
+      linkedLoanId: loanId
+    });
+  }
+
+  const basePrincipal = Math.floor((originalTotal / installments) * 100) / 100;
+  const baseFee = Math.floor((totalFees / installments) * 100) / 100;
+
+  const firstPrincipalAdjustment = Math.round((originalTotal - basePrincipal * installments) * 100) / 100;
+  const firstFeeAdjustment = Math.round((totalFees - baseFee * installments) * 100) / 100;
+
+  for (let i = 0; i < installments; i++) {
+    const dt = new Date(firstInstallmentDate);
+    dt.setMonth(dt.getMonth() + i);
+    const dateStr = dt.toISOString().split("T")[0];
+    
+    const isPending = i > 0 || transaction.isPending;
+
+    const principalAmount = i === 0 ? basePrincipal + firstPrincipalAdjustment : basePrincipal;
+    if (principalAmount > 0) {
+      data.transactions.push({
+        ...transaction,
+        id: uuidv4(),
+        amount: principalAmount,
+        date: dateStr,
+        isPending,
+        description: transaction.description ? `${transaction.description} (Cuota ${i+1}/${installments})` : `Cuota ${i+1}/${installments}`,
+        linkedLoanId: loanId
+      });
+    }
+
+    const feeAmount = i === 0 ? baseFee + firstFeeAdjustment : baseFee;
+    if (feeAmount > 0) {
+      data.transactions.push({
+        ...transaction,
+        id: uuidv4(),
+        amount: feeAmount,
+        category: "Gastos Financieros",
+        date: dateStr,
+        isPending,
+        description: transaction.description ? `Gastos financieros: ${transaction.description} (Cuota ${i+1}/${installments})` : `Gastos financieros (Cuota ${i+1}/${installments})`,
+        linkedLoanId: loanId
+      });
+      if (!data.categories.some((c: any) => (typeof c === 'string' ? c : c.name) === "Gastos Financieros")) {
+        data.categories.push({ id: uuidv4(), name: "Gastos Financieros", icon: "Tag", color: "#94a3b8" });
+      }
+    }
+  }
+  
+  saveData(data);
+};
+
+export const deleteLoan = (id: string): void => {
+  const data = loadData();
+  if (!data.loans) return;
+  
+  data.loans = data.loans.filter((l) => l.id !== id);
+  // Also delete all linked transactions
+  data.transactions = data.transactions.filter((t) => t.linkedLoanId !== id);
+  
+  saveData(data);
+};
+
+export const applyLoanTransaction = (
+  loanData: { name: string; amount: number; date: string; accountId: string; installments: number; installmentAmount: number; firstInstallmentDate: string; setupFee: number; setupFeeDate: string; description?: string; isStarted?: boolean; startingPaidAmount?: number },
+): void => {
+  const data = loadData();
+  const loanId = uuidv4();
+  
+  const { name, amount, installments, installmentAmount, firstInstallmentDate, setupFee, setupFeeDate, accountId, date, description, isStarted, startingPaidAmount } = loanData;
+
+  data.loans.push({
+    id: loanId,
+    name,
+    type: "loan",
+    amount,
+    installments,
+    installmentAmount,
+    setupFee,
+    startDate: firstInstallmentDate,
+    accountId,
+    status: "active",
+    isStarted,
+    startingPaidAmount: startingPaidAmount || 0
+  });
+
+  if (!isStarted) {
+    data.transactions.push({
+      id: uuidv4(),
+      date,
+      amount,
+      category: "Ingresos",
+      type: "income",
+      accountId,
+      description: description || `Ingreso de Préstamo: ${name}`,
+      isPending: false,
+      linkedLoanId: loanId
+    });
+  }
+
+  if (setupFee > 0) {
+    const isSetupFeeFuture = new Date(setupFeeDate) > new Date();
+    data.transactions.push({
+      id: uuidv4(),
+      date: setupFeeDate,
+      amount: setupFee,
+      category: "Gastos Financieros",
+      type: "expense",
+      accountId,
+      description: `Comisión apertura: ${name}`,
+      isPending: isSetupFeeFuture,
+      linkedLoanId: loanId
+    });
+  }
+
+  const totalReal = installments * installmentAmount;
+  const totalFees = totalReal - amount;
+
+  const basePrincipal = Math.floor((amount / installments) * 100) / 100;
+  const baseFee = Math.floor((totalFees / installments) * 100) / 100;
+
+  const firstPrincipalAdjustment = Math.round((amount - basePrincipal * installments) * 100) / 100;
+  const firstFeeAdjustment = Math.round((totalFees - baseFee * installments) * 100) / 100;
+
+  for (let i = 0; i < installments; i++) {
+    const dt = new Date(firstInstallmentDate);
+    dt.setMonth(dt.getMonth() + i);
+    const dateStr = dt.toISOString().split("T")[0];
+    
+    const principalAmount = i === 0 ? basePrincipal + firstPrincipalAdjustment : basePrincipal;
+    if (principalAmount > 0) {
+      data.transactions.push({
+        id: uuidv4(),
+        amount: principalAmount,
+        date: dateStr,
+        category: "Devolución Préstamo",
+        type: "expense",
+        accountId,
+        isPending: true,
+        description: `Cuota ${i+1}/${installments}: ${name}`,
+        linkedLoanId: loanId
+      });
+      if (!data.categories.some((c: any) => (typeof c === 'string' ? c : c.name) === "Devolución Préstamo")) {
+        data.categories.push({ id: uuidv4(), name: "Devolución Préstamo", icon: "Wallet", color: "#64748b" });
+      }
+    }
+
+    const feeAmount = i === 0 ? baseFee + firstFeeAdjustment : baseFee;
+    if (feeAmount > 0) {
+      data.transactions.push({
+        id: uuidv4(),
+        amount: feeAmount,
+        category: "Gastos Financieros",
+        type: "expense",
+        accountId,
+        date: dateStr,
+        isPending: true,
+        description: `Gastos financieros: ${name} (Cuota ${i+1}/${installments})`,
+        linkedLoanId: loanId
+      });
+    }
+  }
+  
   saveData(data);
 };

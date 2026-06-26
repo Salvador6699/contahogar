@@ -20,6 +20,7 @@ export interface Transaction {
   description?: string;
   isPending?: boolean;
   isIgnored?: boolean; // If true, this pending transaction is not included in forecast
+  linkedLoanId?: string; // Link to a Loan or Fractionation
 }
 
 export interface Category {
@@ -79,6 +80,21 @@ export interface Budget {
   isAuto?: boolean;
 }
 
+export interface Loan {
+  id: string;
+  name: string; // e.g. "Préstamo Coche" or "Veterinario"
+  type: "loan" | "fractionation"; 
+  amount: number; // Received amount (loan) or original expense (fractionation)
+  installments: number;
+  installmentAmount: number;
+  setupFee: number;
+  startDate: string; // First installment date
+  accountId: string; 
+  status: "active" | "completed";
+  isStarted?: boolean; // True if the loan is pre-existing
+  startingPaidAmount?: number; // Historical paid amount before adding it here
+}
+
 export type RecurrenceFrequency = "weekly" | "monthly" | "yearly" | "custom";
 export type CustomIntervalUnit = "days" | "months" | "years";
 
@@ -105,4 +121,5 @@ export interface FinanceData {
   alertSettings?: AlertSettings;
   savingsGoals?: SavingsGoal[];
   recurringRules?: RecurringExpenseRule[];
+  loans?: Loan[];
 }
