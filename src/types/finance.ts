@@ -93,6 +93,7 @@ export interface Loan {
   status: "active" | "completed";
   isStarted?: boolean; // True if the loan is pre-existing
   startingPaidAmount?: number; // Historical paid amount before adding it here
+  originalTransactionData?: Omit<Transaction, "id"> & { id?: string };
 }
 
 export type RecurrenceFrequency = "weekly" | "monthly" | "yearly" | "custom";

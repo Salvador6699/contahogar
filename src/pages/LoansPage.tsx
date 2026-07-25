@@ -1,13 +1,15 @@
 import { useState, useMemo } from 'react';
-import { Landmark, Plus, Trash2, Calendar, AlertCircle } from 'lucide-react';
-import { loadData, deleteLoan, applyLoanTransaction, saveData } from '@/lib/storage';
+import { Landmark, Plus, Trash2, Calendar, AlertCircle, ChevronDown, ChevronUp, Edit2, Check, X as XIcon } from 'lucide-react';
+import { loadData, deleteLoan, applyLoanTransaction, updateLoanTransaction } from '@/lib/storage';
 import { formatCurrency } from '@/lib/calculations';
 import { Button } from '@/components/ui/button';
 import { Progress } from '@/components/ui/progress';
+import { Input } from '@/components/ui/input';
 import { toast } from 'sonner';
 import LoanModal from '@/components/LoanModal';
 import { format, parseISO } from 'date-fns';
 import { es } from 'date-fns/locale';
+import { Transaction } from '@/types/finance';
 
 const LoansPage = () => {
   const [data, setData] = useState(loadData());
@@ -33,7 +35,8 @@ const LoansPage = () => {
         totalReal,
         amountPaid,
         progressPercent,
-        isCompleted
+        isCompleted,
+        linkedTxs
       };
     }).sort((a, b) => new Date(b.startDate).getTime() - new Date(a.startDate).getTime());
   }, [data]);
@@ -56,8 +59,13 @@ const LoansPage = () => {
     toast.success('Préstamo creado correctamente');
   };
 
+  const handleUpdateTransaction = (id: string, updates: Partial<Transaction>) => {
+    updateLoanTransaction(id, updates);
+    setData(loadData());
+  };
+
   return (
-    <div className="max-w-4xl mx-auto space-y-6 px-4">
+    <div className="max-w-4xl mx-auto space-y-6 px-4 pb-20">
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-2xl font-bold tracking-tight">Préstamos y Financiaciones</h1>
@@ -92,7 +100,7 @@ const LoansPage = () => {
               </h2>
               <div className="grid gap-4 md:grid-cols-2">
                 {activeLoans.map((loan) => (
-                  <LoanCard key={loan.id} loan={loan} onDelete={() => handleDelete(loan.id, loan.name)} />
+                  <LoanCard key={loan.id} loan={loan} onDelete={() => handleDelete(loan.id, loan.name)} onUpdateTx={handleUpdateTransaction} />
                 ))}
               </div>
             </div>
@@ -103,7 +111,7 @@ const LoansPage = () => {
               <h2 className="text-lg font-semibold text-muted-foreground">Completados</h2>
               <div className="grid gap-4 md:grid-cols-2 opacity-75">
                 {completedLoans.map((loan) => (
-                  <LoanCard key={loan.id} loan={loan} onDelete={() => handleDelete(loan.id, loan.name)} />
+                  <LoanCard key={loan.id} loan={loan} onDelete={() => handleDelete(loan.id, loan.name)} onUpdateTx={handleUpdateTransaction} />
                 ))}
               </div>
             </div>
@@ -121,59 +129,164 @@ const LoansPage = () => {
   );
 };
 
-const LoanCard = ({ loan, onDelete }: { loan: any, onDelete: () => void }) => {
+const LoanCard = ({ loan, onDelete, onUpdateTx }: { loan: any, onDelete: () => void, onUpdateTx: (id: string, updates: Partial<Transaction>) => void }) => {
+  const [isExpanded, setIsExpanded] = useState(false);
+
+  // Filter linkedTxs to only show expenses (installments and fees) sorted by date
+  const expenses = useMemo(() => {
+    return [...(loan.linkedTxs || [])]
+      .filter((t: any) => t.type === 'expense')
+      .sort((a: any, b: any) => new Date(a.date).getTime() - new Date(b.date).getTime());
+  }, [loan.linkedTxs]);
+
   return (
-    <div className="bg-card rounded-xl p-5 shadow-sm border border-border relative overflow-hidden group">
-      <div className="flex justify-between items-start mb-4">
-        <div>
-          <div className="flex items-center gap-2 mb-1">
-            <span className={`text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-full ${loan.type === 'loan' ? 'bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400' : 'bg-purple-100 text-purple-700 dark:bg-purple-900/30 dark:text-purple-400'}`}>
-              {loan.type === 'loan' ? 'Préstamo' : 'Fraccionamiento'}
-            </span>
-            {loan.isCompleted && (
-              <span className="text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-full bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400">
-                Pagado
+    <div className="bg-card rounded-xl shadow-sm border border-border relative overflow-hidden group">
+      <div className="p-5">
+        <div className="flex justify-between items-start mb-4">
+          <div>
+            <div className="flex items-center gap-2 mb-1">
+              <span className={`text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-full ${loan.type === 'loan' ? 'bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400' : 'bg-purple-100 text-purple-700 dark:bg-purple-900/30 dark:text-purple-400'}`}>
+                {loan.type === 'loan' ? 'Préstamo' : 'Fraccionamiento'}
               </span>
-            )}
+              {loan.isCompleted && (
+                <span className="text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-full bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400">
+                  Pagado
+                </span>
+              )}
+            </div>
+            <h3 className="font-semibold text-lg line-clamp-1">{loan.name}</h3>
           </div>
-          <h3 className="font-semibold text-lg line-clamp-1">{loan.name}</h3>
+          <div className="flex items-center gap-1">
+            <Button 
+              variant="ghost" 
+              size="icon" 
+              className="text-muted-foreground hover:text-destructive opacity-0 group-hover:opacity-100 transition-opacity"
+              onClick={onDelete}
+            >
+              <Trash2 className="w-4 h-4" />
+            </Button>
+            <Button
+              variant="ghost"
+              size="icon"
+              className="text-muted-foreground"
+              onClick={() => setIsExpanded(!isExpanded)}
+            >
+              {isExpanded ? <ChevronUp className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />}
+            </Button>
+          </div>
         </div>
-        <Button 
-          variant="ghost" 
-          size="icon" 
-          className="text-muted-foreground hover:text-destructive opacity-0 group-hover:opacity-100 transition-opacity"
-          onClick={onDelete}
-        >
-          <Trash2 className="w-4 h-4" />
-        </Button>
+
+        <div className="space-y-4">
+          <div>
+            <div className="flex justify-between text-sm mb-2">
+              <span className="text-muted-foreground">Progreso</span>
+              <span className="font-medium">
+                {formatCurrency(loan.amountPaid)} / {formatCurrency(loan.totalReal)}
+              </span>
+            </div>
+            <Progress value={loan.progressPercent} className="h-2" />
+          </div>
+
+          <div className="grid grid-cols-2 gap-4 pt-4 border-t border-border/50">
+            <div>
+              <p className="text-xs text-muted-foreground mb-1">Cuotas</p>
+              <p className="font-medium text-sm">
+                {loan.installments} x {formatCurrency(loan.installmentAmount)}
+              </p>
+            </div>
+            <div>
+              <p className="text-xs text-muted-foreground mb-1">Inicio de Pagos</p>
+              <p className="font-medium text-sm flex items-center gap-1">
+                <Calendar className="w-3 h-3" />
+                {format(parseISO(loan.startDate), "MMM yyyy", { locale: es })}
+              </p>
+            </div>
+          </div>
+        </div>
       </div>
 
-      <div className="space-y-4">
-        <div>
-          <div className="flex justify-between text-sm mb-2">
-            <span className="text-muted-foreground">Progreso</span>
-            <span className="font-medium">
-              {formatCurrency(loan.amountPaid)} / {formatCurrency(loan.totalReal)}
-            </span>
+      {isExpanded && (
+        <div className="bg-muted/30 border-t border-border px-5 py-4 space-y-3">
+          <h4 className="text-sm font-semibold mb-2">Detalle de cuotas</h4>
+          <div className="space-y-2">
+            {expenses.map((tx: any, idx: number) => (
+              <EditableTransactionRow 
+                key={tx.id} 
+                tx={tx} 
+                index={idx + 1}
+                onSave={(updates) => onUpdateTx(tx.id, updates)} 
+              />
+            ))}
           </div>
-          <Progress value={loan.progressPercent} className="h-2" />
         </div>
+      )}
+    </div>
+  );
+};
 
-        <div className="grid grid-cols-2 gap-4 pt-4 border-t border-border/50">
-          <div>
-            <p className="text-xs text-muted-foreground mb-1">Cuotas</p>
-            <p className="font-medium text-sm">
-              {loan.installments} x {formatCurrency(loan.installmentAmount)}
-            </p>
-          </div>
-          <div>
-            <p className="text-xs text-muted-foreground mb-1">Inicio de Pagos</p>
-            <p className="font-medium text-sm flex items-center gap-1">
-              <Calendar className="w-3 h-3" />
-              {format(parseISO(loan.startDate), "MMM yyyy", { locale: es })}
-            </p>
-          </div>
-        </div>
+const EditableTransactionRow = ({ tx, index, onSave }: { tx: any, index: number, onSave: (updates: Partial<Transaction>) => void }) => {
+  const [isEditing, setIsEditing] = useState(false);
+  const [date, setDate] = useState(tx.date);
+  const [amount, setAmount] = useState(tx.amount.toString());
+
+  const handleSave = () => {
+    const numAmount = parseFloat(amount);
+    if (!isNaN(numAmount) && date) {
+      onSave({ date, amount: numAmount });
+      setIsEditing(false);
+      toast.success("Cuota actualizada");
+    } else {
+      toast.error("Datos inválidos");
+    }
+  };
+
+  const isFee = tx.category === "Gastos Financieros";
+
+  if (isEditing) {
+    return (
+      <div className="flex items-center gap-2 bg-background p-2 rounded-md border border-border text-sm">
+        <Input 
+          type="date" 
+          value={date} 
+          onChange={(e) => setDate(e.target.value)}
+          className="h-8 text-xs px-2"
+        />
+        <Input 
+          type="number" 
+          step="0.01"
+          value={amount} 
+          onChange={(e) => setAmount(e.target.value)}
+          className="h-8 text-xs px-2 w-24"
+        />
+        <Button size="icon" variant="ghost" className="h-8 w-8 text-green-500 shrink-0" onClick={handleSave}>
+          <Check className="w-4 h-4" />
+        </Button>
+        <Button size="icon" variant="ghost" className="h-8 w-8 text-muted-foreground shrink-0" onClick={() => setIsEditing(false)}>
+          <XIcon className="w-4 h-4" />
+        </Button>
+      </div>
+    );
+  }
+
+  return (
+    <div className="flex items-center justify-between text-sm py-1.5 px-2 hover:bg-muted/50 rounded-md group">
+      <div className="flex items-center gap-3">
+        <span className="text-muted-foreground text-xs w-5">{isFee ? '-' : index}</span>
+        <span className="font-medium">{format(parseISO(tx.date), "dd MMM yyyy", { locale: es })}</span>
+        {isFee && <span className="text-[10px] text-amber-600 bg-amber-100 dark:bg-amber-900/30 px-1.5 py-0.5 rounded">Comisión</span>}
+      </div>
+      <div className="flex items-center gap-2">
+        <span className={tx.isPending ? "text-red-500 font-medium" : "text-emerald-500 font-semibold"}>
+          {formatCurrency(tx.amount)}
+        </span>
+        <Button 
+          size="icon" 
+          variant="ghost" 
+          className="h-6 w-6 opacity-0 group-hover:opacity-100 text-muted-foreground transition-opacity" 
+          onClick={() => setIsEditing(true)}
+        >
+          <Edit2 className="w-3 h-3" />
+        </Button>
       </div>
     </div>
   );

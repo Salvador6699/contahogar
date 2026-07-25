@@ -92,17 +92,42 @@ export const syncRecurringTransactions = (data: FinanceData): FinanceData => {
         }
       } else {
         // Create new pending transaction
-        const newTx: Transaction = {
-          id: txId,
-          date: dateStr,
-          amount: rule.amount,
-          category: rule.category,
-          accountId: rule.accountId,
-          type: rule.type,
-          description: rule.name,
-          isPending: true,
-        };
-        transactions.push(newTx);
+        // Auto-fix for old corrupted fractionations:
+        // Check if there is a loan that fractionated this exact transaction
+        const matchingLoan = data.loans?.find(l => 
+          l.type === "fractionation" && 
+          l.originalTransactionData && 
+          (l.originalTransactionData.id === txId || 
+            (l.originalTransactionData.date === dateStr && l.originalTransactionData.amount === rule.amount && l.originalTransactionData.description === rule.name)
+          )
+        );
+
+        if (matchingLoan) {
+          transactions.push({
+            id: txId,
+            date: dateStr,
+            amount: 0,
+            category: rule.category,
+            accountId: rule.accountId,
+            type: rule.type,
+            description: rule.name + ' (Fraccionado)',
+            isPending: false,
+            isIgnored: true,
+            linkedLoanId: matchingLoan.id
+          });
+        } else {
+          const newTx: Transaction = {
+            id: txId,
+            date: dateStr,
+            amount: rule.amount,
+            category: rule.category,
+            accountId: rule.accountId,
+            type: rule.type,
+            description: rule.name,
+            isPending: true,
+          };
+          transactions.push(newTx);
+        }
       }
 
       // Advance date (support older translated frequencies like 'Mensual')

@@ -221,6 +221,8 @@ export const loadData = (): FinanceData => {
   }
 };
 
+let saveTimeout: any = null;
+
 export const saveData = (data: FinanceData): void => {
   try {
     const jsonString = JSON.stringify(data);
@@ -229,7 +231,7 @@ export const saveData = (data: FinanceData): void => {
 
     // Construir URL absoluta sin credenciales para evitar el error de Fetch
     const getApiUrl = () => {
-      if (import.meta.env.DEV) return "http://localhost/backend/api.php";
+      if (import.meta.env.DEV) return `http://${window.location.hostname}/backend/api.php`;
       const url = new URL(window.location.href);
       return `${url.protocol}//${url.host}/backend/api.php`;
     };
@@ -246,52 +248,44 @@ export const saveData = (data: FinanceData): void => {
       return headers;
     };
 
-    // Sync con el backend en segundo plano
-    fetch(`${API_URL}?action=save`, {
-      method: "POST",
-      headers: getHeaders(),
-      body: jsonString,
-    })
-      .then(async (res) => {
-        const text = await res.text();
-        if (!res.ok) {
-          alert(
-            "❌ Error del servidor al guardar (HTTP " +
-              res.status +
-              "):\n" +
-              text,
-          );
-          return null;
-        }
-        if (!text || text.trim() === "") {
-          alert(
-            "❌ El servidor no devolvió respuesta al guardar (Posible bloqueo de CDmon).",
-          );
-          return null;
-        }
-        try {
-          return JSON.parse(text);
-        } catch (e: any) {
-          alert(
-            "❌ Respuesta inválida del servidor al guardar:\n" +
-              text +
-              "\n\nError JSON: " +
-              e.message,
-          );
-          return null;
-        }
+    // Sync con el backend en segundo plano usando debounce para evitar concurrencia
+    if (saveTimeout) {
+      clearTimeout(saveTimeout);
+    }
+    
+    saveTimeout = setTimeout(() => {
+      fetch(`${API_URL}?action=save`, {
+        method: "POST",
+        headers: getHeaders(),
+        body: JSON.stringify(data), // Usar los datos de este momento
       })
-      .then((result) => {
-        if (result && result.success === false) {
-          alert("❌ Error guardando en Base de Datos:\n\n" + result.message);
-        }
-      })
-      .catch((err) => {
-        console.error("Error de red al guardar:", err);
-        alert(
-          "❌ Error de red/servidor al contactar con api.php:\n" + err.message,
-        );
-      });
+        .then(async (res) => {
+          const text = await res.text();
+          if (!res.ok) {
+            alert("❌ Error del servidor al guardar (HTTP " + res.status + "):\n" + text);
+            return null;
+          }
+          if (!text || text.trim() === "") {
+            alert("❌ El servidor no devolvió respuesta al guardar (Posible bloqueo de CDmon).");
+            return null;
+          }
+          try {
+            return JSON.parse(text);
+          } catch (e: any) {
+            alert("❌ Respuesta inválida del servidor al guardar:\n" + text + "\n\nError JSON: " + e.message);
+            return null;
+          }
+        })
+        .then((result) => {
+          if (result && result.success === false) {
+            alert("❌ Error guardando en Base de Datos:\n\n" + result.message);
+          }
+        })
+        .catch((err) => {
+          console.error("Error de red al guardar:", err);
+          alert("❌ Error de red/servidor al contactar con api.php:\n" + err.message);
+        });
+    }, 500);
   } catch (error) {
     console.error("Error saving data:", error);
   }
@@ -300,7 +294,7 @@ export const saveData = (data: FinanceData): void => {
 export const syncFromBackend = async (): Promise<boolean> => {
   try {
     const getApiUrl = () => {
-      if (import.meta.env.DEV) return "http://localhost/backend/api.php";
+      if (import.meta.env.DEV) return `http://${window.location.hostname}/backend/api.php`;
       const url = new URL(window.location.href);
       return `${url.protocol}//${url.host}/backend/api.php`;
     };
@@ -311,7 +305,7 @@ export const syncFromBackend = async (): Promise<boolean> => {
       headers["Authorization"] = "Basic " + btoa("tabsys401:I5XmH2zvX2bA");
     }
 
-    const response = await fetch(`${API_URL}?action=load`, { headers });
+    const response = await fetch(`${API_URL}?action=load&t=${Date.now()}`, { headers });
 
     // Si la respuesta no es OK (ej. Error 500)
     if (!response.ok) {
@@ -776,16 +770,28 @@ export const applyFractionatedTransaction = (
 ): void => {
   const data = loadData();
   
+  const loanId = uuidv4();
+
   if (editingId) {
-    data.transactions = data.transactions.filter(t => t.id !== editingId);
+    if (editingId.startsWith('rec_')) {
+      const idx = data.transactions.findIndex(t => t.id === editingId);
+      if (idx !== -1) {
+        data.transactions[idx] = {
+          ...data.transactions[idx],
+          isPending: false,
+          isIgnored: true,
+          amount: 0,
+          linkedLoanId: loanId,
+          description: (data.transactions[idx].description || 'Gasto recurrente') + ' (Fraccionado)'
+        };
+      }
+    } else {
+      data.transactions = data.transactions.filter(t => t.id !== editingId);
+    }
   }
 
   const { installments, installmentAmount, firstInstallmentDate, setupFee } = fractionationData;
-  const totalReal = installments * installmentAmount;
   const originalTotal = transaction.amount;
-  const totalFees = totalReal - originalTotal;
-
-  const loanId = uuidv4();
   
   data.loans.push({
     id: loanId,
@@ -797,7 +803,8 @@ export const applyFractionatedTransaction = (
     setupFee,
     startDate: firstInstallmentDate,
     accountId: transaction.accountId,
-    status: "active"
+    status: "active",
+    originalTransactionData: { ...transaction, id: editingId || '' } // Save the original transaction
   });
 
   if (setupFee > 0) {
@@ -814,12 +821,6 @@ export const applyFractionatedTransaction = (
     });
   }
 
-  const basePrincipal = Math.floor((originalTotal / installments) * 100) / 100;
-  const baseFee = Math.floor((totalFees / installments) * 100) / 100;
-
-  const firstPrincipalAdjustment = Math.round((originalTotal - basePrincipal * installments) * 100) / 100;
-  const firstFeeAdjustment = Math.round((totalFees - baseFee * installments) * 100) / 100;
-
   for (let i = 0; i < installments; i++) {
     const dt = new Date(firstInstallmentDate);
     dt.setMonth(dt.getMonth() + i);
@@ -827,35 +828,15 @@ export const applyFractionatedTransaction = (
     
     const isPending = i > 0 || transaction.isPending;
 
-    const principalAmount = i === 0 ? basePrincipal + firstPrincipalAdjustment : basePrincipal;
-    if (principalAmount > 0) {
-      data.transactions.push({
-        ...transaction,
-        id: uuidv4(),
-        amount: principalAmount,
-        date: dateStr,
-        isPending,
-        description: transaction.description ? `${transaction.description} (Cuota ${i+1}/${installments})` : `Cuota ${i+1}/${installments}`,
-        linkedLoanId: loanId
-      });
-    }
-
-    const feeAmount = i === 0 ? baseFee + firstFeeAdjustment : baseFee;
-    if (feeAmount > 0) {
-      data.transactions.push({
-        ...transaction,
-        id: uuidv4(),
-        amount: feeAmount,
-        category: "Gastos Financieros",
-        date: dateStr,
-        isPending,
-        description: transaction.description ? `Gastos financieros: ${transaction.description} (Cuota ${i+1}/${installments})` : `Gastos financieros (Cuota ${i+1}/${installments})`,
-        linkedLoanId: loanId
-      });
-      if (!data.categories.some((c: any) => (typeof c === 'string' ? c : c.name) === "Gastos Financieros")) {
-        data.categories.push({ id: uuidv4(), name: "Gastos Financieros", icon: "Tag", color: "#94a3b8" });
-      }
-    }
+    data.transactions.push({
+      ...transaction,
+      id: uuidv4(),
+      amount: installmentAmount,
+      date: dateStr,
+      isPending,
+      description: transaction.description ? `${transaction.description} (Cuota ${i+1}/${installments})` : `Cuota ${i+1}/${installments}`,
+      linkedLoanId: loanId
+    });
   }
   
   saveData(data);
@@ -865,11 +846,33 @@ export const deleteLoan = (id: string): void => {
   const data = loadData();
   if (!data.loans) return;
   
+  const loanToDelete = data.loans.find(l => l.id === id);
+  if (loanToDelete && loanToDelete.type === "fractionation" && loanToDelete.originalTransactionData) {
+    const origId = loanToDelete.originalTransactionData.id;
+    // No restauramos transacciones recurrentes (rec_). El motor syncRecurringTransactions 
+    // las regenerará automáticamente porque al borrar el préstamo se borra su placeholder de 0€.
+    if (!origId || !origId.startsWith('rec_')) {
+      data.transactions.push({
+        ...loanToDelete.originalTransactionData,
+        id: origId || uuidv4()
+      });
+    }
+  }
+  
   data.loans = data.loans.filter((l) => l.id !== id);
   // Also delete all linked transactions
   data.transactions = data.transactions.filter((t) => t.linkedLoanId !== id);
   
   saveData(data);
+};
+
+export const updateLoanTransaction = (id: string, updates: Partial<Omit<Transaction, "id">>): void => {
+  const data = loadData();
+  const index = data.transactions.findIndex(t => t.id === id);
+  if (index !== -1) {
+    data.transactions[index] = { ...data.transactions[index], ...updates };
+    saveData(data);
+  }
 };
 
 export const applyLoanTransaction = (
@@ -924,51 +927,24 @@ export const applyLoanTransaction = (
     });
   }
 
-  const totalReal = installments * installmentAmount;
-  const totalFees = totalReal - amount;
-
-  const basePrincipal = Math.floor((amount / installments) * 100) / 100;
-  const baseFee = Math.floor((totalFees / installments) * 100) / 100;
-
-  const firstPrincipalAdjustment = Math.round((amount - basePrincipal * installments) * 100) / 100;
-  const firstFeeAdjustment = Math.round((totalFees - baseFee * installments) * 100) / 100;
-
   for (let i = 0; i < installments; i++) {
     const dt = new Date(firstInstallmentDate);
     dt.setMonth(dt.getMonth() + i);
     const dateStr = dt.toISOString().split("T")[0];
     
-    const principalAmount = i === 0 ? basePrincipal + firstPrincipalAdjustment : basePrincipal;
-    if (principalAmount > 0) {
-      data.transactions.push({
-        id: uuidv4(),
-        amount: principalAmount,
-        date: dateStr,
-        category: "Devolución Préstamo",
-        type: "expense",
-        accountId,
-        isPending: true,
-        description: `Cuota ${i+1}/${installments}: ${name}`,
-        linkedLoanId: loanId
-      });
-      if (!data.categories.some((c: any) => (typeof c === 'string' ? c : c.name) === "Devolución Préstamo")) {
-        data.categories.push({ id: uuidv4(), name: "Devolución Préstamo", icon: "Wallet", color: "#64748b" });
-      }
-    }
-
-    const feeAmount = i === 0 ? baseFee + firstFeeAdjustment : baseFee;
-    if (feeAmount > 0) {
-      data.transactions.push({
-        id: uuidv4(),
-        amount: feeAmount,
-        category: "Gastos Financieros",
-        type: "expense",
-        accountId,
-        date: dateStr,
-        isPending: true,
-        description: `Gastos financieros: ${name} (Cuota ${i+1}/${installments})`,
-        linkedLoanId: loanId
-      });
+    data.transactions.push({
+      id: uuidv4(),
+      amount: installmentAmount,
+      date: dateStr,
+      category: "Devolución Préstamo",
+      type: "expense",
+      accountId,
+      isPending: true,
+      description: `Cuota ${i+1}/${installments}: ${name}`,
+      linkedLoanId: loanId
+    });
+    if (!data.categories.some((c: any) => (typeof c === 'string' ? c : c.name) === "Devolución Préstamo")) {
+      data.categories.push({ id: uuidv4(), name: "Devolución Préstamo", icon: "Wallet", color: "#64748b" });
     }
   }
   

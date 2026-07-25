@@ -13,7 +13,7 @@ import {
     SelectValue,
 } from '@/components/ui/select';
 import { Transaction } from '@/types/finance';
-import { loadData, addTransaction, deleteTransaction } from '@/lib/storage';
+import { loadData, addTransaction, deleteTransaction, saveData } from '@/lib/storage';
 import { formatCurrency, calculateAccountBalance } from '@/lib/calculations';
 import { toast } from 'sonner';
 import { useScrollOnFocus } from '@/hooks/useScrollOnFocus';
@@ -56,6 +56,8 @@ const TransferPage = () => {
         const amountNum = parseFloat(amount);
         if (isNaN(amountNum) || amountNum <= 0 || amountNum > maxAmount || !fromAccountId || !toAccountId) return;
 
+        const currentData = loadData();
+
         if (editingTransferId) {
             const expensePart = transferPairs.find(t => t.id === editingTransferId);
             if (expensePart) {
@@ -66,10 +68,9 @@ const TransferPage = () => {
                         t.id !== expensePart.id
                 );
 
-                deleteTransaction(expensePart.id);
-                if (incomePart) {
-                    deleteTransaction(incomePart.id);
-                }
+                currentData.transactions = currentData.transactions.filter(t => 
+                    t.id !== expensePart.id && (!incomePart || t.id !== incomePart.id)
+                );
             }
         }
 
@@ -97,10 +98,11 @@ const TransferPage = () => {
             isPending: false,
         };
 
-        addTransaction(expenseTransaction);
-        addTransaction(incomeTransaction);
-
-        setData(loadData());
+        currentData.transactions.push(expenseTransaction);
+        currentData.transactions.push(incomeTransaction);
+        saveData(currentData);
+        
+        setData(currentData);
         setAmount('');
         setEditingTransferId(null);
         toast.success(editingTransferId ? 'Transferencia actualizada' : 'Transferencia realizada con éxito');
@@ -127,12 +129,12 @@ const TransferPage = () => {
                 t.id !== expenseTransfer.id
         );
 
-        deleteTransaction(expenseTransfer.id);
-        if (matchingIncome) {
-            deleteTransaction(matchingIncome.id);
-        }
-
-        setData(loadData());
+        const currentData = loadData();
+        currentData.transactions = currentData.transactions.filter(t => 
+            t.id !== expenseTransfer.id && (!matchingIncome || t.id !== matchingIncome.id)
+        );
+        saveData(currentData);
+        setData(currentData);
         toast.success('Transferencia eliminada');
     };
 

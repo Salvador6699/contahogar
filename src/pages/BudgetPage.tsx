@@ -128,6 +128,13 @@ const BudgetPage = () => {
         });
     };
 
+    const handleClearAll = () => {
+        if (window.confirm('¿Estás seguro de que quieres limpiar todos los presupuestos de este mes? (Se aplicará al guardar)')) {
+            setLocalAssignments({});
+            toast.success('Todos los presupuestos limpiados. No olvides guardar.');
+        }
+    };
+
     const handleCopyPreviousMonth = () => {
         const current = parseISO(activeMonth + "-01");
         const prevMonthStr = format(subMonths(current, 1), "yyyy-MM");
@@ -251,18 +258,44 @@ const BudgetPage = () => {
     };
 
     const getRestoForSort = (catName: string) => {
-        const amount = localAssignments[catName]?.amount || 0;
+        const savedBudget = data.budgets.find(b => b.month === activeMonth && b.category === catName);
+        const amount = savedBudget ? savedBudget.amount : 0;
         const gastado = getGastado(catName);
         return amount - gastado;
     };
 
+    const sortBudgets = (a: string, b: string) => {
+        const restoA = getRestoForSort(a);
+        const restoB = getRestoForSort(b);
+
+        const groupA = restoA < 0 ? 0 : restoA > 0 ? 1 : 2;
+        const groupB = restoB < 0 ? 0 : restoB > 0 ? 1 : 2;
+
+        if (groupA !== groupB) {
+            return groupA - groupB;
+        }
+
+        // Dentro del grupo rojo (0): el más negativo primero
+        if (groupA === 0) {
+            return restoA - restoB; 
+        }
+        
+        // Dentro del grupo verde (1): el que tiene más dinero restante primero
+        if (groupA === 1) {
+            return restoB - restoA;
+        }
+
+        // Dentro del grupo gris (2): orden alfabético
+        return a.localeCompare(b);
+    };
+
     const manualCategories = Object.keys(localAssignments)
         .filter(cat => !localAssignments[cat].isAuto)
-        .sort((a, b) => getRestoForSort(b) - getRestoForSort(a));
+        .sort(sortBudgets);
 
     const autoCategories = Object.keys(localAssignments)
         .filter(cat => localAssignments[cat].isAuto)
-        .sort((a, b) => getRestoForSort(b) - getRestoForSort(a));
+        .sort(sortBudgets);
 
     const sumManualBudgets = Number(manualCategories.reduce((sum, cat) => sum + localAssignments[cat].amount, 0).toFixed(2));
     const sumAutoBudgets = Number(autoCategories.reduce((sum, cat) => sum + localAssignments[cat].amount, 0).toFixed(2));
@@ -272,9 +305,11 @@ const BudgetPage = () => {
         const baseGastos = Number(data.transactions
             .filter(t => t.type === 'expense' && t.category !== 'Transferencia' && t.date.startsWith(currentMonthKey) && (!t.isPending || !t.isIgnored))
             .reduce((sum, t) => sum + t.amount, 0).toFixed(2));
-        const baseBudgets = Number(data.budgets
-            .filter(b => b.month === currentMonthKey && b.category !== 'Transferencia')
-            .reduce((sum, b) => sum + b.amount, 0).toFixed(2));
+        const baseBudgets = currentMonthKey === activeMonth
+            ? sumManualBudgets + sumAutoBudgets
+            : Number(data.budgets
+                .filter(b => b.month === currentMonthKey && b.category !== 'Transferencia')
+                .reduce((sum, b) => sum + b.amount, 0).toFixed(2));
         
         let noAsignada = baseCapital + baseGastos - baseBudgets;
 
@@ -426,6 +461,14 @@ const BudgetPage = () => {
                             Autoasignar
                         </Button>
                         <Button 
+                            onClick={handleClearAll}
+                            variant="destructive"
+                            className="bg-destructive/10 hover:bg-destructive/20 text-destructive border border-destructive/20 font-bold shadow-sm transition-all"
+                        >
+                            <Trash2 className="w-4 h-4 mr-2" />
+                            Limpiar todos
+                        </Button>
+                        <Button 
                             onClick={handleSave} 
                             className="font-bold shadow-md hover:shadow-lg transition-all"
                         >
@@ -564,11 +607,11 @@ const BudgetPage = () => {
                                             <div className="space-y-2">
                                                 <div className="flex justify-between text-[11px] font-bold uppercase tracking-wider text-muted-foreground">
                                                     <span>Progreso</span>
-                                                    <span className={percentage >= 100 ? "text-destructive" : "text-primary"}>{percentage.toFixed(0)}%</span>
+                                                    <span className={resto > 0 ? "text-income" : resto < 0 ? "text-destructive" : "text-muted-foreground"}>{percentage.toFixed(0)}%</span>
                                                 </div>
                                                 <div className="h-2 w-full bg-muted rounded-full overflow-hidden">
                                                     <div 
-                                                        className={cn("h-full rounded-full transition-all duration-500", percentage >= 100 ? "bg-destructive/70" : "bg-primary/70")} 
+                                                        className={cn("h-full rounded-full transition-all duration-500", resto > 0 ? "bg-income/70" : resto < 0 ? "bg-destructive/70" : "bg-muted-foreground/70")} 
                                                         style={{ width: `${Math.min(percentage, 100)}%` }} 
                                                     />
                                                 </div>
@@ -668,11 +711,11 @@ const BudgetPage = () => {
                                         <div className="space-y-2">
                                             <div className="flex justify-between text-[11px] font-bold uppercase tracking-wider text-muted-foreground">
                                                 <span>Progreso</span>
-                                                <span className={percentage >= 100 ? "text-destructive" : "text-primary"}>{percentage.toFixed(0)}%</span>
+                                                <span className={resto > 0 ? "text-income" : resto < 0 ? "text-destructive" : "text-muted-foreground"}>{percentage.toFixed(0)}%</span>
                                             </div>
                                             <div className="h-2 w-full bg-muted rounded-full overflow-hidden">
                                                 <div 
-                                                    className={cn("h-full rounded-full transition-all duration-500", percentage >= 100 ? "bg-destructive" : "bg-primary")} 
+                                                    className={cn("h-full rounded-full transition-all duration-500", resto > 0 ? "bg-income" : resto < 0 ? "bg-destructive" : "bg-muted-foreground")} 
                                                     style={{ width: `${Math.min(percentage, 100)}%` }} 
                                                 />
                                             </div>

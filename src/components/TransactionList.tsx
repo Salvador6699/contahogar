@@ -4,7 +4,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Transaction } from '@/types/finance';
 import { formatCurrency } from '@/lib/calculations';
-import { Pencil, Trash2, Calendar, Clock, Search, ChevronLeft, ChevronRight } from 'lucide-react';
+import { Pencil, Trash2, Calendar, Clock, Search, ChevronLeft, ChevronRight, CreditCard } from 'lucide-react';
 import {
   AlertDialog,
   AlertDialogAction,
@@ -109,9 +109,14 @@ const TransactionList = ({ transactions, onEdit, onDelete }: TransactionListProp
             <div className="space-y-2">
               {paginatedTransactions.map((transaction) => {
                 const isIncome = transaction.type === 'income';
-                const bgClass = isIncome ? 'bg-income-light' : 'bg-expense-light';
-                const borderClass = isIncome ? 'border-income/20' : 'border-expense/20';
+                let bgClass = isIncome ? 'bg-income-light' : 'bg-expense-light';
+                let borderClass = isIncome ? 'border-income/20' : 'border-expense/20';
                 const colorClass = isIncome ? 'text-income' : 'text-expense';
+
+                if (transaction.linkedLoanId) {
+                  bgClass = 'bg-purple-50 dark:bg-purple-900/10';
+                  borderClass = 'border-purple-200 dark:border-purple-800/50';
+                }
 
                 return (
                   <Card
@@ -128,6 +133,12 @@ const TransactionList = ({ transactions, onEdit, onDelete }: TransactionListProp
                             <span className="flex items-center gap-1 text-[8px] font-black uppercase tracking-tighter bg-muted px-1.5 py-0.5 rounded border border-border/50">
                               <Clock className="w-2 h-2" />
                               Previsto
+                            </span>
+                          )}
+                          {transaction.linkedLoanId && (
+                            <span className="flex items-center gap-1 text-[8px] font-black uppercase tracking-tighter bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-300 px-1.5 py-0.5 rounded border border-blue-200 dark:border-blue-800">
+                              <CreditCard className="w-2 h-2" />
+                              Cuota
                             </span>
                           )}
                         </div>

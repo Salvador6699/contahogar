@@ -82,14 +82,22 @@ const CategoryBreakdown = ({
       const bAvailable = bBudget ? bBudget.amount - b.total : null;
       
       if (aAvailable !== null && bAvailable !== null) {
-        if (aAvailable < 0 && bAvailable < 0) return aAvailable - bAvailable;
-        if (aAvailable < 0) return -1;
-        if (bAvailable < 0) return 1;
-        return bAvailable - aAvailable;
+        const groupA = aAvailable < 0 ? 0 : aAvailable > 0 ? 1 : 2;
+        const groupB = bAvailable < 0 ? 0 : bAvailable > 0 ? 1 : 2;
+
+        if (groupA !== groupB) {
+            return groupA - groupB;
+        }
+
+        if (groupA === 0) return aAvailable - bAvailable;
+        if (groupA === 1) return bAvailable - aAvailable;
+        
+        return a.category.localeCompare(b.category);
       }
+      
       if (aAvailable !== null) return -1;
       if (bAvailable !== null) return 1;
-      return b.total - a.total;
+      return b.total - a.total; // Both no budget, sort by highest total
     });
   }, [categories, budgets, type, baseDate]);
 
@@ -174,10 +182,15 @@ const CategoryBreakdown = ({
           </span>
         </h3>
         <div className={`grid grid-cols-1 ${!isPending ? 'sm:grid-cols-2 2xl:grid-cols-3' : ''} gap-3`}>
-          {paginatedItems.map((transaction) => (
+          {paginatedItems.map((transaction) => {
+            const isLoan = !!transaction.linkedLoanId;
+            const itemBgClass = isLoan ? 'bg-purple-50 dark:bg-purple-900/10' : bgClass;
+            const itemBorderClass = isLoan ? 'border-purple-200 dark:border-purple-800/50' : borderClass;
+            
+            return (
             <Card
               key={transaction.id}
-              className={`p-4 ${bgClass} border-2 ${borderClass} hover:shadow-md transition-all`}
+              className={`p-4 ${itemBgClass} border-2 ${itemBorderClass} hover:shadow-md transition-all`}
             >
               <div className="flex items-start justify-between gap-3">
                 <div className="flex items-center gap-3 min-w-0">
@@ -216,6 +229,12 @@ const CategoryBreakdown = ({
                           >
                             <CheckCircle2 className="w-5 h-5 fill-income/10" />
                           </button>
+                        )}
+                        {transaction.linkedLoanId && (
+                          <span className="flex items-center gap-1 text-[8px] font-black uppercase tracking-tighter bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-300 px-1.5 py-0.5 rounded border border-blue-200 dark:border-blue-800 ml-1">
+                            <Icons.CreditCard className="w-2 h-2" />
+                            Cuota
+                          </span>
                         )}
                       </div>
                       {transaction.description && (
@@ -285,7 +304,8 @@ const CategoryBreakdown = ({
                 </div>
               </div>
             </Card>
-          ))}
+            );
+          })}
         </div>
 
         <SmartPagination 

@@ -10,16 +10,64 @@ function responseJson($data) {
     exit();
 }
 
+function runMigrations($db) {
+    // accounts
+    if ($db->query("SHOW COLUMNS FROM accounts LIKE 'excludeFromTotals'")->num_rows == 0) {
+        $db->query("ALTER TABLE accounts ADD COLUMN excludeFromTotals BOOLEAN DEFAULT 0");
+    }
+    // transactions
+    if ($db->query("SHOW COLUMNS FROM transactions LIKE 'isIgnored'")->num_rows == 0) {
+        $db->query("ALTER TABLE transactions ADD COLUMN isIgnored BOOLEAN DEFAULT 0");
+    }
+    if ($db->query("SHOW COLUMNS FROM transactions LIKE 'linkedLoanId'")->num_rows == 0) {
+        $db->query("ALTER TABLE transactions ADD COLUMN linkedLoanId VARCHAR(100) NULL");
+    }
+    // recurring_transactions
+    if ($db->query("SHOW COLUMNS FROM recurring_transactions LIKE 'customInterval'")->num_rows == 0) {
+        $db->query("ALTER TABLE recurring_transactions ADD COLUMN customInterval INT NULL");
+    }
+    if ($db->query("SHOW COLUMNS FROM recurring_transactions LIKE 'customIntervalUnit'")->num_rows == 0) {
+        $db->query("ALTER TABLE recurring_transactions ADD COLUMN customIntervalUnit VARCHAR(20) NULL");
+    }
+    if ($db->query("SHOW COLUMNS FROM recurring_transactions LIKE 'savingsPriority'")->num_rows == 0) {
+        $db->query("ALTER TABLE recurring_transactions ADD COLUMN savingsPriority INT NULL");
+    }
+    // budgets
+    if ($db->query("SHOW COLUMNS FROM budgets LIKE 'isAuto'")->num_rows == 0) {
+        $db->query("ALTER TABLE budgets ADD COLUMN isAuto BOOLEAN DEFAULT 0");
+    }
+    // savings_goals
+    if ($db->query("SHOW COLUMNS FROM savings_goals LIKE 'priority'")->num_rows == 0) {
+        $db->query("ALTER TABLE savings_goals ADD COLUMN priority INT NULL");
+    }
+    if ($db->query("SHOW COLUMNS FROM savings_goals LIKE 'isIgnored'")->num_rows == 0) {
+        $db->query("ALTER TABLE savings_goals ADD COLUMN isIgnored BOOLEAN DEFAULT 0");
+    }
+    // loans table
+    $db->query("CREATE TABLE IF NOT EXISTS loans (
+        id VARCHAR(100) PRIMARY KEY,
+        name VARCHAR(100) NOT NULL,
+        type VARCHAR(50) NOT NULL,
+        amount DECIMAL(12,2) NOT NULL,
+        installments INT NOT NULL,
+        installmentAmount DECIMAL(12,2) NOT NULL,
+        setupFee DECIMAL(12,2) NOT NULL DEFAULT 0,
+        startDate DATE NOT NULL,
+        accountId VARCHAR(100) NOT NULL,
+        status VARCHAR(50) NOT NULL,
+        isStarted BOOLEAN DEFAULT 0,
+        startingPaidAmount DECIMAL(12,2) DEFAULT 0,
+        originalTransactionData LONGTEXT NULL,
+        FOREIGN KEY (accountId) REFERENCES accounts(id) ON DELETE CASCADE
+    )");
+}
+
 $action = isset($_GET['action']) ? $_GET['action'] : '';
 
 if ($action === 'load') {
     $db = getDB();
     
-    // Auto-add isIgnored column if missing
-    $colCheck = $db->query("SHOW COLUMNS FROM transactions LIKE 'isIgnored'");
-    if ($colCheck->num_rows == 0) {
-        $db->query("ALTER TABLE transactions ADD COLUMN isIgnored BOOLEAN DEFAULT 0");
-    }
+    runMigrations($db);
 
     $data = [
         'accounts' => [],
@@ -29,6 +77,7 @@ if ($action === 'load') {
         'recurringRules' => [],
         'favorites' => [],
         'savingsGoals' => [],
+        'loans' => [],
         'alertSettings' => null
     ];
 
@@ -52,6 +101,7 @@ if ($action === 'load') {
     $rows = fetchTable($db, "SELECT * FROM accounts");
     foreach ($rows as $row) {
         $row['initialBalance'] = (float)$row['initialBalance'];
+        $row['excludeFromTotals'] = (bool)$row['excludeFromTotals'];
         $data['accounts'][] = $row;
     }
 
@@ -75,6 +125,7 @@ if ($action === 'load') {
     $rows = fetchTable($db, "SELECT * FROM budgets");
     foreach ($rows as $row) {
         $row['amount'] = (float)$row['amount'];
+        $row['isAuto'] = (bool)$row['isAuto'];
         $data['budgets'][] = $row;
     }
 
@@ -85,7 +136,9 @@ if ($action === 'load') {
         $row['amount'] = (float)$row['amount'];
         $row['isActive'] = (bool)$row['isActive'];
         if ($row['intervalMonths'] !== null) $row['intervalMonths'] = (int)$row['intervalMonths'];
+        if ($row['customInterval'] !== null) $row['customInterval'] = (int)$row['customInterval'];
         if ($row['endAfterMonths'] !== null) $row['endAfterMonths'] = (int)$row['endAfterMonths'];
+        if ($row['savingsPriority'] !== null) $row['savingsPriority'] = (int)$row['savingsPriority'];
         $data['recurringRules'][] = $row;
     }
 
@@ -101,7 +154,24 @@ if ($action === 'load') {
     foreach ($rows as $row) {
         $row['targetAmount'] = (float)$row['targetAmount'];
         $row['currentAmount'] = (float)$row['currentAmount'];
+        if ($row['priority'] !== null) $row['priority'] = (int)$row['priority'];
+        $row['isIgnored'] = (bool)$row['isIgnored'];
         $data['savingsGoals'][] = $row;
+    }
+
+    // Cargar loans
+    $rows = fetchTable($db, "SELECT * FROM loans");
+    foreach ($rows as $row) {
+        $row['amount'] = (float)$row['amount'];
+        $row['installments'] = (int)$row['installments'];
+        $row['installmentAmount'] = (float)$row['installmentAmount'];
+        $row['setupFee'] = (float)$row['setupFee'];
+        $row['isStarted'] = (bool)$row['isStarted'];
+        $row['startingPaidAmount'] = (float)$row['startingPaidAmount'];
+        if ($row['originalTransactionData'] !== null) {
+            $row['originalTransactionData'] = json_decode($row['originalTransactionData'], true);
+        }
+        $data['loans'][] = $row;
     }
 
     // Cargar settings (alertSettings)
@@ -133,11 +203,7 @@ if ($action === 'save') {
     $db->begin_transaction();
 
     try {
-        // Auto-add isIgnored column if missing
-        $colCheck = $db->query("SHOW COLUMNS FROM transactions LIKE 'isIgnored'");
-        if ($colCheck->num_rows == 0) {
-            $db->query("ALTER TABLE transactions ADD COLUMN isIgnored BOOLEAN DEFAULT 0");
-        }
+        runMigrations($db);
 
         // Como la app actualmente manda el estado completo (como en localStorage),
         // vaciamos las tablas y las volvemos a llenar. Esto asegura que los elementos
@@ -150,6 +216,7 @@ if ($action === 'save') {
             'transactions',
             'budgets',
             'categories',
+            'loans',
             'accounts',
             'settings'
         ];
@@ -164,12 +231,13 @@ if ($action === 'save') {
         }
 
         // Preparar sentencias (usamos REPLACE INTO por si acaso para evitar conflictos de Primary Key, aunque el DELETE ya debería vaciar)
-        $stmtAcc = $db->prepare("REPLACE INTO accounts (id, name, initialBalance, linkedAccountId, logo) VALUES (?, ?, ?, ?, ?)");
+        $stmtAcc = $db->prepare("REPLACE INTO accounts (id, name, initialBalance, linkedAccountId, logo, excludeFromTotals) VALUES (?, ?, ?, ?, ?, ?)");
         if (!empty($data['accounts'])) {
             foreach ($data['accounts'] as $item) {
                 $linkedId = isset($item['linkedAccountId']) ? $item['linkedAccountId'] : null;
                 $logo = isset($item['logo']) ? $item['logo'] : null;
-                $stmtAcc->bind_param("ssdss", $item['id'], $item['name'], $item['initialBalance'], $linkedId, $logo);
+                $exclude = !empty($item['excludeFromTotals']) ? 1 : 0;
+                $stmtAcc->bind_param("ssdssi", $item['id'], $item['name'], $item['initialBalance'], $linkedId, $logo, $exclude);
                 if ($stmtAcc->execute() === false) throw new Exception("Error insertando cuenta: " . $stmtAcc->error);
             }
         }
@@ -186,34 +254,39 @@ if ($action === 'save') {
             }
         }
 
-        $stmtTx = $db->prepare("INSERT INTO transactions (id, date, amount, category, type, accountId, description, isPending, isIgnored) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)");
+        $stmtTx = $db->prepare("INSERT INTO transactions (id, date, amount, category, type, accountId, description, isPending, isIgnored, linkedLoanId) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)");
         if (!empty($data['transactions'])) {
             foreach ($data['transactions'] as $item) {
                 $desc = $item['description'] ?? null;
                 $pending = !empty($item['isPending']) ? 1 : 0;
                 $ignored = !empty($item['isIgnored']) ? 1 : 0;
-                $stmtTx->bind_param("ssdssssii", $item['id'], $item['date'], $item['amount'], $item['category'], $item['type'], $item['accountId'], $desc, $pending, $ignored);
+                $link = $item['linkedLoanId'] ?? null;
+                $stmtTx->bind_param("ssdssssiis", $item['id'], $item['date'], $item['amount'], $item['category'], $item['type'], $item['accountId'], $desc, $pending, $ignored, $link);
                 if ($stmtTx->execute() === false) throw new Exception("Error insertando transacción: " . $stmtTx->error);
             }
         }
 
-        $stmtRec = $db->prepare("REPLACE INTO recurring_transactions (id, name, amount, type, category, accountId, frequency, intervalMonths, endAfterMonths, startDate, lastGeneratedDate, isActive) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)");
+        $stmtRec = $db->prepare("REPLACE INTO recurring_transactions (id, name, amount, type, category, accountId, frequency, intervalMonths, customInterval, customIntervalUnit, endAfterMonths, startDate, lastGeneratedDate, isActive, savingsPriority) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)");
         if (!empty($data['recurringRules'])) {
             foreach ($data['recurringRules'] as $item) {
                 $intM = isset($item['intervalMonths']) ? $item['intervalMonths'] : null;
+                $cInt = isset($item['customInterval']) ? $item['customInterval'] : null;
+                $cUnit = isset($item['customIntervalUnit']) ? $item['customIntervalUnit'] : null;
                 $endM = isset($item['endAfterMonths']) ? $item['endAfterMonths'] : null;
                 $lastD = isset($item['lastGeneratedDate']) ? $item['lastGeneratedDate'] : null;
                 $active = isset($item['isActive']) ? (int)$item['isActive'] : 1;
-                $stmtRec->bind_param("ssdssssiisss", $item['id'], $item['name'], $item['amount'], $item['type'], $item['category'], $item['accountId'], $item['frequency'], $intM, $endM, $item['startDate'], $lastD, $active);
+                $sPri = isset($item['savingsPriority']) ? $item['savingsPriority'] : null;
+                $stmtRec->bind_param("ssdssssiisisssi", $item['id'], $item['name'], $item['amount'], $item['type'], $item['category'], $item['accountId'], $item['frequency'], $intM, $cInt, $cUnit, $endM, $item['startDate'], $lastD, $active, $sPri);
                 if ($stmtRec->execute() === false) throw new Exception("Error insertando automatización: " . $stmtRec->error);
             }
         }
 
-        $stmtBud = $db->prepare("REPLACE INTO budgets (id, category, amount, month, createdAt) VALUES (?, ?, ?, ?, ?)");
+        $stmtBud = $db->prepare("REPLACE INTO budgets (id, category, amount, month, createdAt, isAuto) VALUES (?, ?, ?, ?, ?, ?)");
         if (!empty($data['budgets'])) {
             foreach ($data['budgets'] as $item) {
                 $createdAt = isset($item['createdAt']) ? $item['createdAt'] : null;
-                $stmtBud->bind_param("ssdss", $item['id'], $item['category'], $item['amount'], $item['month'], $createdAt);
+                $isAuto = !empty($item['isAuto']) ? 1 : 0;
+                $stmtBud->bind_param("ssdssi", $item['id'], $item['category'], $item['amount'], $item['month'], $createdAt, $isAuto);
                 if ($stmtBud->execute() === false) throw new Exception("Error insertando presupuesto: " . $stmtBud->error);
             }
         }
@@ -230,7 +303,7 @@ if ($action === 'save') {
             }
         }
 
-        $stmtSav = $db->prepare("REPLACE INTO savings_goals (id, name, targetAmount, currentAmount, deadline, accountId, color, category) VALUES (?, ?, ?, ?, ?, ?, ?, ?)");
+        $stmtSav = $db->prepare("REPLACE INTO savings_goals (id, name, targetAmount, currentAmount, deadline, accountId, color, category, priority, isIgnored) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)");
         if (!empty($data['savingsGoals'])) {
             foreach ($data['savingsGoals'] as $item) {
                 $dead = isset($item['deadline']) ? $item['deadline'] : null;
@@ -238,8 +311,21 @@ if ($action === 'save') {
                 $col = isset($item['color']) ? $item['color'] : null;
                 $cat = isset($item['category']) ? $item['category'] : null;
                 $curr = isset($item['currentAmount']) ? $item['currentAmount'] : 0;
-                $stmtSav->bind_param("ssddssss", $item['id'], $item['name'], $item['targetAmount'], $curr, $dead, $acc, $col, $cat);
+                $pri = isset($item['priority']) ? $item['priority'] : null;
+                $ign = !empty($item['isIgnored']) ? 1 : 0;
+                $stmtSav->bind_param("ssddssssii", $item['id'], $item['name'], $item['targetAmount'], $curr, $dead, $acc, $col, $cat, $pri, $ign);
                 if ($stmtSav->execute() === false) throw new Exception("Error insertando ahorro: " . $stmtSav->error);
+            }
+        }
+
+        $stmtLoan = $db->prepare("REPLACE INTO loans (id, name, type, amount, installments, installmentAmount, setupFee, startDate, accountId, status, isStarted, startingPaidAmount, originalTransactionData) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)");
+        if (!empty($data['loans'])) {
+            foreach ($data['loans'] as $item) {
+                $isStarted = !empty($item['isStarted']) ? 1 : 0;
+                $startingPaidAmount = isset($item['startingPaidAmount']) ? $item['startingPaidAmount'] : 0;
+                $origTx = isset($item['originalTransactionData']) ? json_encode($item['originalTransactionData']) : null;
+                $stmtLoan->bind_param("sssdiddssisds", $item['id'], $item['name'], $item['type'], $item['amount'], $item['installments'], $item['installmentAmount'], $item['setupFee'], $item['startDate'], $item['accountId'], $item['status'], $isStarted, $startingPaidAmount, $origTx);
+                if ($stmtLoan->execute() === false) throw new Exception("Error insertando préstamo: " . $stmtLoan->error);
             }
         }
 

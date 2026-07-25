@@ -638,11 +638,9 @@ const TransactionModal = ({
                                   const totalReal = parseInt(installments) * parseFloat(installmentAmount) + feeValue;
                                   const original = parseFloat(amount);
                                   if (!isNaN(totalReal) && !isNaN(original)) {
-                                    const extra = totalReal - original;
                                     return (
-                                      <p className={extra > 0 ? "text-amber-500" : "text-muted-foreground"}>
+                                      <p className="text-muted-foreground">
                                         Total a pagar: <strong>{totalReal.toFixed(2)}€</strong> 
-                                        {extra > 0 ? ` (${extra.toFixed(2)}€ gastos fin.)` : ""}
                                       </p>
                                     );
                                   }

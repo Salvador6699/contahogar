@@ -452,7 +452,7 @@ const Index = () => {
   // Separate transactions: regular (non-pending) sorted by most recent, pending sorted by closest date
   const regularTransactions = nonTransferTransactions
     .filter(
-      (t) => !t.isPending && (!accountFilter || t.accountId === accountFilter),
+      (t) => !t.isPending && !t.isIgnored && (!accountFilter || t.accountId === accountFilter),
     )
     .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
 

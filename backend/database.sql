@@ -7,7 +7,8 @@ CREATE TABLE IF NOT EXISTS accounts (
     name VARCHAR(100) NOT NULL,
     initialBalance DECIMAL(12,2) DEFAULT 0,
     linkedAccountId VARCHAR(100) NULL,
-    logo LONGTEXT NULL
+    logo LONGTEXT NULL,
+    excludeFromTotals BOOLEAN DEFAULT 0
 );
 
 CREATE TABLE IF NOT EXISTS categories (
@@ -29,6 +30,7 @@ CREATE TABLE IF NOT EXISTS transactions (
     description TEXT NULL,
     isPending BOOLEAN DEFAULT 0,
     isIgnored BOOLEAN DEFAULT 0,
+    linkedLoanId VARCHAR(100) NULL,
     FOREIGN KEY (accountId) REFERENCES accounts(id) ON DELETE CASCADE
 );
 
@@ -41,10 +43,13 @@ CREATE TABLE IF NOT EXISTS recurring_transactions (
     accountId VARCHAR(100) NOT NULL,
     frequency VARCHAR(50) NOT NULL,
     intervalMonths INT NULL,
+    customInterval INT NULL,
+    customIntervalUnit VARCHAR(20) NULL,
     endAfterMonths INT NULL,
     startDate DATE NOT NULL,
     lastGeneratedDate DATE NULL,
     isActive BOOLEAN DEFAULT 1,
+    savingsPriority INT NULL,
     FOREIGN KEY (accountId) REFERENCES accounts(id) ON DELETE CASCADE
 );
 
@@ -53,7 +58,8 @@ CREATE TABLE IF NOT EXISTS budgets (
     category VARCHAR(100) NOT NULL,
     amount DECIMAL(12,2) NOT NULL,
     month VARCHAR(7) NOT NULL,
-    createdAt VARCHAR(30) NULL
+    createdAt VARCHAR(30) NULL,
+    isAuto BOOLEAN DEFAULT 0
 );
 
 
@@ -80,7 +86,26 @@ CREATE TABLE IF NOT EXISTS savings_goals (
     accountId VARCHAR(100) NULL,
     color VARCHAR(20) NULL,
     category VARCHAR(100) NULL,
+    priority INT NULL,
+    isIgnored BOOLEAN DEFAULT 0,
     FOREIGN KEY (accountId) REFERENCES accounts(id) ON DELETE SET NULL
+);
+
+CREATE TABLE IF NOT EXISTS loans (
+    id VARCHAR(100) PRIMARY KEY,
+    name VARCHAR(100) NOT NULL,
+    type VARCHAR(50) NOT NULL,
+    amount DECIMAL(12,2) NOT NULL,
+    installments INT NOT NULL,
+    installmentAmount DECIMAL(12,2) NOT NULL,
+    setupFee DECIMAL(12,2) NOT NULL DEFAULT 0,
+    startDate DATE NOT NULL,
+    accountId VARCHAR(100) NOT NULL,
+    status VARCHAR(50) NOT NULL,
+    isStarted BOOLEAN DEFAULT 0,
+    startingPaidAmount DECIMAL(12,2) DEFAULT 0,
+    originalTransactionData LONGTEXT NULL,
+    FOREIGN KEY (accountId) REFERENCES accounts(id) ON DELETE CASCADE
 );
 
 CREATE TABLE IF NOT EXISTS settings (
