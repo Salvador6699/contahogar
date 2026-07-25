@@ -1,5 +1,5 @@
 import { useState, useMemo } from 'react';
-import { parseISO } from 'date-fns';
+import { parseISO, format, subMonths } from 'date-fns';
 import { 
     ArrowLeftRight, 
     Calendar, 
@@ -46,16 +46,41 @@ export const MonthComparator = ({
     monthlyOptions,
     availableCategories,
 }: MonthComparatorProps) => {
-    // Select 2 months
-    const [monthA, setMonthA] = useState<string>(monthlyOptions[0]?.monthKey || '');
-    const [monthB, setMonthB] = useState<string>(monthlyOptions[1]?.monthKey || monthlyOptions[0]?.monthKey || '');
+    // Current date helpers for defaults
+    const today = useMemo(() => new Date(), []);
+    const currentMonthKey = useMemo(() => format(today, "yyyy-MM"), [today]);
+    const previousMonthKey = useMemo(() => format(subMonths(today, 1), "yyyy-MM"), [today]);
+    const todayDayNumber = useMemo(() => today.getDate(), [today]);
 
-    // Filter states
+    // Defaults for month selection (Base = Mes Pasado, Comparado = Mes Actual)
+    const defaultMonthA = useMemo(() => {
+        return monthlyOptions.some(m => m.monthKey === previousMonthKey)
+            ? previousMonthKey
+            : (monthlyOptions[1]?.monthKey || monthlyOptions[0]?.monthKey || '');
+    }, [monthlyOptions, previousMonthKey]);
+
+    const defaultMonthB = useMemo(() => {
+        return monthlyOptions.some(m => m.monthKey === currentMonthKey)
+            ? currentMonthKey
+            : (monthlyOptions[0]?.monthKey || '');
+    }, [monthlyOptions, currentMonthKey]);
+
+    // Select 2 months
+    const [monthA, setMonthA] = useState<string>(defaultMonthA);
+    const [monthB, setMonthB] = useState<string>(defaultMonthB);
+
+    // Active Tab for comparison: 'expense' or 'income'
+    const [activeTab, setActiveTab] = useState<'expense' | 'income'>('expense');
+
+    // Filter states (default from day 1 to today's day)
     const [startDay, setStartDay] = useState<number>(1);
-    const [endDay, setEndDay] = useState<number>(31);
-    const [typeFilter, setTypeFilter] = useState<'expense' | 'income' | 'all'>('expense');
+    const [endDay, setEndDay] = useState<number>(todayDayNumber);
     const [selectedCategories, setSelectedCategories] = useState<string[]>([]);
-    const [excludedCategories, setExcludedCategories] = useState<string[]>([]);
+    
+    // Separate excluded categories by type
+    const [excludedExpenseCategories, setExcludedExpenseCategories] = useState<string[]>([]);
+    const [excludedIncomeCategories, setExcludedIncomeCategories] = useState<string[]>([]);
+    
     const [showCategoryFilter, setShowCategoryFilter] = useState<boolean>(false);
     const [catSearch, setCatSearch] = useState<string>('');
 
@@ -79,8 +104,13 @@ export const MonthComparator = ({
         );
     }, [availableCategories, catSearch]);
 
-    // Total income for Month A and Month B in selected date range
-    const incomeTotalA = useMemo(() => {
+    // Current active excluded categories depending on active tab
+    const currentExcludedCategories = useMemo(() => {
+        return activeTab === 'expense' ? excludedExpenseCategories : excludedIncomeCategories;
+    }, [activeTab, excludedExpenseCategories, excludedIncomeCategories]);
+
+    // Total active (non-excluded) income for Month A and Month B in selected date range
+    const activeIncomeTotalA = useMemo(() => {
         const isTransfer = (category: string) => {
             const normalized = category.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '');
             return normalized === 'transferencia';
@@ -91,14 +121,15 @@ export const MonthComparator = ({
                 !t.isPending && 
                 !isTransfer(t.category) && 
                 t.type === 'income' && 
+                !excludedIncomeCategories.includes(t.category) &&
                 t.date.startsWith(monthA) && 
                 parseISO(t.date).getDate() >= startDay && 
                 parseISO(t.date).getDate() <= endDay
             )
             .reduce((sum, t) => sum + t.amount, 0);
-    }, [transactions, monthA, startDay, endDay]);
+    }, [transactions, monthA, startDay, endDay, excludedIncomeCategories]);
 
-    const incomeTotalB = useMemo(() => {
+    const activeIncomeTotalB = useMemo(() => {
         const isTransfer = (category: string) => {
             const normalized = category.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '');
             return normalized === 'transferencia';
@@ -109,14 +140,15 @@ export const MonthComparator = ({
                 !t.isPending && 
                 !isTransfer(t.category) && 
                 t.type === 'income' && 
+                !excludedIncomeCategories.includes(t.category) &&
                 t.date.startsWith(monthB) && 
                 parseISO(t.date).getDate() >= startDay && 
                 parseISO(t.date).getDate() <= endDay
             )
             .reduce((sum, t) => sum + t.amount, 0);
-    }, [transactions, monthB, startDay, endDay]);
+    }, [transactions, monthB, startDay, endDay, excludedIncomeCategories]);
 
-    // Computation
+    // Main comparison data computed for active tab
     const comparisonData = useMemo(() => {
         const isTransfer = (category: string) => {
             const normalized = category.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '');
@@ -125,13 +157,12 @@ export const MonthComparator = ({
 
         const filterTx = (t: Transaction, monthKey: string) => {
             if (t.isPending || isTransfer(t.category)) return false;
+            if (t.type !== activeTab) return false;
             if (!t.date.startsWith(monthKey)) return false;
 
             const dateObj = parseISO(t.date);
             const day = dateObj.getDate();
             if (day < startDay || day > endDay) return false;
-
-            if (typeFilter !== 'all' && t.type !== typeFilter) return false;
 
             if (selectedCategories.length > 0 && !selectedCategories.includes(t.category)) {
                 return false;
@@ -172,8 +203,8 @@ export const MonthComparator = ({
             const countB = mapB[cat]?.count || 0;
             const diff = amountB - amountA;
 
-            const pctIncomeA = (incomeTotalA > 0 && amountA > 0) ? ((amountA / incomeTotalA) * 100).toFixed(1) : null;
-            const pctIncomeB = (incomeTotalB > 0 && amountB > 0) ? ((amountB / incomeTotalB) * 100).toFixed(1) : null;
+            const pctIncomeA = (activeIncomeTotalA > 0 && amountA > 0) ? ((amountA / activeIncomeTotalA) * 100).toFixed(1) : null;
+            const pctIncomeB = (activeIncomeTotalB > 0 && amountB > 0) ? ((amountB / activeIncomeTotalB) * 100).toFixed(1) : null;
 
             return {
                 category: cat,
@@ -184,7 +215,7 @@ export const MonthComparator = ({
                 diff,
                 pctIncomeA,
                 pctIncomeB,
-                isExcluded: excludedCategories.includes(cat)
+                isExcluded: currentExcludedCategories.includes(cat)
             };
         })
         .filter(row => (row.amountA > 0 || row.amountB > 0) && !row.isExcluded);
@@ -198,8 +229,8 @@ export const MonthComparator = ({
         const totalCountA = rows.reduce((sum, r) => sum + r.countA, 0);
         const totalCountB = rows.reduce((sum, r) => sum + r.countB, 0);
 
-        const totalPctIncomeA = (incomeTotalA > 0 && totalA > 0) ? ((totalA / incomeTotalA) * 100).toFixed(1) : null;
-        const totalPctIncomeB = (incomeTotalB > 0 && totalB > 0) ? ((totalB / incomeTotalB) * 100).toFixed(1) : null;
+        const totalPctIncomeA = (activeIncomeTotalA > 0 && totalA > 0) ? ((totalA / activeIncomeTotalA) * 100).toFixed(1) : null;
+        const totalPctIncomeB = (activeIncomeTotalB > 0 && totalB > 0) ? ((totalB / activeIncomeTotalB) * 100).toFixed(1) : null;
 
         return {
             rows,
@@ -211,7 +242,7 @@ export const MonthComparator = ({
             totalPctIncomeA,
             totalPctIncomeB,
         };
-    }, [transactions, monthA, monthB, startDay, endDay, typeFilter, selectedCategories, excludedCategories, incomeTotalA, incomeTotalB]);
+    }, [transactions, monthA, monthB, startDay, endDay, activeTab, selectedCategories, currentExcludedCategories, activeIncomeTotalA, activeIncomeTotalB]);
 
     const handleCategoryToggle = (category: string) => {
         setSelectedCategories(prev =>
@@ -222,15 +253,27 @@ export const MonthComparator = ({
     };
 
     const handleExcludeCategory = (category: string) => {
-        setExcludedCategories(prev => [...prev, category]);
+        if (activeTab === 'expense') {
+            setExcludedExpenseCategories(prev => [...prev, category]);
+        } else {
+            setExcludedIncomeCategories(prev => [...prev, category]);
+        }
     };
 
     const handleRestoreCategory = (category: string) => {
-        setExcludedCategories(prev => prev.filter(c => c !== category));
+        if (activeTab === 'expense') {
+            setExcludedExpenseCategories(prev => prev.filter(c => c !== category));
+        } else {
+            setExcludedIncomeCategories(prev => prev.filter(c => c !== category));
+        }
     };
 
     const handleRestoreAllExcluded = () => {
-        setExcludedCategories([]);
+        if (activeTab === 'expense') {
+            setExcludedExpenseCategories([]);
+        } else {
+            setExcludedIncomeCategories([]);
+        }
     };
 
     const handleClearCategories = () => {
@@ -257,13 +300,13 @@ export const MonthComparator = ({
                         <span className="truncate">Comparador por Meses</span>
                     </CardTitle>
                     <div className="flex items-center gap-2 flex-wrap">
-                        {excludedCategories.length > 0 && (
+                        {currentExcludedCategories.length > 0 && (
                             <Badge variant="destructive" className="text-xs font-semibold px-2 py-0.5">
-                                {excludedCategories.length} excluida(s)
+                                {currentExcludedCategories.length} {activeTab === 'expense' ? 'gasto(s)' : 'ingreso(s)'} excluido(s)
                             </Badge>
                         )}
                         <Badge variant="outline" className="text-xs font-semibold px-2.5 py-1 bg-muted/40">
-                            {typeFilter === 'expense' ? 'Gastos' : typeFilter === 'income' ? 'Ingresos' : 'Todos'} | Días {startDay}-{endDay}
+                            {activeTab === 'expense' ? 'Gastos' : 'Ingresos'} | Días {startDay}-{endDay}
                         </Badge>
                     </div>
                 </div>
@@ -324,6 +367,15 @@ export const MonthComparator = ({
                             <div className="flex flex-wrap gap-1.5 w-full sm:w-auto">
                                 <Button
                                     type="button"
+                                    variant={startDay === 1 && endDay === todayDayNumber ? "default" : "outline"}
+                                    size="sm"
+                                    className="h-7 text-[11px] px-2.5 rounded-full flex-1 sm:flex-none font-bold"
+                                    onClick={() => handleDayRangePreset(1, todayDayNumber)}
+                                >
+                                    Día 1 a hoy ({todayDayNumber})
+                                </Button>
+                                <Button
+                                    type="button"
                                     variant={startDay === 1 && endDay === 31 ? "default" : "outline"}
                                     size="sm"
                                     className="h-7 text-[11px] px-2.5 rounded-full flex-1 sm:flex-none"
@@ -348,15 +400,6 @@ export const MonthComparator = ({
                                     onClick={() => handleDayRangePreset(1, 15)}
                                 >
                                     Días 1-15
-                                </Button>
-                                <Button
-                                    type="button"
-                                    variant={startDay === 1 && endDay === 20 ? "default" : "outline"}
-                                    size="sm"
-                                    className="h-7 text-[11px] px-2.5 rounded-full flex-1 sm:flex-none"
-                                    onClick={() => handleDayRangePreset(1, 20)}
-                                >
-                                    Días 1-20
                                 </Button>
                             </div>
                         </div>
@@ -387,46 +430,8 @@ export const MonthComparator = ({
                         </div>
                     </div>
 
-                    {/* Row 3: Type & Category Filter toggle */}
-                    <div className="flex flex-wrap items-center justify-between gap-3 pt-2 border-t border-border/40">
-                        {/* Type Selector */}
-                        <div className="flex items-center gap-1.5">
-                            <span className="text-xs font-bold uppercase tracking-wider text-muted-foreground">Tipo:</span>
-                            <div className="flex bg-background p-0.5 rounded-lg border border-border">
-                                <button
-                                    type="button"
-                                    onClick={() => setTypeFilter('expense')}
-                                    className={cn(
-                                        "px-2.5 py-1 text-xs font-semibold rounded-md transition-all",
-                                        typeFilter === 'expense' ? "bg-expense text-white shadow-xs" : "text-muted-foreground hover:text-foreground"
-                                    )}
-                                >
-                                    Gastos
-                                </button>
-                                <button
-                                    type="button"
-                                    onClick={() => setTypeFilter('income')}
-                                    className={cn(
-                                        "px-2.5 py-1 text-xs font-semibold rounded-md transition-all",
-                                        typeFilter === 'income' ? "bg-income text-white shadow-xs" : "text-muted-foreground hover:text-foreground"
-                                    )}
-                                >
-                                    Ingresos
-                                </button>
-                                <button
-                                    type="button"
-                                    onClick={() => setTypeFilter('all')}
-                                    className={cn(
-                                        "px-2.5 py-1 text-xs font-semibold rounded-md transition-all",
-                                        typeFilter === 'all' ? "bg-primary text-white shadow-xs" : "text-muted-foreground hover:text-foreground"
-                                    )}
-                                >
-                                    Todos
-                                </button>
-                            </div>
-                        </div>
-
-                        {/* Category filter toggle button */}
+                    {/* Row 3: Category Filter toggle button */}
+                    <div className="flex flex-wrap items-center justify-end gap-3 pt-2 border-t border-border/40">
                         <Button
                             type="button"
                             variant={selectedCategories.length > 0 ? "default" : "outline"}
@@ -497,15 +502,15 @@ export const MonthComparator = ({
                 </div>
 
                 {/* Excluded categories indicator banner */}
-                {excludedCategories.length > 0 && (
+                {currentExcludedCategories.length > 0 && (
                     <div className="bg-amber-500/10 border border-amber-500/30 rounded-xl p-3 flex flex-wrap items-center justify-between gap-2 text-xs">
                         <div className="flex items-center gap-2 flex-wrap">
                             <span className="font-bold text-amber-700 dark:text-amber-400 flex items-center gap-1">
                                 <EyeOff className="w-4 h-4 shrink-0" />
-                                {excludedCategories.length} excluida(s):
+                                {currentExcludedCategories.length} {activeTab === 'expense' ? 'gasto(s)' : 'ingreso(s)'} excluido(s):
                             </span>
                             <div className="flex flex-wrap gap-1">
-                                {excludedCategories.map(cat => (
+                                {currentExcludedCategories.map(cat => (
                                     <span
                                         key={cat}
                                         className="bg-amber-500/20 text-amber-900 dark:text-amber-200 px-2 py-0.5 rounded-md font-semibold flex items-center gap-1 hover:bg-amber-500/30 cursor-pointer"
@@ -531,6 +536,43 @@ export const MonthComparator = ({
                     </div>
                 )}
 
+                {/* --- TABS FOR GASTOS / INGRESOS --- */}
+                <div className="flex border-b border-border gap-2 pt-2">
+                    <button
+                        type="button"
+                        onClick={() => setActiveTab('expense')}
+                        className={cn(
+                            "px-5 py-2.5 font-bold text-sm border-b-2 transition-all flex items-center gap-2 rounded-t-lg",
+                            activeTab === 'expense'
+                                ? "border-expense text-expense bg-expense/10"
+                                : "border-transparent text-muted-foreground hover:text-foreground hover:bg-muted/30"
+                        )}
+                    >
+                        <TrendingDown className="w-4 h-4" />
+                        Gastos
+                        {excludedExpenseCategories.length > 0 && (
+                            <span className="w-2 h-2 rounded-full bg-amber-500 shrink-0" />
+                        )}
+                    </button>
+
+                    <button
+                        type="button"
+                        onClick={() => setActiveTab('income')}
+                        className={cn(
+                            "px-5 py-2.5 font-bold text-sm border-b-2 transition-all flex items-center gap-2 rounded-t-lg",
+                            activeTab === 'income'
+                                ? "border-income text-income bg-income/10"
+                                : "border-transparent text-muted-foreground hover:text-foreground hover:bg-muted/30"
+                        )}
+                    >
+                        <TrendingUp className="w-4 h-4" />
+                        Ingresos
+                        {excludedIncomeCategories.length > 0 && (
+                            <span className="w-2 h-2 rounded-full bg-amber-500 shrink-0" />
+                        )}
+                    </button>
+                </div>
+
                 {/* Summary Banner */}
                 <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
                     {/* Month A Total */}
@@ -545,10 +587,10 @@ export const MonthComparator = ({
                         </div>
                         <div className="mt-2 text-[11px] text-muted-foreground font-medium space-y-0.5">
                             <div>{comparisonData.totalCountA} transacción(es)</div>
-                            {incomeTotalA > 0 && typeFilter === 'expense' && (
+                            {activeTab === 'expense' && (
                                 <div className="text-income font-bold flex items-center gap-1">
                                     <Wallet className="w-3 h-3" />
-                                    Ingresos: {formatCurrency(incomeTotalA)}
+                                    Ingresos considerados: {formatCurrency(activeIncomeTotalA)}
                                 </div>
                             )}
                         </div>
@@ -566,10 +608,10 @@ export const MonthComparator = ({
                         </div>
                         <div className="mt-2 text-[11px] text-muted-foreground font-medium space-y-0.5">
                             <div>{comparisonData.totalCountB} transacción(es)</div>
-                            {incomeTotalB > 0 && typeFilter === 'expense' && (
+                            {activeTab === 'expense' && (
                                 <div className="text-income font-bold flex items-center gap-1">
                                     <Wallet className="w-3 h-3" />
-                                    Ingresos: {formatCurrency(incomeTotalB)}
+                                    Ingresos considerados: {formatCurrency(activeIncomeTotalB)}
                                 </div>
                             )}
                         </div>
@@ -578,19 +620,17 @@ export const MonthComparator = ({
                     {/* Total Variation */}
                     <div className={cn(
                         "p-3.5 sm:p-4 rounded-xl border flex flex-col justify-between transition-all",
-                        typeFilter === 'expense'
+                        activeTab === 'expense'
                             ? comparisonData.totalDiff > 0
                                 ? "bg-expense/10 border-expense/30 text-expense"
                                 : comparisonData.totalDiff < 0
                                     ? "bg-income/10 border-income/30 text-income"
                                     : "bg-muted/40 border-border/60"
-                            : typeFilter === 'income'
-                                ? comparisonData.totalDiff > 0
-                                    ? "bg-income/10 border-income/30 text-income"
-                                    : comparisonData.totalDiff < 0
-                                        ? "bg-expense/10 border-expense/30 text-expense"
-                                        : "bg-muted/40 border-border/60"
-                                : "bg-muted/40 border-border/60"
+                            : comparisonData.totalDiff > 0
+                                ? "bg-income/10 border-income/30 text-income"
+                                : comparisonData.totalDiff < 0
+                                    ? "bg-expense/10 border-expense/30 text-expense"
+                                    : "bg-muted/40 border-border/60"
                     )}>
                         <div>
                             <span className="text-xs font-bold uppercase tracking-wider block mb-1 opacity-80">
@@ -622,7 +662,7 @@ export const MonthComparator = ({
                     {comparisonData.rows.length === 0 ? (
                         <div className="p-8 text-center text-muted-foreground space-y-2">
                             <Layers className="w-8 h-8 mx-auto opacity-50 mb-2" />
-                            <p className="font-semibold text-sm">No se encontraron transacciones con los filtros aplicados.</p>
+                            <p className="font-semibold text-sm">No se encontraron {activeTab === 'expense' ? 'gastos' : 'ingresos'} con los filtros aplicados.</p>
                             <p className="text-xs">Prueba ampliando el rango de días o restaurando categorías excluidas.</p>
                         </div>
                     ) : (
@@ -634,15 +674,12 @@ export const MonthComparator = ({
                                     const isLowerInB = row.diff < 0;
 
                                     let diffBadgeClass = "text-muted-foreground bg-muted";
-                                    if (typeFilter === 'expense') {
+                                    if (activeTab === 'expense') {
                                         if (isHigherInB) diffBadgeClass = "text-red-600 bg-red-100 dark:bg-red-950/40 dark:text-red-400";
                                         if (isLowerInB) diffBadgeClass = "text-emerald-600 bg-emerald-100 dark:bg-emerald-950/40 dark:text-emerald-400";
-                                    } else if (typeFilter === 'income') {
+                                    } else {
                                         if (isHigherInB) diffBadgeClass = "text-emerald-600 bg-emerald-100 dark:bg-emerald-950/40 dark:text-emerald-400";
                                         if (isLowerInB) diffBadgeClass = "text-red-600 bg-red-100 dark:bg-red-950/40 dark:text-red-400";
-                                    } else {
-                                        if (isHigherInB) diffBadgeClass = "text-blue-600 bg-blue-100 dark:bg-blue-950/40 dark:text-blue-400";
-                                        if (isLowerInB) diffBadgeClass = "text-amber-600 bg-amber-100 dark:bg-amber-950/40 dark:text-amber-400";
                                     }
 
                                     return (
@@ -683,7 +720,7 @@ export const MonthComparator = ({
                                                             ({row.countA} tx)
                                                         </span>
                                                     )}
-                                                    {row.pctIncomeA && typeFilter === 'expense' && (
+                                                    {row.pctIncomeA && activeTab === 'expense' && (
                                                         <span className="block text-[10px] text-muted-foreground font-semibold">
                                                             {row.pctIncomeA}% de ingresos
                                                         </span>
@@ -702,7 +739,7 @@ export const MonthComparator = ({
                                                             ({row.countB} tx)
                                                         </span>
                                                     )}
-                                                    {row.pctIncomeB && typeFilter === 'expense' && (
+                                                    {row.pctIncomeB && activeTab === 'expense' && (
                                                         <span className="block text-[10px] text-muted-foreground font-semibold">
                                                             {row.pctIncomeB}% de ingresos
                                                         </span>
@@ -724,7 +761,7 @@ export const MonthComparator = ({
                                             <div>
                                                 <span className="text-[10px] text-muted-foreground block">{monthALabel}</span>
                                                 <span>{formatCurrency(comparisonData.totalA)}</span>
-                                                {comparisonData.totalPctIncomeA && typeFilter === 'expense' && (
+                                                {comparisonData.totalPctIncomeA && activeTab === 'expense' && (
                                                     <span className="block text-[10px] text-muted-foreground font-semibold">
                                                         ({comparisonData.totalPctIncomeA}% ing.)
                                                     </span>
@@ -733,7 +770,7 @@ export const MonthComparator = ({
                                             <div>
                                                 <span className="text-[10px] text-muted-foreground block">{monthBLabel}</span>
                                                 <span>{formatCurrency(comparisonData.totalB)}</span>
-                                                {comparisonData.totalPctIncomeB && typeFilter === 'expense' && (
+                                                {comparisonData.totalPctIncomeB && activeTab === 'expense' && (
                                                     <span className="block text-[10px] text-muted-foreground font-semibold">
                                                         ({comparisonData.totalPctIncomeB}% ing.)
                                                     </span>
@@ -742,7 +779,9 @@ export const MonthComparator = ({
                                         </div>
                                         <span className={cn(
                                             "text-base font-extrabold",
-                                            comparisonData.totalDiff > 0 ? "text-red-500" : comparisonData.totalDiff < 0 ? "text-emerald-500" : ""
+                                            activeTab === 'expense'
+                                                ? comparisonData.totalDiff > 0 ? "text-red-500" : comparisonData.totalDiff < 0 ? "text-emerald-500" : ""
+                                                : comparisonData.totalDiff > 0 ? "text-emerald-500" : comparisonData.totalDiff < 0 ? "text-red-500" : ""
                                         )}>
                                             {comparisonData.totalDiff > 0 ? '+' : ''}{formatCurrency(comparisonData.totalDiff)}
                                         </span>
@@ -768,15 +807,12 @@ export const MonthComparator = ({
                                             const isLowerInB = row.diff < 0;
 
                                             let diffBadgeClass = "text-muted-foreground bg-muted";
-                                            if (typeFilter === 'expense') {
+                                            if (activeTab === 'expense') {
                                                 if (isHigherInB) diffBadgeClass = "text-red-600 bg-red-100 dark:bg-red-950/40 dark:text-red-400";
                                                 if (isLowerInB) diffBadgeClass = "text-emerald-600 bg-emerald-100 dark:bg-emerald-950/40 dark:text-emerald-400";
-                                            } else if (typeFilter === 'income') {
+                                            } else {
                                                 if (isHigherInB) diffBadgeClass = "text-emerald-600 bg-emerald-100 dark:bg-emerald-950/40 dark:text-emerald-400";
                                                 if (isLowerInB) diffBadgeClass = "text-red-600 bg-red-100 dark:bg-red-950/40 dark:text-red-400";
-                                            } else {
-                                                if (isHigherInB) diffBadgeClass = "text-blue-600 bg-blue-100 dark:bg-blue-950/40 dark:text-blue-400";
-                                                if (isLowerInB) diffBadgeClass = "text-amber-600 bg-amber-100 dark:bg-amber-950/40 dark:text-amber-400";
                                             }
 
                                             return (
@@ -795,7 +831,7 @@ export const MonthComparator = ({
                                                                 ({row.countA} tx)
                                                             </span>
                                                         )}
-                                                        {row.pctIncomeA && typeFilter === 'expense' && (
+                                                        {row.pctIncomeA && activeTab === 'expense' && (
                                                             <span className="block text-[10px] text-muted-foreground font-semibold">
                                                                 {row.pctIncomeA}% de ing.
                                                             </span>
@@ -810,7 +846,7 @@ export const MonthComparator = ({
                                                                 ({row.countB} tx)
                                                             </span>
                                                         )}
-                                                        {row.pctIncomeB && typeFilter === 'expense' && (
+                                                        {row.pctIncomeB && activeTab === 'expense' && (
                                                             <span className="block text-[10px] text-muted-foreground font-semibold">
                                                                 {row.pctIncomeB}% de ing.
                                                             </span>
@@ -844,7 +880,7 @@ export const MonthComparator = ({
                                             </td>
                                             <td className="py-3.5 px-4 text-right">
                                                 <span>{formatCurrency(comparisonData.totalA)}</span>
-                                                {comparisonData.totalPctIncomeA && typeFilter === 'expense' && (
+                                                {comparisonData.totalPctIncomeA && activeTab === 'expense' && (
                                                     <span className="block text-[10px] text-muted-foreground font-bold">
                                                         ({comparisonData.totalPctIncomeA}% de ingresos)
                                                     </span>
@@ -852,7 +888,7 @@ export const MonthComparator = ({
                                             </td>
                                             <td className="py-3.5 px-4 text-right">
                                                 <span>{formatCurrency(comparisonData.totalB)}</span>
-                                                {comparisonData.totalPctIncomeB && typeFilter === 'expense' && (
+                                                {comparisonData.totalPctIncomeB && activeTab === 'expense' && (
                                                     <span className="block text-[10px] text-muted-foreground font-bold">
                                                         ({comparisonData.totalPctIncomeB}% de ingresos)
                                                     </span>
@@ -861,7 +897,9 @@ export const MonthComparator = ({
                                             <td className="py-3.5 px-4 text-right">
                                                 <span className={cn(
                                                     "font-extrabold",
-                                                    comparisonData.totalDiff > 0 ? "text-red-500" : comparisonData.totalDiff < 0 ? "text-emerald-500" : ""
+                                                    activeTab === 'expense'
+                                                        ? comparisonData.totalDiff > 0 ? "text-red-500" : comparisonData.totalDiff < 0 ? "text-emerald-500" : ""
+                                                        : comparisonData.totalDiff > 0 ? "text-emerald-500" : comparisonData.totalDiff < 0 ? "text-red-500" : ""
                                                 )}>
                                                     {comparisonData.totalDiff > 0 ? '+' : ''}{formatCurrency(comparisonData.totalDiff)}
                                                 </span>
