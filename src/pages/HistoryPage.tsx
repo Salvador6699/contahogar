@@ -13,6 +13,7 @@ import MobileNav from '@/components/MobileNav';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, Cell } from 'recharts';
 import { ChartContainer, ChartTooltipContent } from '@/components/ui/chart';
 import { ResponsiveDialog, ResponsiveDialogContent, ResponsiveDialogHeader, ResponsiveDialogTitle } from '@/components/ui/responsive-dialog';
+import { MonthComparator } from '@/components/MonthComparator';
 
 interface MonthlyData {
     month: string;
@@ -54,6 +55,19 @@ const HistoryPage = () => {
             }))
             .sort((a, b) => b.monthKey.localeCompare(a.monthKey));
     }, [data.transactions]);
+
+    const monthlyOptions = useMemo(() => {
+        return monthlyData.map(m => ({
+            monthKey: m.monthKey,
+            month: m.month
+        }));
+    }, [monthlyData]);
+
+    const availableCategories = useMemo(() => {
+        const catsFromDef = (data.categories || []).map((c: any) => typeof c === 'string' ? c : c.name);
+        const catsFromTx = (data.transactions || []).map((t: Transaction) => t.category);
+        return Array.from(new Set([...catsFromDef, ...catsFromTx])).filter(Boolean).sort();
+    }, [data.categories, data.transactions]);
 
     const handleMonthClick = (monthKey: string) => {
         navigate(`/?month=${monthKey}`);
@@ -204,7 +218,7 @@ const HistoryPage = () => {
                         </Card>
 
                         {/* List */}
-                        <div className="space-y-3 pb-8">
+                        <div className="space-y-3">
                             <h2 className="text-lg font-semibold px-1">Detalle por Mes</h2>
                             {monthlyData.map((data) => (
                                 <button
@@ -236,6 +250,15 @@ const HistoryPage = () => {
                                     </Card>
                                 </button>
                             ))}
+                        </div>
+
+                        {/* Comparator Section */}
+                        <div className="pt-4 pb-8">
+                            <MonthComparator
+                                transactions={data.transactions}
+                                monthlyOptions={monthlyOptions}
+                                availableCategories={availableCategories}
+                            />
                         </div>
                     </div>
                 )}
