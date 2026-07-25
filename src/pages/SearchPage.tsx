@@ -1,4 +1,5 @@
 import { useState, useEffect, useMemo } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { 
   Search as SearchIcon, 
   SlidersHorizontal, 
@@ -26,6 +27,7 @@ import { Badge } from '@/components/ui/badge';
 import { toast } from 'sonner';
 
 const SearchPage = () => {
+  const navigate = useNavigate();
   const [data, setData] = useState(loadData());
   const [showFilters, setShowFilters] = useState(false);
   const [editingTransaction, setEditingTransaction] = useState<Transaction | null>(null);
@@ -53,6 +55,14 @@ const SearchPage = () => {
   }, [data.transactions, criteria]);
 
   const handleEdit = (transaction: Transaction) => {
+    if (transaction.isPending && transaction.id.startsWith("rec_")) {
+      const parts = transaction.id.split("_");
+      const ruleId = parts.length >= 2 ? parts[1] : null;
+      toast.info("Este gasto futuro forma parte de una regla de gasto fijo automatizado. Te redirigimos para modificar la regla...");
+      navigate(`/ajustes?tab=gastos_fijos${ruleId ? `&editRuleId=${ruleId}` : ""}`);
+      return;
+    }
+
     setEditingTransaction(transaction);
     setIsModalOpen(true);
   };

@@ -1,4 +1,5 @@
 import { useState, useEffect } from "react";
+import { useSearchParams } from "react-router-dom";
 import {
   RecurringExpenseRule,
   RecurrenceFrequency,
@@ -31,6 +32,7 @@ import { cn } from "@/lib/utils";
 import { toast } from "sonner";
 
 export const RecurringExpensesManager = () => {
+  const [searchParams] = useSearchParams();
   const [rules, setRules] = useState<RecurringExpenseRule[]>([]);
   const [categories, setCategories] = useState<Category[]>([]);
   const [accounts, setAccounts] = useState<Account[]>([]);
@@ -51,8 +53,19 @@ export const RecurringExpensesManager = () => {
     refreshData();
   }, []);
 
+  useEffect(() => {
+    const editRuleId = searchParams.get("editRuleId");
+    if (editRuleId && rules.length > 0) {
+      const targetRule = rules.find((r) => r.id === editRuleId);
+      if (targetRule) {
+        handleEdit(targetRule);
+      }
+    }
+  }, [searchParams, rules]);
+
   const refreshData = () => {
-    setRules(loadRecurringRules());
+    const loadedRules = loadRecurringRules();
+    setRules(loadedRules);
     setCategories(getCategories());
     const data = loadData();
     setAccounts(data.accounts);

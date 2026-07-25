@@ -1,5 +1,6 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 import { useState, useEffect, useRef } from "react";
+import { useSearchParams } from "react-router-dom";
 import { useTheme } from "next-themes";
 import {
   Sun,
@@ -81,10 +82,24 @@ import { RecurringExpensesManager } from "@/components/RecurringExpensesManager"
 
 const SettingsPage = () => {
   const { setTheme } = useTheme();
+  const [searchParams] = useSearchParams();
 
   const [activeTab, setActiveTab] = useState<
     "cuentas" | "categorias" | "apariencia" | "gastos_fijos"
-  >("cuentas");
+  >(() => {
+    const tabParam = searchParams.get("tab");
+    if (tabParam === "gastos_fijos" || tabParam === "cuentas" || tabParam === "categorias" || tabParam === "apariencia") {
+      return tabParam;
+    }
+    return "cuentas";
+  });
+
+  useEffect(() => {
+    const tabParam = searchParams.get("tab");
+    if (tabParam === "gastos_fijos" || tabParam === "cuentas" || tabParam === "categorias" || tabParam === "apariencia") {
+      setActiveTab(tabParam);
+    }
+  }, [searchParams]);
 
   const [categories, setCategories] = useState<Category[]>([]);
   const [accounts, setAccounts] = useState<Account[]>([]);

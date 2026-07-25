@@ -269,6 +269,15 @@ const Index = () => {
   };
 
   const handleEditTransaction = (transaction: Transaction) => {
+    // Si es un gasto futuro (pendiente) proveniente de una regla de gasto fijo automatizado
+    if (transaction.isPending && transaction.id.startsWith("rec_")) {
+      const parts = transaction.id.split("_");
+      const ruleId = parts.length >= 2 ? parts[1] : null;
+      toast.info("Este gasto futuro forma parte de una regla de gasto fijo automatizado. Te redirigimos para modificar la regla...");
+      navigate(`/ajustes?tab=gastos_fijos${ruleId ? `&editRuleId=${ruleId}` : ""}`);
+      return;
+    }
+
     setEditingTransaction(transaction);
     setTransactionType(transaction.type);
     setIsTransactionModalOpen(true);
