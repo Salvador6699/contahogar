@@ -68,6 +68,22 @@ const CategoryBreakdown = ({
     return () => clearTimeout(timeoutId);
   }, [transactions, currentMonthKey]);
 
+  const totalSpentAllAccountsMap = useMemo(() => {
+    if (type !== 'expense') return new Map<string, number>();
+    const viewedMonthStr = baseDate
+      ? (baseDate.getFullYear() + '-' + String(baseDate.getMonth() + 1).padStart(2, '0'))
+      : (new Date().getFullYear() + '-' + String(new Date().getMonth() + 1).padStart(2, '0'));
+
+    const map = new Map<string, number>();
+    transactions.forEach(t => {
+      if (!t.isPending && t.type === 'expense' && t.category !== 'Transferencia' && t.date.startsWith(viewedMonthStr)) {
+        const catKey = t.category.toLowerCase();
+        map.set(catKey, (map.get(catKey) || 0) + t.amount);
+      }
+    });
+    return map;
+  }, [transactions, baseDate, type]);
+
   // Pre-sort categories based on envelope available amount
   const sortedCategories = useMemo(() => {
     if (type !== 'expense' || budgets.length === 0) return categories;
@@ -78,8 +94,11 @@ const CategoryBreakdown = ({
       const aBudget = budgets.find(bg => bg.category === a.category && bg.month === viewedMonthStr);
       const bBudget = budgets.find(bg => bg.category === b.category && bg.month === viewedMonthStr);
       
-      const aAvailable = aBudget ? aBudget.amount - a.total : null;
-      const bAvailable = bBudget ? bBudget.amount - b.total : null;
+      const aSpent = totalSpentAllAccountsMap.get(a.category.toLowerCase()) || 0;
+      const bSpent = totalSpentAllAccountsMap.get(b.category.toLowerCase()) || 0;
+
+      const aAvailable = aBudget ? aBudget.amount - aSpent : null;
+      const bAvailable = bBudget ? bBudget.amount - bSpent : null;
       
       if (aAvailable !== null && bAvailable !== null) {
         const groupA = aAvailable < 0 ? 0 : aAvailable > 0 ? 1 : 2;
@@ -99,7 +118,7 @@ const CategoryBreakdown = ({
       if (bAvailable !== null) return 1;
       return b.total - a.total; // Both no budget, sort by highest total
     });
-  }, [categories, budgets, type, baseDate]);
+  }, [categories, budgets, type, baseDate, totalSpentAllAccountsMap]);
 
   const { paginatedCategories, totalPages } = useMemo(() => {
     const viewedMonthStr = baseDate ? (baseDate.getFullYear() + '-' + String(baseDate.getMonth() + 1).padStart(2, '0')) : (new Date().getFullYear() + '-' + String(new Date().getMonth() + 1).padStart(2, '0'));
@@ -109,14 +128,16 @@ const CategoryBreakdown = ({
       if (type !== 'expense') return false;
       const b = budgets.find(bg => bg.category === c.category && bg.month === viewedMonthStr);
       if (!b) return false;
-      return Number((b.amount - c.total).toFixed(2)) !== 0;
+      const spent = totalSpentAllAccountsMap.get(c.category.toLowerCase()) || 0;
+      return Number((b.amount - spent).toFixed(2)) !== 0;
     });
     
     const zeroEnvItems = sortedCategories.filter(c => {
       if (type !== 'expense') return false;
       const b = budgets.find(bg => bg.category === c.category && bg.month === viewedMonthStr);
       if (!b) return false;
-      return Number((b.amount - c.total).toFixed(2)) === 0;
+      const spent = totalSpentAllAccountsMap.get(c.category.toLowerCase()) || 0;
+      return Number((b.amount - spent).toFixed(2)) === 0;
     });
 
     const nonEnvItems = sortedCategories.filter(c => type !== 'expense' || !budgets.some(bg => bg.category === c.category && bg.month === viewedMonthStr));
@@ -144,7 +165,7 @@ const CategoryBreakdown = ({
         totalPages: finalTotalPages,
         paginatedCategories: allPages[safeCurrentPage - 1] || []
     };
-  }, [sortedCategories, budgets, baseDate, currentPage, type]);
+  }, [sortedCategories, budgets, baseDate, currentPage, type, totalSpentAllAccountsMap]);
 
   if (categories.length === 0) {
     return null;
@@ -415,7 +436,8 @@ const CategoryBreakdown = ({
                       
                       if (totalAssigned === 0) return null; // No budget assigned for this month
                       
-                      const available = totalAssigned - category.total;
+                      const totalSpentAllAccounts = totalSpentAllAccountsMap.get(category.category.toLowerCase()) || 0;
+                      const available = totalAssigned - totalSpentAllAccounts;
                       const availableRounded = Number(available.toFixed(2));
                       
                       return (
