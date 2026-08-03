@@ -875,6 +875,40 @@ export const updateLoanTransaction = (id: string, updates: Partial<Omit<Transact
   }
 };
 
+export const updateLoan = (id: string, updates: Partial<Omit<import('@/types/finance').Loan, "id">>) => {
+  const data = loadData();
+  if (!data.loans) return;
+  const loanIndex = data.loans.findIndex(l => l.id === id);
+  if (loanIndex !== -1) {
+    const oldLoan = data.loans[loanIndex];
+    data.loans[loanIndex] = { ...oldLoan, ...updates };
+    
+    if (updates.startDate && updates.startDate !== oldLoan.startDate) {
+      const newStartDate = new Date(updates.startDate);
+      
+      const installments = data.transactions
+        .filter(t => 
+          t.linkedLoanId === id && 
+          t.type === 'expense' && 
+          !t.description?.includes('Comisión apertura')
+        )
+        .sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
+        
+      installments.forEach((inst, index) => {
+        const dt = new Date(newStartDate);
+        dt.setMonth(dt.getMonth() + index);
+        
+        const tIndex = data.transactions.findIndex(t => t.id === inst.id);
+        if (tIndex !== -1) {
+          data.transactions[tIndex].date = dt.toISOString().split("T")[0];
+        }
+      });
+    }
+
+    saveData(data);
+  }
+};
+
 export const applyLoanTransaction = (
   loanData: { name: string; amount: number; date: string; accountId: string; installments: number; installmentAmount: number; firstInstallmentDate: string; setupFee: number; setupFeeDate: string; description?: string; isStarted?: boolean; startingPaidAmount?: number },
 ): void => {

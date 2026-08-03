@@ -126,13 +126,14 @@ export const RecurringExpensesManager = () => {
     }
 
     if (editingRule) {
-      // User can only modify amount and frequency. The rest is kept from the original rule.
+      // User can only modify amount, frequency, and start date. The rest is kept from the original rule.
       updateRecurringRule({
         ...editingRule,
         amount: numAmount,
         frequency,
         customInterval: frequency === "custom" ? parseInt(customInterval) || 1 : undefined,
         customIntervalUnit: frequency === "custom" ? customIntervalUnit : undefined,
+        startDate: startDate,
       });
       toast.success("Automatización actualizada");
     } else {
@@ -280,7 +281,6 @@ export const RecurringExpensesManager = () => {
                 type="date"
                 value={startDate}
                 onChange={(e) => setStartDate(e.target.value)}
-                disabled={!!editingRule}
               />
             </div>
 
