@@ -13,7 +13,11 @@ import {
   Tag,
   Filter
 } from 'lucide-react';
-import { loadData, updateTransaction, deleteTransaction, applyFractionatedTransaction } from '@/lib/storage';
+import { applyFractionatedTransaction } from '@/lib/storage';
+import { useQueryClient } from '@tanstack/react-query';
+import { useTransactions } from '@/hooks/useTransactions';
+import { useAccounts } from '@/hooks/useAccounts';
+import { useCategories } from '@/hooks/useCategories';
 import { Transaction, Account, Category, TransactionType } from '@/types/finance';
 import { filterTransactions, FilterCriteria, formatCurrency } from '@/lib/calculations';
 import TransactionList from '@/components/TransactionList';
@@ -28,7 +32,10 @@ import { toast } from 'sonner';
 
 const SearchPage = () => {
   const navigate = useNavigate();
-  const [data, setData] = useState(loadData());
+  const queryClient = useQueryClient();
+  const { transactions, updateTransaction: rqUpdateTransaction, deleteTransaction: rqDeleteTransaction, isLoading: isTxLoading } = useTransactions();
+  const { accounts, isLoading: isAccLoading } = useAccounts();
+  const { categories, isLoading: isCatLoading } = useCategories();
   const [showFilters, setShowFilters] = useState(false);
   const [editingTransaction, setEditingTransaction] = useState<Transaction | null>(null);
   const [isModalOpen, setIsModalOpen] = useState(false);
@@ -46,13 +53,9 @@ const SearchPage = () => {
     includePending: true
   });
 
-  useEffect(() => {
-    setData(loadData());
-  }, []);
-
   const results = useMemo(() => {
-    return filterTransactions(data.transactions, criteria);
-  }, [data.transactions, criteria]);
+    return filterTransactions(transactions, criteria);
+  }, [transactions, criteria]);
 
   const handleEdit = (transaction: Transaction) => {
     if (transaction.isPending && transaction.id.startsWith("rec_")) {
@@ -67,7 +70,7 @@ const SearchPage = () => {
     setIsModalOpen(true);
   };
 
-  const handleSave = (
+  const handleSave = async (
     transaction: Omit<Transaction, 'id'>, 
     copyToNextMonth?: boolean,
     fractionationData?: { isFractionated: boolean; installments: number; installmentAmount: number; firstInstallmentDate: string; setupFee: number; setupFeeDate: string; }
@@ -75,18 +78,17 @@ const SearchPage = () => {
     if (editingTransaction) {
       if (fractionationData?.isFractionated) {
         applyFractionatedTransaction(transaction, fractionationData, editingTransaction?.id);
+        queryClient.invalidateQueries({ queryKey: ["transactions"] });
       } else {
-        updateTransaction({ ...transaction, id: editingTransaction.id } as Transaction);
+        await rqUpdateTransaction({ ...transaction, id: editingTransaction.id } as Transaction);
       }
-      setData(loadData());
       setIsModalOpen(false);
       toast.success('Transacción actualizada');
     }
   };
 
-  const handleDelete = (id: string) => {
-    deleteTransaction(id);
-    setData(loadData());
+  const handleDelete = async (id: string) => {
+    await rqDeleteTransaction(id);
     toast.success('Transacción eliminada');
   };
 
@@ -133,6 +135,10 @@ const SearchPage = () => {
     if (criteria.type !== 'all') count++;
     return count;
   }, [criteria]);
+
+  if (isTxLoading || isAccLoading || isCatLoading) {
+    return <div className="p-8 text-center text-muted-foreground animate-pulse">Cargando datos...</div>;
+  }
 
   return (
     <div className="w-full px-4 md:px-8 lg:px-12 max-w-6xl mx-auto">
@@ -255,7 +261,7 @@ const SearchPage = () => {
                   <Wallet className="w-3.5 h-3.5" /> Cuentas
                 </Label>
                 <div className="flex flex-wrap gap-2 max-h-32 overflow-y-auto p-1">
-                  {data.accounts.map(acc => (
+                  {accounts.map(acc => (
                     <Badge
                       key={acc.id}
                       variant={criteria.accounts?.includes(acc.id) ? 'default' : 'outline'}
@@ -274,7 +280,7 @@ const SearchPage = () => {
                   <Tag className="w-3.5 h-3.5" /> Categorías
                 </Label>
                 <div className="flex flex-wrap gap-2 max-h-32 overflow-y-auto p-1">
-                  {data.categories.map(cat => (
+                  {categories.map(cat => (
                     <Badge
                       key={typeof cat === 'string' ? cat : cat.id}
                       variant={criteria.categories?.includes(typeof cat === 'string' ? cat : cat.name) ? 'default' : 'outline'}
@@ -341,7 +347,7 @@ const SearchPage = () => {
         onClose={() => setIsModalOpen(false)}
         onSave={handleSave}
         type={editingTransaction?.type || 'expense'}
-        categories={data.categories}
+        categories={categories}
         editingTransaction={editingTransaction}
       />
     </div>

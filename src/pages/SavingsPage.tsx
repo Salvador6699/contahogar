@@ -1,7 +1,10 @@
 import { useState, useMemo, useEffect } from 'react';
-import { loadData, updateSavingsGoal, addSavingsGoal, deleteSavingsGoal, updateRecurringRule, updateTransaction } from '@/lib/storage';
+import { loadData, updateRecurringRule } from '@/lib/storage';
 import { Account, SavingsGoal, RecurringExpenseRule } from '@/types/finance';
 import { calculateAccountBalance, formatCurrency } from '@/lib/calculations';
+import { useAccounts } from '@/hooks/useAccounts';
+import { useTransactions } from '@/hooks/useTransactions';
+import { usePlanning } from '@/hooks/usePlanning';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
@@ -11,7 +14,18 @@ import { differenceInMonths, parseISO, startOfMonth, addMonths, endOfMonth } fro
 import { toast } from 'sonner';
 
 export const SavingsPage = () => {
-    const [data, setData] = useState(loadData());
+    const [legacyData, setLegacyData] = useState(loadData());
+    const { accounts, isLoading: isAccLoading } = useAccounts();
+    const { transactions, updateTransaction: rqUpdateTransaction, isLoading: isTxLoading } = useTransactions();
+    const { goals, addGoal: rqAddGoal, updateGoal: rqUpdateGoal, deleteGoal: rqDeleteGoal, isGoalsLoading } = usePlanning();
+    
+    const data = useMemo(() => ({
+        ...legacyData,
+        accounts,
+        transactions,
+        savingsGoals: goals
+    }), [legacyData, accounts, transactions, goals]);
+
     const [isModalOpen, setIsModalOpen] = useState(false);
     const [editingGoal, setEditingGoal] = useState<SavingsGoal | null>(null);
     const [timeframeMonths, setTimeframeMonths] = useState(() => {
@@ -23,7 +37,7 @@ export const SavingsPage = () => {
     }, [timeframeMonths]);
 
     const refreshData = () => {
-        setData(loadData());
+        setLegacyData(loadData());
     };
 
     // 1. Calculate Total Savings Balance (Accounts with excludeFromTotals === true)
@@ -164,51 +178,53 @@ export const SavingsPage = () => {
         refreshData();
     };
 
-    const updatePriority = (goal: any, newPriority: number) => {
+    const updatePriority = async (goal: any, newPriority: number) => {
         if (goal.isVirtual) {
             const rule = data.recurringRules?.find(r => r.id === goal.ruleId);
             if (rule) {
                 updateRecurringRule({ ...rule, savingsPriority: newPriority });
+                refreshData();
             }
         } else {
             const manualGoal = data.savingsGoals?.find(g => g.id === goal.id);
             if (manualGoal) {
-                updateSavingsGoal({ ...manualGoal, priority: newPriority });
+                await rqUpdateGoal({ ...manualGoal, priority: newPriority });
             }
         }
     };
 
-    const handleToggleIgnore = (goal: any) => {
+    const handleToggleIgnore = async (goal: any) => {
         if (goal.isVirtual) {
             const tx = data.transactions.find(t => t.id === goal.txId);
             if (tx) {
-                updateTransaction({ ...tx, isIgnored: !tx.isIgnored });
+                await rqUpdateTransaction({ ...tx, isIgnored: !tx.isIgnored });
             }
         } else {
             const manualGoal = data.savingsGoals?.find(g => g.id === goal.id);
             if (manualGoal) {
-                updateSavingsGoal({ ...manualGoal, isIgnored: !manualGoal.isIgnored });
+                await rqUpdateGoal({ ...manualGoal, isIgnored: !manualGoal.isIgnored });
             }
         }
-        refreshData();
     };
 
-    const handleDeleteManual = (id: string) => {
-        deleteSavingsGoal(id);
+    const handleDeleteManual = async (id: string) => {
+        await rqDeleteGoal(id);
         toast.success('Meta eliminada');
-        refreshData();
     };
 
-    const handleSaveGoal = (goalData: Omit<SavingsGoal, 'id'> | SavingsGoal) => {
+    const handleSaveGoal = async (goalData: Omit<SavingsGoal, 'id'> | SavingsGoal) => {
         if ('id' in goalData) {
-            updateSavingsGoal(goalData as SavingsGoal);
+            await rqUpdateGoal(goalData as SavingsGoal);
             toast.success('Meta actualizada');
         } else {
-            addSavingsGoal({ ...goalData, priority: 999, currentAmount: 0 });
+            await rqAddGoal({ ...goalData, priority: 999, currentAmount: 0 });
             toast.success('Meta creada');
         }
-        refreshData();
     };
+
+    if (isAccLoading || isTxLoading || isGoalsLoading) {
+        return <div className="p-8 text-center text-muted-foreground animate-pulse">Cargando datos...</div>;
+    }
 
     return (
         <div className="w-full pb-24">

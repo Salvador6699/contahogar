@@ -6,9 +6,12 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Transaction } from '@/types/finance';
-import { loadData, saveData, getCategorySuggestions, addTransaction } from '@/lib/storage';
+import { getCategorySuggestions } from '@/lib/storage';
 import { formatCurrency, calculateAccountBalance } from '@/lib/calculations';
 import { toast } from 'sonner';
+import { useAccounts } from '@/hooks/useAccounts';
+import { useTransactions } from '@/hooks/useTransactions';
+import { useCategories } from '@/hooks/useCategories';
 import { useScrollOnFocus } from '@/hooks/useScrollOnFocus';
 import { withKeyboardClose } from '@/lib/utils';
 import { v4 as uuidv4 } from 'uuid';
@@ -24,7 +27,10 @@ interface Adjustment {
 const ComparisonPage = () => {
     const navigate = useNavigate();
     const scrollOnFocus = useScrollOnFocus(240);
-    const [data, setData] = useState(loadData());
+    const { accounts, isLoading: isAccLoading } = useAccounts();
+    const { transactions, addTransaction: rqAddTransaction, isLoading: isTxLoading } = useTransactions();
+    const { categories, isLoading: isCatLoading } = useCategories();
+
     const [activeAccountId, setActiveAccountId] = useState('');
     const [realBalances, setRealBalances] = useState<Record<string, string>>({});
     const [adjustments, setAdjustments] = useState<Record<string, Adjustment[]>>({});
@@ -36,36 +42,37 @@ const ComparisonPage = () => {
 
     // Initialize with first account
     useEffect(() => {
-        if (data.accounts.length > 0 && !activeAccountId) {
-            setActiveAccountId(data.accounts[0].id);
+        if (accounts.length > 0 && !activeAccountId) {
+            setActiveAccountId(accounts[0].id);
         }
-    }, [data.accounts, activeAccountId]);
+    }, [accounts, activeAccountId]);
 
-    // Initialize real balances and adjustments for all accounts
     useEffect(() => {
         const newRealBalances: Record<string, string> = {};
         const newAdjustments: Record<string, Adjustment[]> = {};
-        data.accounts.forEach(account => {
+        accounts.forEach(account => {
             newRealBalances[account.id] = '';
             newAdjustments[account.id] = [];
         });
         setRealBalances(newRealBalances);
         setAdjustments(newAdjustments);
-    }, [data.accounts]);
+    }, [accounts]);
 
     useEffect(() => {
         if (newCategory) {
-            const filtered = getCategorySuggestions(newCategory, data.categories);
+            // categories might be strings or Category objects depending on how getCategorySuggestions is implemented, 
+            // but the storage one takes the full list.
+            const filtered = getCategorySuggestions(newCategory, categories);
             setSuggestions(filtered);
             setShowSuggestions(filtered.length > 0 && newCategory.length > 0);
         } else {
             setSuggestions([]);
             setShowSuggestions(false);
         }
-    }, [newCategory, data.categories]);
+    }, [newCategory, categories]);
 
-    const currentAccount = data.accounts.find(a => a.id === activeAccountId);
-    const currentBalance = currentAccount ? calculateAccountBalance(currentAccount, data.transactions) : 0;
+    const currentAccount = accounts.find(a => a.id === activeAccountId);
+    const currentBalance = currentAccount ? calculateAccountBalance(currentAccount, transactions) : 0;
     const realBalance = realBalances[activeAccountId] || '';
 
     const addAdjustment = (type: 'income' | 'expense') => {
@@ -96,7 +103,7 @@ const ComparisonPage = () => {
         }));
     };
 
-    const handleSaveAdjustments = () => {
+    const handleSaveAdjustments = async () => {
         const today = new Date().toISOString().split('T')[0];
         const allAdjustments: Transaction[] = [];
 
@@ -116,7 +123,9 @@ const ComparisonPage = () => {
         });
 
         if (allAdjustments.length > 0) {
-            allAdjustments.forEach(adj => addTransaction(adj));
+            for (const adj of allAdjustments) {
+                await rqAddTransaction(adj);
+            }
             toast.success('Ajustes guardados correctamente');
             navigate('/');
         }
@@ -132,9 +141,9 @@ const ComparisonPage = () => {
     const hasDifference = Math.abs(difference) > 0.01;
 
     // Check if all accounts are balanced
-    const allAccountBalances = data.accounts.map(account => {
+    const allAccountBalances = accounts.map(account => {
         const adj = (adjustments[account.id] || []).reduce((s, a) => a.type === 'income' ? s + a.amount : s - a.amount, 0);
-        const balance = calculateAccountBalance(account, data.transactions);
+        const balance = calculateAccountBalance(account, transactions);
         const real = parseFloat(realBalances[account.id] || '0') || 0;
         return {
             accountId: account.id,
@@ -146,6 +155,10 @@ const ComparisonPage = () => {
     const hasAnyAdjustments = Object.values(adjustments).some(adj => adj.length > 0);
     const atLeastOneBalanced = allAccountBalances.some(ab => ab.isBalanced && ab.hasAdjustments);
 
+    if (isAccLoading || isTxLoading || isCatLoading) {
+        return <div className="p-8 text-center text-muted-foreground animate-pulse">Cargando datos...</div>;
+    }
+
     return (
         <div className="w-full">
             <div className="w-full max-w-5xl mx-auto px-4 lg:px-12 py-4 sm:py-6">
@@ -153,7 +166,7 @@ const ComparisonPage = () => {
                 <div className="space-y-6 pb-20">
                     {/* Account tabs */}
                     <div className="flex gap-2 p-1 bg-muted rounded-xl flex-wrap">
-                        {data.accounts.map(account => (
+                        {accounts.map(account => (
                             <Button
                                 key={account.id}
                                 variant={activeAccountId === account.id ? 'default' : 'ghost'}

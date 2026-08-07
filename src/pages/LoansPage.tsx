@@ -10,9 +10,21 @@ import LoanModal from '@/components/LoanModal';
 import { format, parseISO } from 'date-fns';
 import { es } from 'date-fns/locale';
 import { Transaction } from '@/types/finance';
+import { useAccounts } from '@/hooks/useAccounts';
+import { useTransactions } from '@/hooks/useTransactions';
+import { useQueryClient } from '@tanstack/react-query';
 
 const LoansPage = () => {
-  const [data, setData] = useState(loadData());
+  const [legacyData, setLegacyData] = useState(loadData());
+  const { accounts, isLoading: isAccLoading } = useAccounts();
+  const { transactions, isLoading: isTxLoading } = useTransactions();
+  const queryClient = useQueryClient();
+
+  const data = useMemo(() => ({
+    ...legacyData,
+    accounts,
+    transactions
+  }), [legacyData, accounts, transactions]);
   const [isModalOpen, setIsModalOpen] = useState(false);
 
   // Group loans and calculate progress
@@ -44,31 +56,42 @@ const LoansPage = () => {
   const activeLoans = loanSummaries.filter(l => !l.isCompleted);
   const completedLoans = loanSummaries.filter(l => l.isCompleted);
 
-  const handleDelete = (id: string, name: string) => {
+  const handleDelete = (id: string, name: string, amountPaid: number) => {
+    if (amountPaid > 0) {
+      toast.error(`No puedes eliminar "${name}" porque ya tiene cuotas pagadas. Si necesitas borrarlo, deshace primero los pagos marcándolos como pendientes.`);
+      return;
+    }
     if (confirm(`¿Estás seguro de que quieres eliminar "${name}" y TODAS sus transacciones asociadas?`)) {
       deleteLoan(id);
-      setData(loadData());
+      setLegacyData(loadData());
+      queryClient.invalidateQueries({ queryKey: ["transactions"] });
       toast.success('Financiación eliminada');
     }
   };
 
   const handleSaveLoan = (loanData: any) => {
     applyLoanTransaction(loanData);
-    setData(loadData());
+    setLegacyData(loadData());
+    queryClient.invalidateQueries({ queryKey: ["transactions"] });
     setIsModalOpen(false);
     toast.success('Préstamo creado correctamente');
   };
 
   const handleUpdateTransaction = (id: string, updates: Partial<Transaction>) => {
     updateLoanTransaction(id, updates);
-    setData(loadData());
+    setLegacyData(loadData());
+    queryClient.invalidateQueries({ queryKey: ["transactions"] });
   };
 
   const handleUpdateLoan = (id: string, updates: Partial<any>) => {
     updateLoan(id, updates);
-    setData(loadData());
+    setLegacyData(loadData());
     toast.success('Préstamo actualizado');
   };
+
+  if (isAccLoading || isTxLoading) {
+    return <div className="p-8 text-center text-muted-foreground animate-pulse">Cargando datos...</div>;
+  }
 
   return (
     <div className="max-w-4xl mx-auto space-y-6 px-4 pb-20">
@@ -106,7 +129,7 @@ const LoansPage = () => {
               </h2>
               <div className="grid gap-4 md:grid-cols-2">
                 {activeLoans.map((loan) => (
-                  <LoanCard key={loan.id} loan={loan} onDelete={() => handleDelete(loan.id, loan.name)} onUpdateTx={handleUpdateTransaction} onUpdateLoan={handleUpdateLoan} />
+                  <LoanCard key={loan.id} loan={loan} onDelete={() => handleDelete(loan.id, loan.name, loan.amountPaid)} onUpdateTx={handleUpdateTransaction} onUpdateLoan={handleUpdateLoan} />
                 ))}
               </div>
             </div>
@@ -117,7 +140,7 @@ const LoansPage = () => {
               <h2 className="text-lg font-semibold text-muted-foreground">Completados</h2>
               <div className="grid gap-4 md:grid-cols-2 opacity-75">
                 {completedLoans.map((loan) => (
-                  <LoanCard key={loan.id} loan={loan} onDelete={() => handleDelete(loan.id, loan.name)} onUpdateTx={handleUpdateTransaction} onUpdateLoan={handleUpdateLoan} />
+                  <LoanCard key={loan.id} loan={loan} onDelete={() => handleDelete(loan.id, loan.name, loan.amountPaid)} onUpdateTx={handleUpdateTransaction} onUpdateLoan={handleUpdateLoan} />
                 ))}
               </div>
             </div>

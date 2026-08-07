@@ -66,19 +66,14 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Switch } from "@/components/ui/switch";
-import {
-  getCategories,
-  addCategory,
-  updateCategory,
-  deleteCategory,
-  loadData,
-} from "@/lib/storage";
 import { Category, Account } from "@/types/finance";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
 import { format, addMonths } from "date-fns";
 import { AccountManager } from "@/components/AccountManager";
 import { RecurringExpensesManager } from "@/components/RecurringExpensesManager";
+import { useAccounts } from "@/hooks/useAccounts";
+import { useCategories } from "@/hooks/useCategories";
 
 const SettingsPage = () => {
   const { setTheme } = useTheme();
@@ -101,8 +96,8 @@ const SettingsPage = () => {
     }
   }, [searchParams]);
 
-  const [categories, setCategories] = useState<Category[]>([]);
-  const [accounts, setAccounts] = useState<Account[]>([]);
+  const { accounts } = useAccounts();
+  const { categories, addCategory: rqAddCategory, updateCategory: rqUpdateCategory, deleteCategory: rqDeleteCategory } = useCategories();
 
   // Category Form State
   const [isCatDialogOpen, setIsCatDialogOpen] = useState(false);
@@ -248,18 +243,6 @@ const SettingsPage = () => {
     "AlertTriangle",
   ];
 
-
-
-  useEffect(() => {
-    refreshData();
-  }, []);
-
-  const refreshData = () => {
-    setCategories(getCategories());
-    const data = loadData();
-    setAccounts(data.accounts);
-  };
-
   // Category Handlers
   const handleOpenCatDialog = (cat: Category | null = null) => {
     if (cat) {
@@ -278,14 +261,14 @@ const SettingsPage = () => {
     setIsCatDialogOpen(true);
   };
 
-  const handleSaveCategory = () => {
+  const handleSaveCategory = async () => {
     if (!catName.trim()) {
       toast.error("El nombre es obligatorio");
       return;
     }
 
     if (editingCat) {
-      updateCategory({
+      await rqUpdateCategory({
         ...editingCat,
         name: catName,
         color: catColor,
@@ -294,31 +277,33 @@ const SettingsPage = () => {
       });
       toast.success("Categoría actualizada");
     } else {
-      addCategory(catName);
-      const updatedCats = getCategories();
-      const newCat = updatedCats.find((c) => c.name === catName);
-      if (newCat) {
-        updateCategory({
-          ...newCat,
-          color: catColor,
-          icon: catIcon,
-          customIcon: catCustomIcon,
-        });
-      }
-      toast.success("Categoría añadida");
+      await rqAddCategory(catName);
+      
+      // Wait for queries to invalidate naturally via the hook's onSuccess
+      setTimeout(async () => {
+        const updatedCats = categories; 
+        const newCat = updatedCats.find((c) => c.name === catName);
+        if (newCat) {
+          await rqUpdateCategory({
+            ...newCat,
+            color: catColor,
+            icon: catIcon,
+            customIcon: catCustomIcon,
+          });
+        }
+      }, 300);
+      
+      toast.success("Categoría creada");
     }
-
-    refreshData();
     setIsCatDialogOpen(false);
   };
 
-  const handleDeleteCat = (id: string) => {
-    const res = deleteCategory(id);
-    if (res.success) {
+  const handleDeleteCategory = async (id: string) => {
+    try {
+      await rqDeleteCategory(id);
       toast.success("Categoría eliminada");
-      refreshData();
-    } else {
-      toast.error(res.message);
+    } catch (e: any) {
+      toast.error(e.message);
     }
   };
 

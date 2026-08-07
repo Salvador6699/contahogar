@@ -9,7 +9,7 @@ export const calculateBalance = (
 ): number => {
   let filteredTransactions = includePending 
     ? transactions.filter(t => !t.isIgnored) 
-    : transactions.filter(t => !t.isPending);
+    : transactions.filter(t => !t.isPending && !t.isIgnored);
   
   // Filter by account if specified
   if (accountId) {
@@ -67,7 +67,7 @@ export const calculateTotalIncome = (
   let filtered = transactions.filter(t => t.type === 'income');
   
   if (!includePending) {
-    filtered = filtered.filter(t => !t.isPending);
+    filtered = filtered.filter(t => !t.isPending && !t.isIgnored);
   } else {
     filtered = filtered.filter(t => !t.isIgnored);
   }
@@ -87,7 +87,7 @@ export const calculateTotalExpenses = (
   let filtered = transactions.filter(t => t.type === 'expense');
   
   if (!includePending) {
-    filtered = filtered.filter(t => !t.isPending);
+    filtered = filtered.filter(t => !t.isPending && !t.isIgnored);
   } else {
     filtered = filtered.filter(t => !t.isIgnored);
   }

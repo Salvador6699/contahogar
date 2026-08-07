@@ -10,7 +10,9 @@ import * as Icons from 'lucide-react';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { toast } from 'sonner';
 import { cn } from '@/lib/utils';
-import { loadData, loadFavorites, addFavorite as saveFavorite, updateFavorite as modifyFavorite, deleteFavorite as removeFavorite } from '@/lib/storage';
+import { loadFavorites, addFavorite as saveFavorite, updateFavorite as modifyFavorite, deleteFavorite as removeFavorite } from '@/lib/storage';
+import { useAccounts } from '@/hooks/useAccounts';
+import { useCategories } from '@/hooks/useCategories';
 
 const ICON_LIST = [
   'Tag', 'Wallet', 'CreditCard', 'Banknote', 'PiggyBank', 'ShoppingCart', 'ShoppingBag', 'ShoppingBasket',
@@ -27,14 +29,22 @@ const ICON_LIST = [
 
 const FavoritesPage = () => {
   const navigate = useNavigate();
-  const [data, setData] = useState(() => loadData());
+  const { accounts, isLoading: isAccLoading } = useAccounts();
+  const { categories, isLoading: isCatLoading } = useCategories();
   const [favorites, setFavorites] = useState<FavoriteExpense[]>(() => loadFavorites());
   
   const [editingId, setEditingId] = useState<string | null>(null);
   const [name, setName] = useState('');
   const [amount, setAmount] = useState('');
-  const [category, setCategory] = useState(data.categories[0]?.name || '');
-  const [accountId, setAccountId] = useState(data.accounts[0]?.id || '');
+  
+  // Need to initialize these safely since accounts/categories might load asynchronously
+  const [category, setCategory] = useState('');
+  const [accountId, setAccountId] = useState('');
+  
+  useEffect(() => {
+      if (categories.length > 0 && !category) setCategory(categories[0].name);
+      if (accounts.length > 0 && !accountId) setAccountId(accounts[0].id);
+  }, [categories, accounts, category, accountId]);
   const [description, setDescription] = useState('');
   const [icon, setIcon] = useState('Tag');
   const [customIcon, setCustomIcon] = useState<string | undefined>(undefined);
@@ -43,8 +53,8 @@ const FavoritesPage = () => {
     setEditingId(null);
     setName('');
     setAmount('');
-    setCategory(data.categories[0]?.name || '');
-    setAccountId(data.accounts[0]?.id || '');
+    setCategory(categories[0]?.name || '');
+    setAccountId(accounts[0]?.id || '');
     setDescription('');
     setIcon('Tag');
     setCustomIcon(undefined);
@@ -139,6 +149,10 @@ const FavoritesPage = () => {
     // Scroll to top to see the updated list
     window.scrollTo({ top: 0, behavior: 'smooth' });
   };
+
+  if (isAccLoading || isCatLoading) {
+    return <div className="p-8 text-center text-muted-foreground animate-pulse">Cargando datos...</div>;
+  }
 
   return (
     <div className="w-full">
@@ -339,7 +353,7 @@ const FavoritesPage = () => {
                     <SelectValue placeholder="Selecciona categoría" />
                   </SelectTrigger>
                   <SelectContent>
-                    {data.categories.map((cat) => (
+                    {categories.map((cat) => (
                       <SelectItem key={cat.id} value={cat.name}>
                         {cat.name}
                       </SelectItem>
@@ -354,7 +368,7 @@ const FavoritesPage = () => {
                     <SelectValue placeholder="Selecciona cuenta" />
                   </SelectTrigger>
                   <SelectContent>
-                    {data.accounts.map((acc) => (
+                    {accounts.map((acc) => (
                       <SelectItem key={acc.id} value={acc.id}>
                         {acc.name}
                       </SelectItem>

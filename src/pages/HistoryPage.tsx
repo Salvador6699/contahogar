@@ -7,7 +7,8 @@ import { Calendar, History } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { Transaction } from '@/types/finance';
-import { loadData } from '@/lib/storage';
+import { useTransactions } from '@/hooks/useTransactions';
+import { useCategories } from '@/hooks/useCategories';
 import { formatCurrency } from '@/lib/calculations';
 import MobileNav from '@/components/MobileNav';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, Cell } from 'recharts';
@@ -24,7 +25,8 @@ interface MonthlyData {
 
 const HistoryPage = () => {
     const navigate = useNavigate();
-    const [data] = useState(loadData());
+    const { transactions, isLoading: isTxLoading } = useTransactions();
+    const { categories, isLoading: isCatLoading } = useCategories();
     const [selectedChartMonth, setSelectedChartMonth] = useState<{ monthKey: string, monthName: string } | null>(null);
 
     const monthlyData: MonthlyData[] = useMemo(() => {
@@ -35,7 +37,7 @@ const HistoryPage = () => {
             return normalized === 'transferencia';
         };
 
-        data.transactions.forEach(transaction => {
+        transactions.forEach(transaction => {
             if (isTransfer(transaction.category) || transaction.isPending) return;
 
             const date = parseISO(transaction.date);
@@ -54,7 +56,7 @@ const HistoryPage = () => {
                 expenses: transactions.filter(t => t.type === 'expense').reduce((sum, t) => sum + t.amount, 0),
             }))
             .sort((a, b) => b.monthKey.localeCompare(a.monthKey));
-    }, [data.transactions]);
+    }, [transactions]);
 
     const monthlyOptions = useMemo(() => {
         return monthlyData.map(m => ({
@@ -64,10 +66,10 @@ const HistoryPage = () => {
     }, [monthlyData]);
 
     const availableCategories = useMemo(() => {
-        const catsFromDef = (data.categories || []).map((c: any) => typeof c === 'string' ? c : c.name);
-        const catsFromTx = (data.transactions || []).map((t: Transaction) => t.category);
+        const catsFromDef = categories.map((c: any) => typeof c === 'string' ? c : c.name);
+        const catsFromTx = transactions.map((t: Transaction) => t.category);
         return Array.from(new Set([...catsFromDef, ...catsFromTx])).filter(Boolean).sort();
-    }, [data.categories, data.transactions]);
+    }, [categories, transactions]);
 
     const handleMonthClick = (monthKey: string) => {
         navigate(`/?month=${monthKey}`);
@@ -87,7 +89,7 @@ const HistoryPage = () => {
             return normalized === 'transferencia';
         };
 
-        const monthTransactions = data.transactions.filter(t => 
+        const monthTransactions = transactions.filter(t => 
             t.date.startsWith(selectedChartMonth.monthKey) && 
             !t.isPending &&
             !isTransfer(t.category)
@@ -140,7 +142,7 @@ const HistoryPage = () => {
             incomeData,
             expenseData
         };
-    }, [selectedChartMonth, data.transactions]);
+    }, [selectedChartMonth, transactions]);
 
     const chartConfig = {
         income: {
@@ -152,6 +154,10 @@ const HistoryPage = () => {
             color: 'hsl(25, 95%, 53%)',
         },
     };
+
+    if (isTxLoading || isCatLoading) {
+        return <div className="p-8 text-center text-muted-foreground animate-pulse">Cargando datos...</div>;
+    }
 
     return (
         <div className="w-full">
@@ -255,7 +261,7 @@ const HistoryPage = () => {
                         {/* Comparator Section */}
                         <div className="pt-4 pb-8">
                             <MonthComparator
-                                transactions={data.transactions}
+                                transactions={transactions}
                                 monthlyOptions={monthlyOptions}
                                 availableCategories={availableCategories}
                             />

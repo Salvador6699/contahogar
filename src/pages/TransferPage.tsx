@@ -13,105 +13,126 @@ import {
     SelectValue,
 } from '@/components/ui/select';
 import { Transaction } from '@/types/finance';
-import { loadData, addTransaction, deleteTransaction, saveData } from '@/lib/storage';
 import { formatCurrency, calculateAccountBalance } from '@/lib/calculations';
 import { toast } from 'sonner';
 import { useScrollOnFocus } from '@/hooks/useScrollOnFocus';
 import { withKeyboardClose } from '@/lib/utils';
 import { v4 as uuidv4 } from 'uuid';
 import { SmartPagination } from '@/components/SmartPagination';
+import { useAccounts } from '@/hooks/useAccounts';
+import { useTransactions } from '@/hooks/useTransactions';
 
 const ITEMS_PER_PAGE = 5;
 
 const TransferPage = () => {
     const navigate = useNavigate();
     const scrollOnFocus = useScrollOnFocus(120);
-    const [data, setData] = useState(loadData());
+    
+    const { accounts, isLoading: accountsLoading } = useAccounts();
+    const { transactions, addTransaction, deleteTransaction, isLoading: transactionsLoading } = useTransactions();
+    
     const [amount, setAmount] = useState('');
     const [fromAccountId, setFromAccountId] = useState('');
     const [toAccountId, setToAccountId] = useState('');
     const [editingTransferId, setEditingTransferId] = useState<string | null>(null);
     const [currentPage, setCurrentPage] = useState(1);
+    const [isSaving, setIsSaving] = useState(false);
 
     useMemo(() => {
-        if (data.accounts.length >= 2) {
-            if (!fromAccountId) setFromAccountId(data.accounts[0].id);
-            if (!toAccountId) setToAccountId(data.accounts[1].id);
-        } else if (data.accounts.length === 1) {
-            if (!fromAccountId) setFromAccountId(data.accounts[0].id);
-            if (!toAccountId) setToAccountId(data.accounts[0].id);
+        if (accounts.length >= 2) {
+            if (!fromAccountId) setFromAccountId(accounts[0].id);
+            if (!toAccountId) setToAccountId(accounts[1].id);
+        } else if (accounts.length === 1) {
+            if (!fromAccountId) setFromAccountId(accounts[0].id);
+            if (!toAccountId) setToAccountId(accounts[0].id);
         }
-    }, [data.accounts, fromAccountId, toAccountId]);
+    }, [accounts, fromAccountId, toAccountId]);
 
     const { transferTransactions } = useMemo(() => {
-        const transfers = data.transactions.filter(t => t.category === 'Transferencia');
+        const transfers = transactions.filter(t => t.category === 'Transferencia');
         return { transferTransactions: transfers };
-    }, [data]);
+    }, [transactions]);
 
-    const fromAccount = data.accounts.find(a => a.id === fromAccountId);
-    const toAccount = data.accounts.find(a => a.id === toAccountId);
-    const maxAmount = fromAccount ? calculateAccountBalance(fromAccount, data.transactions) : 0;
+    const fromAccount = accounts.find(a => a.id === fromAccountId);
+    const maxAmount = fromAccount ? calculateAccountBalance(fromAccount, transactions) : 0;
 
-    const handleTransfer = () => {
+    const transferPairs = useMemo(() => {
+        return transferTransactions
+            .filter(t => t.type === 'expense')
+            .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
+    }, [transferTransactions]);
+
+    const handleTransfer = async () => {
         const amountNum = parseFloat(amount);
         if (isNaN(amountNum) || amountNum <= 0 || amountNum > maxAmount || !fromAccountId || !toAccountId) return;
 
-        const currentData = loadData();
-
-        if (editingTransferId) {
-            const expensePart = transferPairs.find(t => t.id === editingTransferId);
-            if (expensePart) {
-                const incomePart = transferTransactions.find(
-                    t => t.type === 'income' &&
-                        t.amount === expensePart.amount &&
-                        t.date === expensePart.date &&
-                        t.id !== expensePart.id
-                );
-
-                currentData.transactions = currentData.transactions.filter(t => 
-                    t.id !== expensePart.id && (!incomePart || t.id !== incomePart.id)
-                );
+        setIsSaving(true);
+        try {
+            if (editingTransferId) {
+                const expensePart = transferPairs.find(t => t.id === editingTransferId);
+                if (expensePart) {
+                    const incomePart = transferTransactions.find(
+                        t => t.type === 'income' &&
+                            t.amount === expensePart.amount &&
+                            t.date === expensePart.date &&
+                            t.id !== expensePart.id
+                    );
+    
+                    await deleteTransaction(expensePart.id);
+                    if (incomePart) {
+                        await deleteTransaction(incomePart.id);
+                    }
+                }
             }
+    
+            const today = new Date().toISOString().split('T')[0];
+    
+            const expenseTransaction: Omit<Transaction, "id"> = {
+                date: today,
+                amount: amountNum,
+                category: 'Transferencia',
+                type: 'expense',
+                accountId: fromAccountId,
+                isPending: false,
+            };
+    
+            const incomeTransaction: Omit<Transaction, "id"> = {
+                date: today,
+                amount: amountNum,
+                category: 'Transferencia',
+                type: 'income',
+                accountId: toAccountId,
+                isPending: false,
+            };
+    
+            await addTransaction(expenseTransaction);
+            await addTransaction(incomeTransaction);
+            
+            setAmount('');
+            setEditingTransferId(null);
+            toast.success(editingTransferId ? 'Transferencia actualizada' : 'Transferencia realizada con éxito');
+            navigate('/');
+        } catch (error) {
+            toast.error('Error al realizar la transferencia');
+        } finally {
+            setIsSaving(false);
         }
-
-        const today = new Date().toISOString().split('T')[0];
-
-        // Create expense from source account
-        const expenseTransaction: Transaction = {
-            id: `${uuidv4()}-transfer-out`,
-            date: today,
-            amount: amountNum,
-            category: 'Transferencia',
-            type: 'expense',
-            accountId: fromAccountId,
-            isPending: false,
-        };
-
-        // Create income to destination account
-        const incomeTransaction: Transaction = {
-            id: `${uuidv4()}-transfer-in`,
-            date: today,
-            amount: amountNum,
-            category: 'Transferencia',
-            type: 'income',
-            accountId: toAccountId,
-            isPending: false,
-        };
-
-        currentData.transactions.push(expenseTransaction);
-        currentData.transactions.push(incomeTransaction);
-        saveData(currentData);
-        
-        setData(currentData);
-        setAmount('');
-        setEditingTransferId(null);
-        toast.success(editingTransferId ? 'Transferencia actualizada' : 'Transferencia realizada con éxito');
-        navigate('/');
     };
 
     const handleEditTransfer = (transfer: Transaction) => {
         setAmount(transfer.amount.toString());
         setFromAccountId(transfer.accountId);
+        
+        const matchingIncome = transferTransactions.find(
+            t => t.type === 'income' &&
+                t.amount === transfer.amount &&
+                t.date === transfer.date &&
+                t.id !== transfer.id
+        );
+        if (matchingIncome) {
+            setToAccountId(matchingIncome.accountId);
+        }
+        
         setEditingTransferId(transfer.id);
         window.scrollTo({ top: 0, behavior: 'smooth' });
     };
@@ -121,7 +142,7 @@ const TransferPage = () => {
         setEditingTransferId(null);
     };
 
-    const handleDeleteTransferPair = (expenseTransfer: Transaction) => {
+    const handleDeleteTransferPair = async (expenseTransfer: Transaction) => {
         const matchingIncome = transferTransactions.find(
             t => t.type === 'income' &&
                 t.amount === expenseTransfer.amount &&
@@ -129,29 +150,31 @@ const TransferPage = () => {
                 t.id !== expenseTransfer.id
         );
 
-        const currentData = loadData();
-        currentData.transactions = currentData.transactions.filter(t => 
-            t.id !== expenseTransfer.id && (!matchingIncome || t.id !== matchingIncome.id)
-        );
-        saveData(currentData);
-        setData(currentData);
-        toast.success('Transferencia eliminada');
+        setIsSaving(true);
+        try {
+            await deleteTransaction(expenseTransfer.id);
+            if (matchingIncome) {
+                await deleteTransaction(matchingIncome.id);
+            }
+            toast.success('Transferencia eliminada');
+        } catch (error) {
+            toast.error('Error al eliminar');
+        } finally {
+            setIsSaving(false);
+        }
     };
-
-    const transferPairs = useMemo(() => {
-        return transferTransactions
-            .filter(t => t.type === 'expense')
-            .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
-    }, [transferTransactions]);
 
     // Pagination
     const totalPages = Math.max(1, Math.ceil(transferPairs.length / ITEMS_PER_PAGE));
     const safeCurrentPage = Math.min(currentPage, totalPages);
     const startIndex = (safeCurrentPage - 1) * ITEMS_PER_PAGE;
     const isLastPage = safeCurrentPage === totalPages;
-    // Calculate endIndex ensuring all remaining items are shown on the last page if they are less than ITEMS_PER_PAGE
     const endIndex = isLastPage ? transferPairs.length : startIndex + ITEMS_PER_PAGE;
     const paginatedPairs = transferPairs.slice(startIndex, endIndex);
+
+    if (accountsLoading || transactionsLoading) {
+        return <div className="p-8 text-center text-muted-foreground animate-pulse">Cargando datos...</div>;
+    }
 
     return (
         <div className="w-full">
@@ -178,9 +201,9 @@ const TransferPage = () => {
                                         <SelectValue placeholder="Selecciona cuenta origen" />
                                     </SelectTrigger>
                                     <SelectContent>
-                                        {data.accounts.map((acc) => (
+                                        {accounts.map((acc) => (
                                             <SelectItem key={acc.id} value={acc.id}>
-                                                {acc.name} - {formatCurrency(calculateAccountBalance(acc, data.transactions))}
+                                                {acc.name} - {formatCurrency(calculateAccountBalance(acc, transactions))}
                                             </SelectItem>
                                         ))}
                                     </SelectContent>
@@ -211,9 +234,9 @@ const TransferPage = () => {
                                         <SelectValue placeholder="Selecciona cuenta destino" />
                                     </SelectTrigger>
                                     <SelectContent>
-                                        {data.accounts.map((acc) => (
+                                        {accounts.map((acc) => (
                                             <SelectItem key={acc.id} value={acc.id}>
-                                                {acc.name} - {formatCurrency(calculateAccountBalance(acc, data.transactions))}
+                                                {acc.name} - {formatCurrency(calculateAccountBalance(acc, transactions))}
                                             </SelectItem>
                                         ))}
                                     </SelectContent>
@@ -246,9 +269,9 @@ const TransferPage = () => {
                                 className={`w-full h-14 text-lg font-bold shadow-lg ${editingTransferId ? 'bg-orange-500 hover:bg-orange-600' : ''}`}
                                 onClick={() => withKeyboardClose(() => handleTransfer())}
                                 onPointerDown={() => withKeyboardClose(() => handleTransfer())}
-                                disabled={!amount || parseFloat(amount) <= 0 || (parseFloat(amount) > maxAmount && !editingTransferId) || !fromAccountId || !toAccountId || fromAccountId === toAccountId}
+                                disabled={isSaving || !amount || parseFloat(amount) <= 0 || (parseFloat(amount) > maxAmount && !editingTransferId) || !fromAccountId || !toAccountId || fromAccountId === toAccountId}
                             >
-                                {editingTransferId ? 'Actualizar Transferencia' : 'Realizar Transferencia'}
+                                {isSaving ? 'Guardando...' : (editingTransferId ? 'Actualizar Transferencia' : 'Realizar Transferencia')}
                             </Button>
                         </CardContent>
                     </Card>
@@ -273,8 +296,8 @@ const TransferPage = () => {
                                             t.date === transfer.date &&
                                             t.id !== transfer.id
                                     );
-                                    const fromAccount = data.accounts.find(a => a.id === transfer.accountId);
-                                    const toAccount = matchingIncome ? data.accounts.find(a => a.id === matchingIncome.accountId) : null;
+                                    const fromAccountRef = accounts.find(a => a.id === transfer.accountId);
+                                    const toAccountRef = matchingIncome ? accounts.find(a => a.id === matchingIncome.accountId) : null;
 
                                     return (
                                         <Card key={transfer.id} className="border-none shadow-sm overflow-hidden group">
@@ -285,7 +308,7 @@ const TransferPage = () => {
                                                     </div>
                                                     <div>
                                                         <p className="font-bold text-sm sm:text-base">
-                                                            {fromAccount?.name} <span className="text-muted-foreground font-medium">→</span> {toAccount?.name}
+                                                            {fromAccountRef?.name} <span className="text-muted-foreground font-medium">→</span> {toAccountRef?.name}
                                                         </p>
                                                         <p className="text-xs text-muted-foreground font-medium">
                                                             {new Date(transfer.date).toLocaleDateString('es-ES', { day: '2-digit', month: 'long' })}
@@ -303,6 +326,7 @@ const TransferPage = () => {
                                                             size="icon"
                                                             className="text-muted-foreground hover:text-primary hover:bg-primary/5"
                                                             onClick={() => handleEditTransfer(transfer)}
+                                                            disabled={isSaving}
                                                         >
                                                             <Pencil className="w-4 h-4" />
                                                         </Button>
@@ -311,6 +335,7 @@ const TransferPage = () => {
                                                             size="icon"
                                                             className="text-muted-foreground hover:text-destructive hover:bg-destructive/5"
                                                             onClick={() => handleDeleteTransferPair(transfer)}
+                                                            disabled={isSaving}
                                                         >
                                                             <Trash2 className="w-4 h-4" />
                                                         </Button>

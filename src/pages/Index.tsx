@@ -49,18 +49,35 @@ import {
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useNavigate, useSearchParams } from "react-router-dom";
-
 import { toast } from "sonner";
 import { v4 as uuidv4 } from "uuid";
+import { useQueryClient } from "@tanstack/react-query";
+import { useAccounts } from "@/hooks/useAccounts";
+import { useTransactions } from "@/hooks/useTransactions";
+import { useCategories } from "@/hooks/useCategories";
+import { usePlanning } from "@/hooks/usePlanning";
 
 const Index = () => {
   const navigate = useNavigate();
-  const [data, setData] = useState(loadData());
+  const queryClient = useQueryClient();
+  
+  const [legacyData, setLegacyData] = useState(loadData());
+  const { accounts, isLoading: accountsLoading } = useAccounts();
+  const { transactions, addTransaction: rqAddTransaction, updateTransaction: rqUpdateTransaction, deleteTransaction: rqDeleteTransaction, isLoading: transactionsLoading } = useTransactions();
+  const { categories, addCategory: rqAddCategory } = useCategories();
+  const { budgets } = usePlanning();
+
+  const data = useMemo(() => ({
+    ...legacyData,
+    accounts,
+    transactions,
+    categories,
+    budgets
+  }), [legacyData, accounts, transactions, categories, budgets]);
+
   const [isTransactionModalOpen, setIsTransactionModalOpen] = useState(false);
-  const [transactionType, setTransactionType] =
-    useState<TransactionType>("expense");
-  const [editingTransaction, setEditingTransaction] =
-    useState<Transaction | null>(null);
+  const [transactionType, setTransactionType] = useState<TransactionType>("expense");
+  const [editingTransaction, setEditingTransaction] = useState<Transaction | null>(null);
   const [searchParams, setSearchParams] = useSearchParams();
   const [selectedMonth, setSelectedMonth] = useState<string | null>(
     searchParams.get("month"),
@@ -100,8 +117,9 @@ const Index = () => {
   }, [data.transactions, selectedAccount, selectedMonth]);
 
   useEffect(() => {
+    // Only update legacy data that hasn't been migrated yet
     const storedData = loadData();
-    setData(storedData);
+    setLegacyData(storedData);
 
     let paramsChanged = false;
     const newParams = new URLSearchParams(searchParams);
@@ -146,34 +164,30 @@ const Index = () => {
     }
   }, [searchParams, setSearchParams]);
 
-  const handleAddTransaction = (
+  const handleAddTransaction = async (
     transaction: Omit<Transaction, "id">,
     copyToNextMonth?: boolean,
     fractionationData?: { isFractionated: boolean; installments: number; installmentAmount: number; firstInstallmentDate: string; setupFee: number; setupFeeDate: string; }
   ) => {
 
-    // Save previous state for Undo
-    const previousTransactions = [...data.transactions];
-
     if (editingTransaction) {
       if (fractionationData?.isFractionated) {
         applyFractionatedTransaction(transaction, fractionationData, editingTransaction?.id);
+        queryClient.invalidateQueries({ queryKey: ["transactions"] });
       } else {
-        // Normal edit without automation
-        updateTransaction({ ...transaction, id: editingTransaction.id });
+        await rqUpdateTransaction({ ...transaction, id: editingTransaction.id });
       }
     } else {
       if (fractionationData?.isFractionated) {
         applyFractionatedTransaction(transaction, fractionationData);
+        queryClient.invalidateQueries({ queryKey: ["transactions"] });
       } else {
-        // New plain transaction
-        saveTransaction(transaction);
+        await rqAddTransaction(transaction);
       }
     }
 
     setEditingTransaction(null);
 
-    // copyToNextMonth logic (kept for backward compatibility, though recurring is better)
     if (copyToNextMonth) {
       const currentDate = new Date(transaction.date);
       const nextMonth = new Date(
@@ -181,33 +195,22 @@ const Index = () => {
         currentDate.getMonth() + 1,
         currentDate.getDate(),
       );
-      const nextMonthTransaction: Transaction = {
+      const nextMonthTransaction: Omit<Transaction, "id"> = {
         ...transaction,
-        id: uuidv4(),
         date: nextMonth.toISOString().split("T")[0],
         isPending: true,
       };
-      saveTransaction(nextMonthTransaction);
+      await rqAddTransaction(nextMonthTransaction);
     }
 
-    addCategory(transaction.category);
-    const newData = loadData();
-    setData(newData);
+    // Add category using React Query
+    const catExists = categories.some(c => (typeof c === "string" ? c : c.name) === transaction.category);
+    if (!catExists) {
+        await rqAddCategory(transaction.category);
+    }
+    
     setIsTransactionModalOpen(false);
-
-    toast.success(
-      editingTransaction ? "Transacción actualizada" : "Transacción guardada",
-      {
-        action: {
-          label: "Deshacer",
-          onClick: () => {
-            saveData({ ...newData, transactions: previousTransactions });
-            setData({ ...newData, transactions: previousTransactions });
-            toast.info("Cambios revertidos");
-          },
-        },
-      },
-    );
+    toast.success(editingTransaction ? "Transacción actualizada" : "Transacción guardada");
   };
 
   const handleQuickAdd = (fav: FavoriteExpense) => {
@@ -215,10 +218,9 @@ const Index = () => {
     setIsQuickAmountModalOpen(true);
   };
 
-  const handleSaveQuickAmount = (amount: number, accountId: string) => {
+  const handleSaveQuickAmount = async (amount: number, accountId: string) => {
     if (!activeQuickFavorite) return;
 
-    const previousTransactions = [...data.transactions];
     const newTransaction: Omit<Transaction, "id"> = {
       date: format(new Date(), "yyyy-MM-dd"),
       amount: amount,
@@ -229,23 +231,10 @@ const Index = () => {
         activeQuickFavorite.description ||
         `Gasto rápido: ${activeQuickFavorite.name}`,
     };
-    saveTransaction(newTransaction);
-    const newData = loadData();
-    setData(newData);
+    
+    await rqAddTransaction(newTransaction);
 
-    toast.success(
-      `${activeQuickFavorite.name} registrado: ${formatCurrency(amount)}`,
-      {
-        action: {
-          label: "Deshacer",
-          onClick: () => {
-            saveData({ ...newData, transactions: previousTransactions });
-            setData({ ...newData, transactions: previousTransactions });
-            toast.info("Registro eliminado");
-          },
-        },
-      },
-    );
+    toast.success(`${activeQuickFavorite.name} registrado: ${formatCurrency(amount)}`);
     setIsQuickAmountModalOpen(false);
     setActiveQuickFavorite(null);
   };
@@ -283,32 +272,17 @@ const Index = () => {
     setIsTransactionModalOpen(true);
   };
 
-  const handleDeleteTransaction = (id: string) => {
-    const previousTransactions = [...data.transactions];
-    deleteTransaction(id);
-    const newData = loadData();
-    setData(newData);
-
-    toast.success("Transacción eliminada", {
-      action: {
-        label: "Deshacer",
-        onClick: () => {
-          saveData({ ...newData, transactions: previousTransactions });
-          setData({ ...newData, transactions: previousTransactions });
-          toast.info("Transacción restaurada");
-        },
-      },
-    });
+  const handleDeleteTransaction = async (id: string) => {
+    await rqDeleteTransaction(id);
+    toast.success("Transacción eliminada");
   };
 
   const handleUpdateAlertSettings = (newSettings: Parameters<typeof updateAlertSettings>[0]) => {
     updateAlertSettings(newSettings);
-    setData(loadData());
+    setLegacyData(loadData());
   };
 
-  const handleConfirmTransaction = (transaction: Transaction) => {
-    const previousTransactions = [...data.transactions];
-
+  const handleConfirmTransaction = async (transaction: Transaction) => {
     // Check for linked account
     const account = data.accounts.find((a) => a.id === transaction.accountId);
     let finalAccountId = transaction.accountId;
@@ -316,32 +290,20 @@ const Index = () => {
       finalAccountId = account.linkedAccountId;
     }
 
-    updateTransaction({
+    await rqUpdateTransaction({
       ...transaction,
       isPending: false,
       accountId: finalAccountId,
     });
-    const newData = loadData();
-    setData(newData);
 
-    toast.success("Gasto confirmado", {
-      action: {
-        label: "Deshacer",
-        onClick: () => {
-          saveData({ ...newData, transactions: previousTransactions });
-          setData({ ...newData, transactions: previousTransactions });
-          toast.info("Gasto vuelto a pendiente");
-        },
-      },
-    });
+    toast.success("Gasto confirmado");
   };
 
-  const handleToggleIgnoreTransaction = (transaction: Transaction) => {
-    updateTransaction({
+  const handleToggleIgnoreTransaction = async (transaction: Transaction) => {
+    await rqUpdateTransaction({
       ...transaction,
       isIgnored: !transaction.isIgnored
     });
-    setData(loadData());
   };
 
   const openExpenseModal = () => {
@@ -501,6 +463,10 @@ const Index = () => {
   const handleBackToCurrentMonth = () => {
     setSelectedMonth(null);
   };
+
+  if (accountsLoading || transactionsLoading) {
+    return <div className="p-8 text-center text-muted-foreground animate-pulse">Cargando datos...</div>;
+  }
 
   return (
     <>

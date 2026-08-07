@@ -10,9 +10,11 @@ import { FinanceData } from '@/types/finance';
 import { toast } from 'sonner';
 import BackupVault from '@/components/BackupVault';
 import { cn } from '@/lib/utils';
+import { useQueryClient } from '@tanstack/react-query';
 
 const BackupPage = () => {
     const navigate = useNavigate();
+    const queryClient = useQueryClient();
     const [activeTab, setActiveTab] = useState<'vault' | 'files'>('vault');
     const [importing, setImporting] = useState(false);
     const fileInputRef = useRef<HTMLInputElement>(null);
@@ -76,6 +78,7 @@ const BackupPage = () => {
             }
 
             saveData(importedData);
+            queryClient.invalidateQueries();
             toast.success('Datos restaurados correctamente', { id: toastId });
             setTimeout(() => navigate('/'), 1000);
         } catch (error) {

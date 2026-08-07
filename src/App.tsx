@@ -3,10 +3,11 @@ import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { BrowserRouter, Routes, Route } from "react-router-dom";
 import { ThemeProvider } from "next-themes";
+import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import ScrollToTop from "./components/ScrollToTop";
 import AppLayout from "./components/AppLayout";
 
-import { syncFromBackend, loadData } from "@/lib/storage";
+import { loadData } from "@/lib/storage";
 import { syncAndSaveRecurringTransactions } from "@/lib/recurrence";
 
 import Index from "./pages/Index";
@@ -22,15 +23,21 @@ import FavoritesPage from "./pages/FavoritesPage";
 import LoansPage from "./pages/LoansPage";
 import NotFound from "./pages/NotFound";
 
+const queryClient = new QueryClient({
+  defaultOptions: {
+    queries: {
+      staleTime: 1000 * 60 * 5, // 5 minutos
+      retry: 2,
+    },
+  },
+});
+
 const App = () => {
 
   const [isReady, setIsReady] = useState(false);
 
   useEffect(() => {
     const initApp = async () => {
-      // Intentar sincronizar con el backend antes de arrancar
-      await syncFromBackend();
-      
       // Sincronizar transacciones recurrentes
       const data = loadData();
       syncAndSaveRecurringTransactions(data);
@@ -42,9 +49,10 @@ const App = () => {
   }, []);
 
   return (
-    <ThemeProvider attribute="class" defaultTheme="system" enableSystem>
-      <TooltipProvider>
-        <Sonner />
+    <QueryClientProvider client={queryClient}>
+      <ThemeProvider attribute="class" defaultTheme="system" enableSystem>
+        <TooltipProvider>
+          <Sonner />
 
         
         {isReady && (
@@ -70,6 +78,7 @@ const App = () => {
         )}
       </TooltipProvider>
     </ThemeProvider>
+    </QueryClientProvider>
   );
 };
 

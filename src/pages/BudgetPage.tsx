@@ -26,8 +26,29 @@ import {
 import { useMonthFilter } from "@/hooks/useMonthFilter";
 import { parseISO, subMonths, addMonths } from "date-fns";
 
+import { useAccounts } from '@/hooks/useAccounts';
+import { useTransactions } from '@/hooks/useTransactions';
+import { useCategories } from '@/hooks/useCategories';
+import { usePlanning } from '@/hooks/usePlanning';
+
 const BudgetPage = () => {
-    const [data, setData] = useState(loadData());
+    const [legacyData, setLegacyData] = useState(loadData());
+    const { accounts, isLoading: isAccLoading } = useAccounts();
+    const { transactions, isLoading: isTxLoading } = useTransactions();
+    const { categories, isLoading: isCatLoading } = useCategories();
+    const { budgets, isLoading: isBudLoading } = usePlanning();
+
+    const data = useMemo(() => ({
+        ...legacyData,
+        accounts,
+        transactions,
+        categories,
+        budgets
+    }), [legacyData, accounts, transactions, categories, budgets]);
+
+    useEffect(() => {
+        setLegacyData(loadData());
+    }, []);
     const [searchParams] = useSearchParams();
     const [selectedMonth, setSelectedMonth] = useState<string | null>(searchParams.get("month"));
     
@@ -211,7 +232,7 @@ const BudgetPage = () => {
         });
 
         saveData(newData);
-        setData(newData);
+        setLegacyData(newData);
         toast.success('Presupuesto guardado correctamente');
     };
 
@@ -358,6 +379,10 @@ const BudgetPage = () => {
     const handleBackToCurrentMonth = () => {
         setSelectedMonth(null);
     };
+
+    if (isAccLoading || isTxLoading || isCatLoading || isBudLoading) {
+        return <div className="p-8 text-center text-muted-foreground animate-pulse">Cargando datos...</div>;
+    }
 
     return (
         <div className="w-full">
