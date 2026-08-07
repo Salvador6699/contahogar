@@ -24,7 +24,6 @@ import {
 import {
   getCategorySuggestions,
   findSimilarCategory,
-  loadData,
 } from "@/lib/storage";
 import {
   Calendar,
@@ -41,6 +40,7 @@ import { withKeyboardClose } from "@/lib/utils";
 import { Textarea } from "@/components/ui/textarea";
 import { Switch } from "@/components/ui/switch";
 import { toast } from "sonner";
+import { useAccounts } from "@/hooks/useAccounts";
 
 export interface FractionationData {
   isFractionated: boolean;
@@ -76,6 +76,7 @@ const TransactionModal = ({
   editingTransaction = null,
   defaultAccountId = "",
 }: TransactionModalProps) => {
+  const { accounts: hookAccounts, isLoading: isAccLoading } = useAccounts();
   const scrollOnFocus = useScrollOnFocus(240);
   const [date, setDate] = useState("");
   const [amount, setAmount] = useState("");
@@ -137,16 +138,17 @@ const TransactionModal = ({
 
   useEffect(() => {
     if (isOpen) {
-      // Load accounts from storage
-      const data = loadData();
-      setAccounts(data.accounts);
+      // Use accounts from the hook
+      if (!isAccLoading) {
+        setAccounts(hookAccounts);
+      }
 
       // Determine the absolute fallback account
       const firstAvailableAccount =
-        data.accounts.length > 0 ? data.accounts[0].id : "";
+        hookAccounts.length > 0 ? hookAccounts[0].id : "";
       const contextualDefault = defaultAccountId || firstAvailableAccount;
 
-      if (data.accounts.length <= 1 || editingTransaction) {
+      if (hookAccounts.length <= 1 || editingTransaction) {
         setStep("form");
       } else {
         setStep("account");

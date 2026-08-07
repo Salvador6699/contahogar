@@ -1,5 +1,5 @@
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { getBudgets, getSavingsGoals, addSavingsGoal, updateSavingsGoal, deleteSavingsGoal } from "@/api/local/planning";
+import { getBudgets, saveBudgetsForMonth, getSavingsGoals, addSavingsGoal, updateSavingsGoal, deleteSavingsGoal } from "@/api/local/planning";
 
 export const usePlanning = () => {
   const queryClient = useQueryClient();
@@ -7,6 +7,13 @@ export const usePlanning = () => {
   const budgetsQuery = useQuery({
     queryKey: ["budgets"],
     queryFn: getBudgets,
+  });
+
+  const saveBudgetsMutation = useMutation({
+    mutationFn: (args: { month: string, budgets: any[] }) => saveBudgetsForMonth(args.month, args.budgets),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["budgets"] });
+    },
   });
 
   const goalsQuery = useQuery({
@@ -40,6 +47,7 @@ export const usePlanning = () => {
     isBudgetsLoading: budgetsQuery.isLoading,
     goals: goalsQuery.data || [],
     isGoalsLoading: goalsQuery.isLoading,
+    saveBudgets: saveBudgetsMutation.mutateAsync,
     addGoal: addGoalMutation.mutateAsync,
     updateGoal: updateGoalMutation.mutateAsync,
     deleteGoal: deleteGoalMutation.mutateAsync,

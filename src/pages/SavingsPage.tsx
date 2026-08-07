@@ -1,10 +1,11 @@
 import { useState, useMemo, useEffect } from 'react';
-import { loadData, updateRecurringRule } from '@/lib/storage';
+
 import { Account, SavingsGoal, RecurringExpenseRule } from '@/types/finance';
 import { calculateAccountBalance, formatCurrency } from '@/lib/calculations';
 import { useAccounts } from '@/hooks/useAccounts';
 import { useTransactions } from '@/hooks/useTransactions';
 import { usePlanning } from '@/hooks/usePlanning';
+import { useRecurringRules } from '@/hooks/useRecurringRules';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
@@ -14,17 +15,17 @@ import { differenceInMonths, parseISO, startOfMonth, addMonths, endOfMonth } fro
 import { toast } from 'sonner';
 
 export const SavingsPage = () => {
-    const [legacyData, setLegacyData] = useState(loadData());
     const { accounts, isLoading: isAccLoading } = useAccounts();
     const { transactions, updateTransaction: rqUpdateTransaction, isLoading: isTxLoading } = useTransactions();
     const { goals, addGoal: rqAddGoal, updateGoal: rqUpdateGoal, deleteGoal: rqDeleteGoal, isGoalsLoading } = usePlanning();
+    const { rules: recurringRules, updateRule: rqUpdateRule, isLoading: isRulesLoading } = useRecurringRules();
     
     const data = useMemo(() => ({
-        ...legacyData,
         accounts,
         transactions,
-        savingsGoals: goals
-    }), [legacyData, accounts, transactions, goals]);
+        savingsGoals: goals,
+        recurringRules
+    }), [accounts, transactions, goals, recurringRules]);
 
     const [isModalOpen, setIsModalOpen] = useState(false);
     const [editingGoal, setEditingGoal] = useState<SavingsGoal | null>(null);
@@ -36,9 +37,7 @@ export const SavingsPage = () => {
         localStorage.setItem('savingsTimeframe', timeframeMonths);
     }, [timeframeMonths]);
 
-    const refreshData = () => {
-        setLegacyData(loadData());
-    };
+
 
     // 1. Calculate Total Savings Balance (Accounts with excludeFromTotals === true)
     const savingsAccounts = useMemo(() => data.accounts.filter(a => a.excludeFromTotals), [data.accounts]);
@@ -175,15 +174,13 @@ export const SavingsPage = () => {
 
         updatePriority(currentGoal, swapTempPriority);
         updatePriority(swapGoal, tempPriority);
-        refreshData();
     };
 
     const updatePriority = async (goal: any, newPriority: number) => {
         if (goal.isVirtual) {
             const rule = data.recurringRules?.find(r => r.id === goal.ruleId);
             if (rule) {
-                updateRecurringRule({ ...rule, savingsPriority: newPriority });
-                refreshData();
+                await rqUpdateRule({ ...rule, savingsPriority: newPriority });
             }
         } else {
             const manualGoal = data.savingsGoals?.find(g => g.id === goal.id);
@@ -222,7 +219,7 @@ export const SavingsPage = () => {
         }
     };
 
-    if (isAccLoading || isTxLoading || isGoalsLoading) {
+    if (isAccLoading || isTxLoading || isGoalsLoading || isRulesLoading) {
         return <div className="p-8 text-center text-muted-foreground animate-pulse">Cargando datos...</div>;
     }
 

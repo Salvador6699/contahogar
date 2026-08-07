@@ -6,15 +6,9 @@ import {
   Category,
   Account,
 } from "@/types/finance";
-import {
-  loadRecurringRules,
-  addRecurringRule,
-  updateRecurringRule,
-  deleteRecurringRule,
-  getCategories,
-  loadData,
-} from "@/lib/storage";
-import { syncAndSaveRecurringTransactions } from "@/lib/recurrence";
+import { useRecurringRules } from "@/hooks/useRecurringRules";
+import { useAccounts } from "@/hooks/useAccounts";
+import { useCategories } from "@/hooks/useCategories";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -33,9 +27,9 @@ import { toast } from "sonner";
 
 export const RecurringExpensesManager = () => {
   const [searchParams] = useSearchParams();
-  const [rules, setRules] = useState<RecurringExpenseRule[]>([]);
-  const [categories, setCategories] = useState<Category[]>([]);
-  const [accounts, setAccounts] = useState<Account[]>([]);
+  const { rules, addRule, updateRule, deleteRule, isLoading: isRulesLoading } = useRecurringRules();
+  const { categories, isLoading: isCatLoading } = useCategories();
+  const { accounts, isLoading: isAccLoading } = useAccounts();
 
   // Form State
   const [editingRule, setEditingRule] = useState<RecurringExpenseRule | null>(null);
@@ -49,9 +43,7 @@ export const RecurringExpensesManager = () => {
   const [customIntervalUnit, setCustomIntervalUnit] = useState<"days" | "months" | "years">("months");
   const [startDate, setStartDate] = useState(format(new Date(), "yyyy-MM-dd"));
 
-  useEffect(() => {
-    refreshData();
-  }, []);
+
 
   useEffect(() => {
     const editRuleId = searchParams.get("editRuleId");
@@ -63,13 +55,7 @@ export const RecurringExpensesManager = () => {
     }
   }, [searchParams, rules]);
 
-  const refreshData = () => {
-    const loadedRules = loadRecurringRules();
-    setRules(loadedRules);
-    setCategories(getCategories());
-    const data = loadData();
-    setAccounts(data.accounts);
-  };
+
 
   const handleEdit = (rule: RecurringExpenseRule) => {
     setEditingRule(rule);
@@ -89,11 +75,9 @@ export const RecurringExpensesManager = () => {
     resetForm();
   };
 
-  const handleDelete = (id: string) => {
+  const handleDelete = async (id: string) => {
     if (confirm("¿Estás seguro de eliminar esta regla recurrente? Se borrarán todos los cobros futuros pendientes generados por ella.")) {
-      deleteRecurringRule(id);
-      syncAndSaveRecurringTransactions(loadData());
-      refreshData();
+      await deleteRule(id);
       toast.success("Automatización eliminada");
       if (editingRule?.id === id) {
         handleCancelEdit();
@@ -113,7 +97,7 @@ export const RecurringExpensesManager = () => {
     setStartDate(format(new Date(), "yyyy-MM-dd"));
   };
 
-  const handleSave = () => {
+  const handleSave = async () => {
     if (!name || !amount || !category || !accountId || !startDate) {
       toast.error("Por favor completa todos los campos obligatorios.");
       return;
@@ -127,7 +111,7 @@ export const RecurringExpensesManager = () => {
 
     if (editingRule) {
       // User can only modify amount, frequency, and start date. The rest is kept from the original rule.
-      updateRecurringRule({
+      await updateRule({
         ...editingRule,
         amount: numAmount,
         frequency,
@@ -137,7 +121,7 @@ export const RecurringExpensesManager = () => {
       });
       toast.success("Automatización actualizada");
     } else {
-      addRecurringRule({
+      await addRule({
         name,
         amount: numAmount,
         category,
@@ -151,11 +135,13 @@ export const RecurringExpensesManager = () => {
       toast.success("Automatización creada");
     }
 
-    syncAndSaveRecurringTransactions(loadData());
-    refreshData();
     setEditingRule(null);
     resetForm();
   };
+
+  if (isRulesLoading || isCatLoading || isAccLoading) {
+    return <div className="p-8 text-center text-muted-foreground animate-pulse">Cargando datos...</div>;
+  }
 
 
 

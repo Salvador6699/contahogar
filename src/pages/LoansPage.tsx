@@ -1,6 +1,5 @@
 import { useState, useMemo } from 'react';
 import { Landmark, Plus, Trash2, Calendar, AlertCircle, ChevronDown, ChevronUp, Edit2, Check, X as XIcon } from 'lucide-react';
-import { loadData, deleteLoan, applyLoanTransaction, updateLoanTransaction, updateLoan } from '@/lib/storage';
 import { formatCurrency } from '@/lib/calculations';
 import { Button } from '@/components/ui/button';
 import { Progress } from '@/components/ui/progress';
@@ -12,19 +11,18 @@ import { es } from 'date-fns/locale';
 import { Transaction } from '@/types/finance';
 import { useAccounts } from '@/hooks/useAccounts';
 import { useTransactions } from '@/hooks/useTransactions';
-import { useQueryClient } from '@tanstack/react-query';
+import { useLoans } from '@/hooks/useLoans';
 
 const LoansPage = () => {
-  const [legacyData, setLegacyData] = useState(loadData());
   const { accounts, isLoading: isAccLoading } = useAccounts();
-  const { transactions, isLoading: isTxLoading } = useTransactions();
-  const queryClient = useQueryClient();
+  const { transactions, updateTransaction, isLoading: isTxLoading } = useTransactions();
+  const { loans, deleteLoan, applyLoanTransaction, updateLoan, isLoading: isLoansLoading } = useLoans();
 
   const data = useMemo(() => ({
-    ...legacyData,
     accounts,
-    transactions
-  }), [legacyData, accounts, transactions]);
+    transactions,
+    loans
+  }), [accounts, transactions, loans]);
   const [isModalOpen, setIsModalOpen] = useState(false);
 
   // Group loans and calculate progress
@@ -56,40 +54,33 @@ const LoansPage = () => {
   const activeLoans = loanSummaries.filter(l => !l.isCompleted);
   const completedLoans = loanSummaries.filter(l => l.isCompleted);
 
-  const handleDelete = (id: string, name: string, amountPaid: number) => {
+  const handleDelete = async (id: string, name: string, amountPaid: number) => {
     if (amountPaid > 0) {
       toast.error(`No puedes eliminar "${name}" porque ya tiene cuotas pagadas. Si necesitas borrarlo, deshace primero los pagos marcándolos como pendientes.`);
       return;
     }
     if (confirm(`¿Estás seguro de que quieres eliminar "${name}" y TODAS sus transacciones asociadas?`)) {
-      deleteLoan(id);
-      setLegacyData(loadData());
-      queryClient.invalidateQueries({ queryKey: ["transactions"] });
+      await deleteLoan(id);
       toast.success('Financiación eliminada');
     }
   };
 
-  const handleSaveLoan = (loanData: any) => {
-    applyLoanTransaction(loanData);
-    setLegacyData(loadData());
-    queryClient.invalidateQueries({ queryKey: ["transactions"] });
+  const handleSaveLoan = async (loanData: any) => {
+    await applyLoanTransaction(loanData);
     setIsModalOpen(false);
     toast.success('Préstamo creado correctamente');
   };
 
-  const handleUpdateTransaction = (id: string, updates: Partial<Transaction>) => {
-    updateLoanTransaction(id, updates);
-    setLegacyData(loadData());
-    queryClient.invalidateQueries({ queryKey: ["transactions"] });
+  const handleUpdateTransaction = async (id: string, updates: Partial<Transaction>) => {
+    await updateTransaction({ id, ...updates });
   };
 
-  const handleUpdateLoan = (id: string, updates: Partial<any>) => {
-    updateLoan(id, updates);
-    setLegacyData(loadData());
+  const handleUpdateLoan = async (id: string, updates: Partial<any>) => {
+    await updateLoan({ id, ...updates } as any);
     toast.success('Préstamo actualizado');
   };
 
-  if (isAccLoading || isTxLoading) {
+  if (isAccLoading || isTxLoading || isLoansLoading) {
     return <div className="p-8 text-center text-muted-foreground animate-pulse">Cargando datos...</div>;
   }
 

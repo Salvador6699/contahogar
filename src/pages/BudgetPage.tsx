@@ -36,7 +36,7 @@ const BudgetPage = () => {
     const { accounts, isLoading: isAccLoading } = useAccounts();
     const { transactions, isLoading: isTxLoading } = useTransactions();
     const { categories, isLoading: isCatLoading } = useCategories();
-    const { budgets, isLoading: isBudLoading } = usePlanning();
+    const { budgets, saveBudgets, isLoading: isBudLoading } = usePlanning();
 
     const data = useMemo(() => ({
         ...legacyData,
@@ -215,13 +215,11 @@ const BudgetPage = () => {
         });
     };
 
-    const handleSave = () => {
-        const newData = { ...data };
-        
-        newData.budgets = newData.budgets.filter(b => b.month !== activeMonth);
+    const handleSave = async () => {
+        const newBudgets: Budget[] = [];
         
         Object.entries(localAssignments).forEach(([category, { amount }]) => {
-            newData.budgets.push({
+            newBudgets.push({
                 id: uuidv4(),
                 category,
                 amount,
@@ -231,9 +229,8 @@ const BudgetPage = () => {
             });
         });
 
-        saveData(newData);
-        setLegacyData(newData);
-        toast.success('Presupuesto guardado correctamente');
+        await saveBudgets({ month: activeMonth, budgets: newBudgets });
+        toast.success('Presupuesto guardado correctamente en la nube');
     };
 
     const incomeOnlyCategories = useMemo(() => {

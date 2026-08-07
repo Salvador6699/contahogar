@@ -1,7 +1,7 @@
 // src/components/AccountManager.tsx
 import { useState, useEffect } from 'react';
 import { Account } from '@/types/finance';
-import { loadData, addAccount, updateAccount, deleteAccount } from '@/lib/storage';
+import { useAccounts } from '@/hooks/useAccounts';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogClose } from '@/components/ui/dialog';
@@ -32,7 +32,7 @@ const BANK_LOGOS = [
 ];
 
 export const AccountManager = () => {
-    const [accounts, setAccounts] = useState<Account[]>([]);
+    const { accounts, addAccount, updateAccount, deleteAccount, isLoading } = useAccounts();
     const [isDialogOpen, setIsDialogOpen] = useState(false);
     const [editingAccount, setEditingAccount] = useState<Account | null>(null);
     const [accountName, setAccountName] = useState('');
@@ -41,14 +41,6 @@ export const AccountManager = () => {
     const [logo, setLogo] = useState('');
     const [isCustomLogo, setIsCustomLogo] = useState(false);
     const [excludeFromTotals, setExcludeFromTotals] = useState(false);
-
-    useEffect(() => {
-        setAccounts(loadData().accounts);
-    }, []);
-
-    const refreshAccounts = () => {
-        setAccounts(loadData().accounts);
-    };
 
     const handleOpenDialog = (account: Account | null = null) => {
         setEditingAccount(account);
@@ -75,21 +67,19 @@ export const AccountManager = () => {
             updateAccount({ ...editingAccount, name: accountName.trim(), initialBalance: balance, linkedAccountId: finalLinkedId, logo: finalLogo, excludeFromTotals });
             toast.success('Cuenta actualizada correctamente.');
         } else {
-            addAccount(accountName.trim(), balance, finalLinkedId, finalLogo, excludeFromTotals);
+            addAccount({ name: accountName.trim(), initialBalance: balance, linkedAccountId: finalLinkedId, logo: finalLogo, excludeFromTotals });
             toast.success('Cuenta añadida correctamente.');
         }
 
-        refreshAccounts();
         setIsDialogOpen(false);
     };
 
-    const handleDelete = (accountId: string) => {
-        const result = deleteAccount(accountId);
-        if (result.success) {
+    const handleDelete = async (accountId: string) => {
+        try {
+            await deleteAccount(accountId);
             toast.success('Cuenta eliminada correctamente.');
-            refreshAccounts();
-        } else {
-            toast.error(result.message);
+        } catch (error: any) {
+            toast.error(error.message || 'Error al eliminar la cuenta');
         }
     };
 

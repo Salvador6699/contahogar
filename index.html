@@ -22,6 +22,14 @@
 
   <body translate="no">
     <div id="root"></div>
+    <script>
+      window.addEventListener('error', (event) => {
+        document.body.innerHTML += '<div style="color:red; background:white; padding:20px; position:absolute; top:0; left:0; z-index:9999; font-family:monospace;">' + event.message + '<br>' + event.filename + ':' + event.lineno + '</div>';
+      });
+      window.addEventListener('unhandledrejection', (event) => {
+        document.body.innerHTML += '<div style="color:red; background:white; padding:20px; position:absolute; top:0; left:0; z-index:9999; font-family:monospace;">Unhandled Promise Rejection: ' + (event.reason && event.reason.message ? event.reason.message : String(event.reason)) + '</div>';
+      });
+    </script>
     <script type="module" src="/src/main.tsx"></script>
   </body>
 </html>

@@ -1,5 +1,5 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -10,9 +10,9 @@ import * as Icons from 'lucide-react';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { toast } from 'sonner';
 import { cn } from '@/lib/utils';
-import { loadFavorites, addFavorite as saveFavorite, updateFavorite as modifyFavorite, deleteFavorite as removeFavorite } from '@/lib/storage';
 import { useAccounts } from '@/hooks/useAccounts';
 import { useCategories } from '@/hooks/useCategories';
+import { useFavorites } from '@/hooks/useFavorites';
 
 const ICON_LIST = [
   'Tag', 'Wallet', 'CreditCard', 'Banknote', 'PiggyBank', 'ShoppingCart', 'ShoppingBag', 'ShoppingBasket',
@@ -31,7 +31,7 @@ const FavoritesPage = () => {
   const navigate = useNavigate();
   const { accounts, isLoading: isAccLoading } = useAccounts();
   const { categories, isLoading: isCatLoading } = useCategories();
-  const [favorites, setFavorites] = useState<FavoriteExpense[]>(() => loadFavorites());
+  const { favorites, isLoading: isFavLoading, addFavorite, updateFavorite, deleteFavorite } = useFavorites();
   
   const [editingId, setEditingId] = useState<string | null>(null);
   const [name, setName] = useState('');
@@ -110,14 +110,13 @@ const FavoritesPage = () => {
     window.scrollTo({ top: document.body.scrollHeight, behavior: 'smooth' });
   };
 
-  const handleDelete = (id: string) => {
-    removeFavorite(id);
-    setFavorites(loadFavorites());
+  const handleDelete = async (id: string) => {
+    await deleteFavorite(id);
     toast.success('Favorito eliminado');
     if (editingId === id) resetForm();
   };
 
-  const handleSave = () => {
+  const handleSave = async () => {
     if (!name || !amount || !category || !accountId) {
       toast.error('Por favor, completa todos los campos obligatorios');
       return;
@@ -135,13 +134,11 @@ const FavoritesPage = () => {
     };
 
     if (editingId) {
-      modifyFavorite({ ...favoriteData, id: editingId });
+      await updateFavorite({ ...favoriteData, id: editingId });
       toast.success('Favorito actualizado correctamente');
-      setFavorites(loadFavorites());
       resetForm();
     } else {
-      saveFavorite(favoriteData);
-      setFavorites(loadFavorites());
+      await addFavorite(favoriteData);
       toast.success('Favorito guardado correctamente');
       resetForm();
     }
@@ -150,7 +147,7 @@ const FavoritesPage = () => {
     window.scrollTo({ top: 0, behavior: 'smooth' });
   };
 
-  if (isAccLoading || isCatLoading) {
+  if (isAccLoading || isCatLoading || isFavLoading) {
     return <div className="p-8 text-center text-muted-foreground animate-pulse">Cargando datos...</div>;
   }
 

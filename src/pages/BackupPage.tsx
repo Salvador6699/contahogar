@@ -11,6 +11,7 @@ import { toast } from 'sonner';
 import BackupVault from '@/components/BackupVault';
 import { cn } from '@/lib/utils';
 import { useQueryClient } from '@tanstack/react-query';
+import { uploadToSupabase } from '@/lib/supabase';
 
 const BackupPage = () => {
     const navigate = useNavigate();
@@ -77,7 +78,7 @@ const BackupPage = () => {
                 throw new Error('El archivo no tiene el formato correcto de ContaHogar');
             }
 
-            saveData(importedData);
+            await uploadToSupabase(importedData);
             queryClient.invalidateQueries();
             toast.success('Datos restaurados correctamente', { id: toastId });
             setTimeout(() => navigate('/'), 1000);

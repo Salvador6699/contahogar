@@ -1,7 +1,7 @@
 import {
-  FinanceData,
   Transaction,
   RecurringExpenseRule,
+  Loan,
 } from "@/types/finance";
 import {
   addDays,
@@ -13,41 +13,49 @@ import {
   parseISO,
   format,
 } from "date-fns";
-import { saveData } from "./storage";
+import { supabase } from "@/lib/supabase";
+import { getTransactions } from "@/api/local/transactions";
+import { getRecurringRules } from "@/api/local/recurringRules";
+import { getLoans } from "@/api/local/loans";
 
 /**
- * Synchronizes the generated pending transactions with the recurring rules.
+ * Synchronizes the generated pending transactions with the recurring rules in Supabase.
  * This should be called on startup, and whenever rules are modified.
  */
-export const syncRecurringTransactions = (data: FinanceData): FinanceData => {
-  const rules = data.recurringRules || [];
-  let transactions = [...data.transactions];
+export const syncRecurringTransactionsToSupabase = async (): Promise<void> => {
+  const [rules, transactions, loans] = await Promise.all([
+    getRecurringRules(),
+    getTransactions(),
+    getLoans()
+  ]);
+
   const today = new Date();
 
   // 1. Identify all rules
   const activeRuleIds = new Set(rules.map((r) => r.id));
 
-  // 2. Clean up orphaned pending transactions (from deleted rules)
-  transactions = transactions.filter((t) => {
+  // 2. Identify orphaned pending transactions (from deleted rules) to delete
+  const idsToDelete = new Set<string>();
+  transactions.forEach((t) => {
     if (t.isPending && t.id.startsWith("rec_")) {
       const parts = t.id.split("_");
       if (parts.length >= 3) {
         const ruleId = parts[1];
         if (!activeRuleIds.has(ruleId)) {
-          return false; // Remove pending tx for a deleted rule
+          idsToDelete.add(t.id);
         }
       }
     }
-    return true;
   });
+
+  const transactionsToUpsert: Transaction[] = [];
 
   // 3. For each rule, regenerate pending transactions
   rules.forEach((rule) => {
-    // Determine the projection limit based on frequency
     let limitDate = new Date();
-    if (rule.frequency === "weekly" || rule.frequency === "Semanal" as any) {
+    if (rule.frequency === "weekly") {
       limitDate = addMonths(today, 6);
-    } else if (rule.frequency === "yearly" || rule.frequency === "Anual" as any) {
+    } else if (rule.frequency === "yearly") {
       limitDate = addYears(today, 2);
     } else if (rule.frequency === "custom") {
       limitDate = addYears(today, 2);
@@ -57,16 +65,13 @@ export const syncRecurringTransactions = (data: FinanceData): FinanceData => {
 
     let currentDate = parseISO(rule.startDate);
     if (isNaN(currentDate.getTime())) {
-      // If startDate is invalid (e.g. '0000-00-00'), use today as fallback
       currentDate = new Date();
     }
     const generatedIds = new Set<string>();
 
-    // Safeguard to prevent infinite loops
     let iterations = 0;
     const MAX_ITERATIONS = 500;
 
-    // Generate dates until we pass the limitDate
     while (!isAfter(currentDate, limitDate) && iterations < MAX_ITERATIONS) {
       iterations++;
       const dateStr = format(currentDate, "yyyy-MM-dd");
@@ -79,22 +84,19 @@ export const syncRecurringTransactions = (data: FinanceData): FinanceData => {
         const existingTx = transactions[existingTxIndex];
         // Only update if it's still pending
         if (existingTx.isPending) {
-          transactions[existingTxIndex] = {
+          transactionsToUpsert.push({
             ...existingTx,
             amount: rule.amount,
             category: rule.category,
             accountId: rule.accountId,
             type: rule.type,
-            // name might have changed
             description: rule.name,
             date: dateStr,
-          };
+          });
         }
       } else {
         // Create new pending transaction
-        // Auto-fix for old corrupted fractionations:
-        // Check if there is a loan that fractionated this exact transaction
-        const matchingLoan = data.loans?.find(l => 
+        const matchingLoan = loans?.find(l => 
           l.type === "fractionation" && 
           l.originalTransactionData && 
           (l.originalTransactionData.id === txId || 
@@ -103,7 +105,7 @@ export const syncRecurringTransactions = (data: FinanceData): FinanceData => {
         );
 
         if (matchingLoan) {
-          transactions.push({
+          transactionsToUpsert.push({
             id: txId,
             date: dateStr,
             amount: 0,
@@ -116,7 +118,7 @@ export const syncRecurringTransactions = (data: FinanceData): FinanceData => {
             linkedLoanId: matchingLoan.id
           });
         } else {
-          const newTx: Transaction = {
+          transactionsToUpsert.push({
             id: txId,
             date: dateStr,
             amount: rule.amount,
@@ -125,15 +127,13 @@ export const syncRecurringTransactions = (data: FinanceData): FinanceData => {
             type: rule.type,
             description: rule.name,
             isPending: true,
-          };
-          transactions.push(newTx);
+          });
         }
       }
 
-      // Advance date (support older translated frequencies like 'Mensual')
-      if (rule.frequency === "weekly" || rule.frequency === "Semanal" as any) {
+      if (rule.frequency === "weekly") {
         currentDate = addWeeks(currentDate, 1);
-      } else if (rule.frequency === "yearly" || rule.frequency === "Anual" as any) {
+      } else if (rule.frequency === "yearly") {
         currentDate = addYears(currentDate, 1);
       } else if (rule.frequency === "custom") {
         const interval = rule.customInterval || 1;
@@ -145,31 +145,33 @@ export const syncRecurringTransactions = (data: FinanceData): FinanceData => {
           currentDate = addMonths(currentDate, interval);
         }
       } else {
-        // Default to monthly for "monthly", "Mensual", or any unknown frequency
         currentDate = addMonths(currentDate, 1);
       }
     }
 
     // Clean up old pending transactions for THIS rule that are no longer in the generated set
-    // (e.g. if the user changed the frequency or startDate)
-    transactions = transactions.filter((t) => {
+    transactions.forEach((t) => {
       if (t.isPending && t.id.startsWith(`rec_${rule.id}_`)) {
         if (!generatedIds.has(t.id)) {
-          return false; // Remove it
+          idsToDelete.add(t.id);
         }
       }
-      return true;
     });
   });
 
-  const updatedData = { ...data, transactions };
-  return updatedData;
-};
+  if (idsToDelete.size > 0) {
+    const ids = Array.from(idsToDelete);
+    // Chunking deletes if there are too many, though Supabase can handle a lot
+    for (let i = 0; i < ids.length; i += 100) {
+      const chunk = ids.slice(i, i + 100);
+      await supabase.from('transactions').delete().in('id', chunk);
+    }
+  }
 
-/**
- * Convenience function to sync and save directly.
- */
-export const syncAndSaveRecurringTransactions = (data: FinanceData): void => {
-  const updatedData = syncRecurringTransactions(data);
-  saveData(updatedData);
+  if (transactionsToUpsert.length > 0) {
+    for (let i = 0; i < transactionsToUpsert.length; i += 100) {
+      const chunk = transactionsToUpsert.slice(i, i + 100);
+      await supabase.from('transactions').upsert(chunk);
+    }
+  }
 };

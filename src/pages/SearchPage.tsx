@@ -13,9 +13,10 @@ import {
   Tag,
   Filter
 } from 'lucide-react';
-import { applyFractionatedTransaction } from '@/lib/storage';
+
 import { useQueryClient } from '@tanstack/react-query';
 import { useTransactions } from '@/hooks/useTransactions';
+import { useLoans } from '@/hooks/useLoans';
 import { useAccounts } from '@/hooks/useAccounts';
 import { useCategories } from '@/hooks/useCategories';
 import { Transaction, Account, Category, TransactionType } from '@/types/finance';
@@ -36,6 +37,7 @@ const SearchPage = () => {
   const { transactions, updateTransaction: rqUpdateTransaction, deleteTransaction: rqDeleteTransaction, isLoading: isTxLoading } = useTransactions();
   const { accounts, isLoading: isAccLoading } = useAccounts();
   const { categories, isLoading: isCatLoading } = useCategories();
+  const { applyFractionatedTransaction } = useLoans();
   const [showFilters, setShowFilters] = useState(false);
   const [editingTransaction, setEditingTransaction] = useState<Transaction | null>(null);
   const [isModalOpen, setIsModalOpen] = useState(false);
@@ -77,8 +79,11 @@ const SearchPage = () => {
   ) => {
     if (editingTransaction) {
       if (fractionationData?.isFractionated) {
-        applyFractionatedTransaction(transaction, fractionationData, editingTransaction?.id);
-        queryClient.invalidateQueries({ queryKey: ["transactions"] });
+        await applyFractionatedTransaction({ 
+          transaction: transaction as Transaction, 
+          fractionationData, 
+          editingId: editingTransaction?.id 
+        });
       } else {
         await rqUpdateTransaction({ ...transaction, id: editingTransaction.id } as Transaction);
       }

@@ -1,11 +1,11 @@
 import { Account } from "@/types/finance";
-import * as storage from "@/lib/storage";
-
-const delay = (ms = 150) => new Promise((resolve) => setTimeout(resolve, ms));
+import { supabase } from "@/lib/supabase";
+import { v4 as uuidv4 } from "uuid";
 
 export const getAccounts = async (): Promise<Account[]> => {
-  await delay();
-  return storage.loadData().accounts;
+  const { data, error } = await supabase.from('accounts').select('*');
+  if (error) throw new Error(error.message);
+  return data as Account[];
 };
 
 export const addAccount = async (data: {
@@ -15,25 +15,35 @@ export const addAccount = async (data: {
   logo?: string;
   excludeFromTotals?: boolean;
 }): Promise<Account> => {
-  await delay();
-  return storage.addAccount(
-    data.name,
-    data.initialBalance,
-    data.linkedAccountId,
-    data.logo,
-    data.excludeFromTotals
-  );
+  const newAccount = {
+    id: uuidv4(),
+    ...data
+  };
+  const { data: result, error } = await supabase.from('accounts').insert([newAccount]).select().single();
+  if (error) throw new Error(error.message);
+  return result as Account;
 };
 
 export const updateAccount = async (account: Account): Promise<void> => {
-  await delay();
-  storage.updateAccount(account);
+  const { error } = await supabase.from('accounts').update(account).eq('id', account.id);
+  if (error) throw new Error(error.message);
 };
 
 export const deleteAccount = async (id: string): Promise<void> => {
-  await delay();
-  const res = storage.deleteAccount(id);
-  if (!res.success) {
-    throw new Error(res.message);
+  // First, check if it has transactions
+  const { data: tx, error: txError } = await supabase.from('transactions').select('id').eq('accountId', id).limit(1);
+  if (txError) throw new Error(txError.message);
+  if (tx && tx.length > 0) {
+    throw new Error("No se puede eliminar una cuenta con transacciones asociadas.");
   }
+  
+  // Also ensure it's not the last account
+  const { data: countData, error: countError } = await supabase.from('accounts').select('id', { count: 'exact' });
+  if (countError) throw new Error(countError.message);
+  if (countData && countData.length <= 1) {
+    throw new Error("No puedes eliminar la única cuenta que queda.");
+  }
+
+  const { error } = await supabase.from('accounts').delete().eq('id', id);
+  if (error) throw new Error(error.message);
 };

@@ -7,16 +7,7 @@ import {
 import {
   loadData,
   saveData,
-  addTransaction as saveTransaction,
-  addCategory,
-  updateTransaction,
-  deleteTransaction,
-  loadFavorites,
-  addFavorite as saveFavorite,
-  updateFavorite as modifyFavorite,
-  deleteFavorite as removeFavorite,
   updateAlertSettings,
-  applyFractionatedTransaction,
 } from "@/lib/storage";
 import {
   calculateBalance,
@@ -56,6 +47,8 @@ import { useAccounts } from "@/hooks/useAccounts";
 import { useTransactions } from "@/hooks/useTransactions";
 import { useCategories } from "@/hooks/useCategories";
 import { usePlanning } from "@/hooks/usePlanning";
+import { useLoans } from "@/hooks/useLoans";
+import { useFavorites } from "@/hooks/useFavorites";
 
 const Index = () => {
   const navigate = useNavigate();
@@ -88,14 +81,12 @@ const Index = () => {
   const [isFavoriteModalOpen, setIsFavoriteModalOpen] = useState(false);
   const [editingFavorite, setEditingFavorite] =
     useState<FavoriteExpense | null>(null);
-  const [favorites, setFavorites] = useState<FavoriteExpense[]>([]);
   const [isQuickAmountModalOpen, setIsQuickAmountModalOpen] = useState(false);
   const [activeQuickFavorite, setActiveQuickFavorite] =
     useState<FavoriteExpense | null>(null);
 
-  useEffect(() => {
-    setFavorites(loadFavorites());
-  }, []);
+  const { favorites } = useFavorites();
+  const { applyFractionatedTransaction } = useLoans();
 
   const {
     filteredTransactions,
@@ -144,8 +135,7 @@ const Index = () => {
       paramsChanged = true;
     } else if (action === "quick-expense") {
       const favId = searchParams.get("id");
-      const favs = loadFavorites();
-      const fav = favs.find((f) => f.id === favId);
+      const fav = favorites.find((f) => f.id === favId);
       if (fav) {
         setActiveQuickFavorite(fav);
         setIsQuickAmountModalOpen(true);
@@ -172,15 +162,13 @@ const Index = () => {
 
     if (editingTransaction) {
       if (fractionationData?.isFractionated) {
-        applyFractionatedTransaction(transaction, fractionationData, editingTransaction?.id);
-        queryClient.invalidateQueries({ queryKey: ["transactions"] });
+        await applyFractionatedTransaction({ transaction, fractionationData, editingId: editingTransaction.id });
       } else {
         await rqUpdateTransaction({ ...transaction, id: editingTransaction.id });
       }
     } else {
       if (fractionationData?.isFractionated) {
-        applyFractionatedTransaction(transaction, fractionationData);
-        queryClient.invalidateQueries({ queryKey: ["transactions"] });
+        await applyFractionatedTransaction({ transaction, fractionationData });
       } else {
         await rqAddTransaction(transaction);
       }
@@ -237,24 +225,6 @@ const Index = () => {
     toast.success(`${activeQuickFavorite.name} registrado: ${formatCurrency(amount)}`);
     setIsQuickAmountModalOpen(false);
     setActiveQuickFavorite(null);
-  };
-
-  const handleSaveFavorite = (
-    favData: Omit<FavoriteExpense, "id"> | FavoriteExpense,
-  ) => {
-    if ("id" in favData) {
-      modifyFavorite(favData as FavoriteExpense);
-    } else {
-      saveFavorite(favData);
-    }
-    setFavorites(loadFavorites());
-    toast.success("Favorito guardado correctamente");
-  };
-
-  const handleDeleteFavorite = (id: string) => {
-    removeFavorite(id);
-    setFavorites(loadFavorites());
-    toast.success("Favorito eliminado");
   };
 
   const handleEditTransaction = (transaction: Transaction) => {

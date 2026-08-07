@@ -7,8 +7,7 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import ScrollToTop from "./components/ScrollToTop";
 import AppLayout from "./components/AppLayout";
 
-import { loadData } from "@/lib/storage";
-import { syncAndSaveRecurringTransactions } from "@/lib/recurrence";
+import { syncRecurringTransactionsToSupabase } from "@/lib/recurrence";
 
 import Index from "./pages/Index";
 import HistoryPage from "./pages/HistoryPage";
@@ -38,10 +37,12 @@ const App = () => {
 
   useEffect(() => {
     const initApp = async () => {
-      // Sincronizar transacciones recurrentes
-      const data = loadData();
-      syncAndSaveRecurringTransactions(data);
-      
+      // Sincronizar transacciones recurrentes en Supabase
+      try {
+        await syncRecurringTransactionsToSupabase();
+      } catch (error) {
+        console.error("Error sincronizando transacciones recurrentes:", error);
+      }
       setIsReady(true);
     };
     
