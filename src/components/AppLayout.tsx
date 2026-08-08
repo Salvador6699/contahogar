@@ -14,15 +14,15 @@ const AppLayout = () => {
     );
   }
 
-  // Force users without a team to go to Settings (Teams tab) to create or join one
+  // Force users without a team to go to Teams to create or join one
   console.log('AppLayout Debug:', { activeTeam, teamsLength: teams.length, pathname: location.pathname });
-  if (!activeTeam && location.pathname !== '/ajustes' && location.pathname !== '/select-team') {
+  if (!activeTeam && location.pathname !== '/equipos' && location.pathname !== '/select-team') {
     if (teams.length > 1) {
       console.log('AppLayout: Redirecting to /select-team');
       return <Navigate to="/select-team" replace />;
     }
-    console.log('AppLayout: Redirecting to /ajustes');
-    return <Navigate to="/ajustes?tab=equipos" replace />;
+    console.log('AppLayout: Redirecting to /equipos');
+    return <Navigate to="/equipos" replace />;
   }
 
   return (

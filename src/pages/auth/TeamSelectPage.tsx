@@ -54,7 +54,7 @@ const TeamSelectPage = () => {
 
         <div className="space-y-4">
           <Button 
-            onClick={() => navigate('/ajustes?tab=equipos')} 
+            onClick={() => navigate('/equipos')} 
             variant="outline" 
             className="w-full h-14 rounded-2xl border-dashed border-2 gap-2 text-muted-foreground hover:text-foreground"
           >

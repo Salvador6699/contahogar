@@ -40,7 +40,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
   }, []);
 
   const signOut = async () => {
-    localStorage.removeItem('contahogar_active_team_id');
+    localStorage.clear();
     await supabase.auth.signOut();
     window.location.href = '/login';
   };
