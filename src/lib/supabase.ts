@@ -12,7 +12,80 @@ export const supabase = createClient(
   supabaseAnonKey || ''
 );
 
+export const restoreToSupabase = async (data: any): Promise<void> => {
+  if (!data || !data.accounts || data.accounts.length === 0) {
+      throw new Error("El backup no contiene cuentas. Restauración abortada por seguridad para prevenir la pérdida de datos.");
+  }
+
+  // First, we wipe everything to guarantee a clean restore.
+  // Because of foreign keys (ON DELETE CASCADE, SET NULL), order matters.
+  // We can just delete everything using .neq('id', 'dummy_value') which effectively means DELETE ALL
+  
+  const wipeTable = async (table: string) => {
+    const { error } = await supabase.from(table).delete().neq('id', 'dummy');
+    if (error) {
+      console.error(`Error wiping ${table}:`, error);
+      throw new Error(`Error limpiando tabla ${table}: ${error.message}`);
+    }
+  };
+
+  // Wipe tables that don't cascade or are leaf nodes first
+  await wipeTable('transactions');
+  await wipeTable('favorites');
+  await wipeTable('savings_goals');
+  await wipeTable('recurring_rules');
+  await wipeTable('loans');
+  await wipeTable('budgets');
+  // Wipe master tables last
+  await wipeTable('categories');
+  await wipeTable('accounts'); // this would cascade anyway, but safe to explicitly wipe
+
+  const insertData = async (table: string, payload: any[]) => {
+    if (!payload || payload.length === 0) return;
+    const { error } = await supabase.from(table).insert(payload);
+    if (error) {
+      console.error(`Error al insertar en ${table}:`, error);
+      throw new Error(`Error insertando en tabla ${table}: ${error.message}`);
+    }
+  };
+
+  const validAccountIds = new Set((data.accounts || []).map((a: any) => a.id));
+  const efectivoAccount = (data.accounts || []).find((a: any) => a.name && a.name.toLowerCase() === 'efectivo');
+  const defaultAccountId = efectivoAccount ? efectivoAccount.id : (data.accounts && data.accounts.length > 0 ? data.accounts[0].id : null);
+  const safeAccountId = (id: any) => validAccountIds.has(id) ? id : defaultAccountId;
+
+  const safeAccounts = (data.accounts || []).map((a: any) => ({ id: a.id, name: a.name, initialBalance: a.initialBalance, linkedAccountId: a.linkedAccountId, logo: a.logo, excludeFromTotals: a.excludeFromTotals }));
+  const safeCategories = (data.categories || []).map((c: any) => ({ id: c.id, name: c.name, icon: c.icon, color: c.color, monthlyLimit: c.monthlyLimit, customIcon: c.customIcon }));
+  const safeTransactions = (data.transactions || []).map((t: any) => ({ id: t.id, date: t.date, amount: t.amount, category: t.category, type: t.type === 'income' ? 'income' : 'expense', accountId: safeAccountId(t.accountId), description: t.description, isPending: t.isPending || false, isIgnored: t.isIgnored || false, linkedLoanId: t.linkedLoanId })).filter((t: any) => t.accountId != null);
+  const safeBudgets = (data.budgets || []).map((b: any) => ({ id: b.id, category: b.category, amount: b.amount, month: b.month, isAuto: b.isAuto || false }));
+  const safeFavorites = (data.favorites || []).map((f: any) => ({ id: f.id, name: f.name, amount: f.amount, category: f.category, accountId: safeAccountId(f.accountId), description: f.description, type: f.type === 'income' ? 'income' : 'expense', icon: f.icon, customIcon: f.customIcon })).filter((f: any) => f.accountId != null);
+  const safeSavingsGoals = (data.savingsGoals || []).map((sg: any) => ({ id: sg.id, name: sg.name, targetAmount: sg.targetAmount, currentAmount: sg.currentAmount, deadline: sg.deadline, accountId: safeAccountId(sg.accountId), color: sg.color, category: sg.category, priority: sg.priority, isIgnored: sg.isIgnored || false })).filter((sg: any) => sg.accountId != null);
+  
+  const parseFreq = (f: string) => {
+    if (f === 'Semanal') return 'weekly';
+    if (f === 'Anual') return 'yearly';
+    if (f === 'custom') return 'custom';
+    return 'monthly';
+  };
+  const safeRecurringRules = (data.recurringRules || []).map((r: any) => ({ id: r.id, name: r.name, amount: r.amount, category: r.category, accountId: safeAccountId(r.accountId), frequency: parseFreq(r.frequency), customInterval: r.customInterval, customIntervalUnit: r.customIntervalUnit, startDate: r.startDate, type: r.type === 'income' ? 'income' : 'expense', savingsPriority: r.savingsPriority })).filter((r: any) => r.accountId != null);
+  
+  const safeLoans = (data.loans || []).map((l: any) => ({ id: l.id, name: l.name, type: l.type === 'fractionation' ? 'fractionation' : 'loan', amount: l.amount, installments: l.installments, installmentAmount: l.installmentAmount, setupFee: l.setupFee || 0, startDate: l.startDate, accountId: safeAccountId(l.accountId), status: l.status === 'completed' ? 'completed' : 'active', isStarted: l.isStarted || false, startingPaidAmount: l.startingPaidAmount || 0, originalTransactionData: l.originalTransactionData })).filter((l: any) => l.accountId != null);
+
+  // Insert master tables first
+  await insertData('accounts', safeAccounts);
+  await insertData('categories', safeCategories);
+  
+  // Insert dependent tables
+  await insertData('transactions', safeTransactions);
+  await insertData('budgets', safeBudgets);
+  await insertData('favorites', safeFavorites);
+  await insertData('savings_goals', safeSavingsGoals);
+  await insertData('recurring_rules', safeRecurringRules);
+  await insertData('loans', safeLoans);
+};
+
 export const uploadToSupabase = async (data: any): Promise<void> => {
+  // Legacy upsert function (can still be used if needed)
   const upsertData = async (table: string, payload: any[]) => {
     if (!payload || payload.length === 0) return;
     const { error } = await supabase.from(table).upsert(payload);
@@ -23,7 +96,8 @@ export const uploadToSupabase = async (data: any): Promise<void> => {
   };
 
   const validAccountIds = new Set((data.accounts || []).map((a: any) => a.id));
-  const defaultAccountId = data.accounts && data.accounts.length > 0 ? data.accounts[0].id : null;
+  const efectivoAccount = (data.accounts || []).find((a: any) => a.name && a.name.toLowerCase() === 'efectivo');
+  const defaultAccountId = efectivoAccount ? efectivoAccount.id : (data.accounts && data.accounts.length > 0 ? data.accounts[0].id : null);
   const safeAccountId = (id: any) => validAccountIds.has(id) ? id : defaultAccountId;
 
   const safeAccounts = (data.accounts || []).map((a: any) => ({ id: a.id, name: a.name, initialBalance: a.initialBalance, linkedAccountId: a.linkedAccountId, logo: a.logo, excludeFromTotals: a.excludeFromTotals }));

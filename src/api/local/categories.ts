@@ -46,10 +46,20 @@ export const deleteCategory = async (id: string): Promise<void> => {
   if (catError) throw new Error(catError.message);
   
   if (catData) {
-    const { data: tx, error: txError } = await supabase.from('transactions').select('id').eq('category', catData.name).limit(1);
-    if (txError) throw new Error(txError.message);
-    if (tx && tx.length > 0) {
-      throw new Error("No se puede eliminar una categoría con transacciones.");
+    const checks = [
+      { table: 'transactions', name: 'transacciones' },
+      { table: 'budgets', name: 'presupuestos' },
+      { table: 'recurring_rules', name: 'gastos fijos/recurrentes' },
+      { table: 'savings_goals', name: 'metas de ahorro' },
+      { table: 'favorites', name: 'botones rápidos (gastos rápidos)' }
+    ];
+
+    for (const check of checks) {
+      const { data, error } = await supabase.from(check.table).select('id').eq('category', catData.name).limit(1);
+      if (error) throw new Error(error.message);
+      if (data && data.length > 0) {
+        throw new Error(`No se puede eliminar la categoría porque está siendo usada en ${check.name}.`);
+      }
     }
   }
 

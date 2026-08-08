@@ -30,18 +30,28 @@ export const updateAccount = async (account: Account): Promise<void> => {
 };
 
 export const deleteAccount = async (id: string): Promise<void> => {
-  // First, check if it has transactions
-  const { data: tx, error: txError } = await supabase.from('transactions').select('id').eq('accountId', id).limit(1);
-  if (txError) throw new Error(txError.message);
-  if (tx && tx.length > 0) {
-    throw new Error("No se puede eliminar una cuenta con transacciones asociadas.");
+  // Check dependencies across all related tables
+  const checks = [
+    { table: 'transactions', name: 'transacciones' },
+    { table: 'loans', name: 'préstamos o financiaciones' },
+    { table: 'recurring_rules', name: 'gastos fijos/recurrentes' },
+    { table: 'savings_goals', name: 'metas de ahorro' },
+    { table: 'favorites', name: 'botones rápidos (gastos rápidos)' }
+  ];
+
+  for (const check of checks) {
+    const { data, error } = await supabase.from(check.table).select('id').eq('accountId', id).limit(1);
+    if (error) throw new Error(error.message);
+    if (data && data.length > 0) {
+      throw new Error(`No se puede eliminar la cuenta porque tiene ${check.name} asociadas. Debes borrarlas o cambiarlas de cuenta primero.`);
+    }
   }
-  
+
   // Also ensure it's not the last account
   const { data: countData, error: countError } = await supabase.from('accounts').select('id', { count: 'exact' });
   if (countError) throw new Error(countError.message);
   if (countData && countData.length <= 1) {
-    throw new Error("No puedes eliminar la única cuenta que queda.");
+    throw new Error("No puedes eliminar la única cuenta que queda en la aplicación.");
   }
 
   const { error } = await supabase.from('accounts').delete().eq('id', id);
