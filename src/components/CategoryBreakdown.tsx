@@ -180,11 +180,15 @@ const CategoryBreakdown = ({
 
   // For pending: show individual transactions sorted by date
   if (isPending) {
+    const viewedMonthStr = baseDate
+      ? (baseDate.getFullYear() + '-' + String(baseDate.getMonth() + 1).padStart(2, '0'))
+      : (new Date().getFullYear() + '-' + String(new Date().getMonth() + 1).padStart(2, '0'));
+
     const pendingItems = transactions
       .filter(t => t.type === type && t.isPending)
       .sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
 
-    const totalPages = Math.max(1, Math.floor(pendingItems.length / ITEMS_PER_PAGE));
+    const totalPages = Math.max(1, Math.ceil(pendingItems.length / ITEMS_PER_PAGE));
     const safeCurrentPage = Math.min(currentPage, totalPages);
     const startIndex = (safeCurrentPage - 1) * ITEMS_PER_PAGE;
     const isLastPage = safeCurrentPage === totalPages;

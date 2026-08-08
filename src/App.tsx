@@ -6,6 +6,7 @@ import { ThemeProvider } from "next-themes";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import ScrollToTop from "./components/ScrollToTop";
 import AppLayout from "./components/AppLayout";
+import { AutoBackupManager } from "./components/AutoBackupManager";
 
 import { syncRecurringTransactionsToSupabase } from "@/lib/recurrence";
 
@@ -58,6 +59,7 @@ const App = () => {
         
         {isReady && (
           <BrowserRouter>
+            <AutoBackupManager />
             <ScrollToTop />
             <Routes>
               <Route element={<AppLayout />}>

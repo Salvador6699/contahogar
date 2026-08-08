@@ -544,7 +544,6 @@ const Index = () => {
             </div>
           </div>
 
-          {/* Content Sections */}
           <div className="space-y-8 pb-24 items-start">
             {/* Breakdowns */}
             <div className="space-y-8">

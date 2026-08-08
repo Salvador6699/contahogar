@@ -44,7 +44,8 @@ import {
   DrawerClose,
 } from '@/components/ui/drawer';
 import { Button } from '@/components/ui/button';
-import { loadData, loadFavorites } from '@/lib/storage';
+import { useFavorites } from '@/hooks/useFavorites';
+import { useCategories } from '@/hooks/useCategories';
 import { calculateCategorySummaries } from '@/lib/calculations';
 import { FavoriteExpense, Category } from '@/types/finance';
 import { format } from 'date-fns';
@@ -53,13 +54,8 @@ const MobileNav = () => {
     const navigate = useNavigate();
     const location = useLocation();
 
-    const [favorites, setFavorites] = useState<FavoriteExpense[]>([]);
-    const [categories, setCategories] = useState<Category[]>([]);
-
-    useEffect(() => {
-        setFavorites(loadFavorites());
-        setCategories(loadData().categories);
-    }, [location.pathname, location.search]);
+    const { favorites } = useFavorites();
+    const { categories } = useCategories();
 
 
     interface NavItem {
