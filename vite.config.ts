@@ -16,11 +16,6 @@ export default defineConfig(({ mode }) => ({
     mode === "development" && componentTagger(),
     VitePWA({
       registerType: 'autoUpdate',
-      workbox: {
-        cleanupOutdatedCaches: true,
-        clientsClaim: true,
-        skipWaiting: true
-      },
       includeAssets: ['favicon.ico', 'favicon.png', 'logo.png'],
       manifest: {
         name: 'ContaHogar',
