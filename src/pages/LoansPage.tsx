@@ -280,6 +280,7 @@ const LoanCard = ({ loan, activeRole, onDelete, onUpdateTx, onUpdateLoan }: { lo
                 key={tx.id} 
                 tx={tx} 
                 index={idx + 1}
+                activeRole={activeRole}
                 onSave={(updates) => onUpdateTx(tx.id, updates)} 
               />
             ))}
@@ -290,7 +291,7 @@ const LoanCard = ({ loan, activeRole, onDelete, onUpdateTx, onUpdateLoan }: { lo
   );
 };
 
-const EditableTransactionRow = ({ tx, index, onSave }: { tx: any, index: number, onSave: (updates: Partial<Transaction>) => void }) => {
+const EditableTransactionRow = ({ tx, index, activeRole, onSave }: { tx: any, index: number, activeRole: string | null, onSave: (updates: Partial<Transaction>) => void }) => {
   const [isEditing, setIsEditing] = useState(false);
   const [date, setDate] = useState(tx.date);
   const [amount, setAmount] = useState(tx.amount.toString());
@@ -345,14 +346,16 @@ const EditableTransactionRow = ({ tx, index, onSave }: { tx: any, index: number,
         <span className={tx.isPending ? "text-red-500 font-medium" : "text-emerald-500 font-semibold"}>
           {formatCurrency(tx.amount)}
         </span>
-        <Button 
-          size="icon" 
-          variant="ghost" 
-          className="h-6 w-6 opacity-0 group-hover:opacity-100 text-muted-foreground transition-opacity" 
-          onClick={() => setIsEditing(true)}
-        >
-          <Edit2 className="w-3 h-3" />
-        </Button>
+        {activeRole === 'admin' && (
+          <Button 
+            size="icon" 
+            variant="ghost" 
+            className="h-6 w-6 opacity-0 group-hover:opacity-100 text-muted-foreground transition-opacity" 
+            onClick={() => setIsEditing(true)}
+          >
+            <Edit2 className="w-3 h-3" />
+          </Button>
+        )}
       </div>
     </div>
   );
