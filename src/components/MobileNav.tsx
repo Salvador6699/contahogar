@@ -27,7 +27,8 @@ import {
   Users,
   ChevronDown,
   CheckCircle2,
-  LogOut
+  LogOut,
+  MoreHorizontal
 } from 'lucide-react';
 import * as Icons from 'lucide-react';
 import { cn, withKeyboardClose } from '@/lib/utils';
@@ -63,7 +64,7 @@ const MobileNav = () => {
     const { favorites } = useFavorites();
     const { categories } = useCategories();
     const { teams, activeTeam, setActiveTeamId } = useTeam();
-    const { signOut } = useAuth();
+    const { user, signOut } = useAuth();
 
 
     interface NavItem {
@@ -89,6 +90,7 @@ const MobileNav = () => {
         { icon: Landmark, label: 'Préstamos', path: '/prestamos' },
         { icon: History, label: 'Historial', path: '/historial' },
         { icon: Zap, label: 'Botones Rápidos', path: '/favorites' },
+        { icon: Users, label: 'Equipos', path: '/equipos' },
         { icon: Settings, label: 'Ajustes', path: '/ajustes' },
         { icon: ShieldCheck, label: 'Seguridad', path: '/backup' },
     ];
@@ -99,22 +101,13 @@ const MobileNav = () => {
     };
 
     const getPageDetails = () => {
-        const current = allDrawerNavItems.find(item => {
-            if (item.exact) return location.pathname === item.path;
-            return location.pathname.startsWith(item.path);
-        });
+        const item = allDrawerNavItems.find(nav => isActive(nav.path, nav.exact));
+        if (item) return { title: item.label, icon: <item.icon className="w-5 h-5 text-primary" /> };
         
-        if (location.pathname === '/') {
-            return {
-                title: 'Inicio',
-                icon: null
-            };
-        }
-
-        return {
-            title: current?.label || 'ContaHogar',
-            icon: current?.icon ? <current.icon className="w-6 h-6 text-primary" /> : null
-        };
+        // Match specific paths that aren't in the drawer
+        if (location.pathname.includes('/transferir')) return { title: 'Transferir', icon: <ArrowLeftRight className="w-5 h-5 text-primary" /> };
+        
+        return { title: 'ContaHogar', icon: <img src="/logo.png" alt="Logo" className="w-5 h-5" /> };
     };
 
     const { title, icon } = getPageDetails();
@@ -122,6 +115,31 @@ const MobileNav = () => {
     const primaryNavPaths = ['/', '/presupuestos', '/comparativa', '/historial'];
     const primaryNavItems = allDrawerNavItems.filter(item => primaryNavPaths.includes(item.path));
     const secondaryNavItems = allDrawerNavItems.filter(item => !primaryNavPaths.includes(item.path));
+
+    const [isMobileUserMenuOpen, setIsMobileUserMenuOpen] = useState(false);
+    const [isDesktopUserMenuOpen, setIsDesktopUserMenuOpen] = useState(false);
+
+    useEffect(() => {
+        const handleInteraction = () => {
+            if (isMobileUserMenuOpen) setIsMobileUserMenuOpen(false);
+            if (isDesktopUserMenuOpen) setIsDesktopUserMenuOpen(false);
+        };
+        
+        if (isMobileUserMenuOpen || isDesktopUserMenuOpen) {
+            window.addEventListener('scroll', handleInteraction, { passive: true });
+            window.addEventListener('touchmove', handleInteraction, { passive: true });
+            // Cierre por click global (con setTimeout para evitar que cierre al abrir)
+            setTimeout(() => {
+                window.addEventListener('click', handleInteraction);
+            }, 10);
+        }
+        
+        return () => {
+            window.removeEventListener('scroll', handleInteraction);
+            window.removeEventListener('touchmove', handleInteraction);
+            window.removeEventListener('click', handleInteraction);
+        };
+    }, [isMobileUserMenuOpen, isDesktopUserMenuOpen]);
 
     return (
         <>
@@ -133,68 +151,101 @@ const MobileNav = () => {
                         {title}
                     </h2>
                 </div>
+                
+                {user && (
+                    <div className="relative">
+                        <button 
+                            onClick={() => setIsMobileUserMenuOpen(!isMobileUserMenuOpen)}
+                            className="flex items-center gap-2 bg-muted/80 backdrop-blur-md px-3 py-1.5 rounded-full text-xs font-bold border border-border/50"
+                        >
+                            <Users className="w-3.5 h-3.5" />
+                            <span className="max-w-[80px] truncate">
+                                {user.user_metadata?.full_name?.split(' ')[0] || user.email?.split('@')[0]}
+                            </span>
+                            <ChevronDown className="w-3.5 h-3.5" />
+                        </button>
+                        
+                        {isMobileUserMenuOpen && (
+                            <>
+                                <div className="absolute top-full right-0 mt-2 w-52 bg-background/95 backdrop-blur-xl border border-border/50 rounded-2xl shadow-2xl p-2 z-50 grid gap-1 animate-in fade-in zoom-in-95">
+                                    <div className="px-3 py-2 text-[10px] uppercase tracking-widest text-muted-foreground border-b border-border/10 mb-1">
+                                        <div className="truncate font-bold text-foreground">Equipo: {activeTeam?.name}</div>
+                                    </div>
+                                    {teams.length > 1 && (
+                                        <button 
+                                            onClick={() => { setIsMobileUserMenuOpen(false); navigate('/select-team'); }}
+                                            className="flex items-center gap-2 px-3 py-2 rounded-xl text-sm font-bold hover:bg-muted transition-all text-left w-full"
+                                        >
+                                            <ArrowLeftRight className="w-4 h-4 text-muted-foreground" /> Cambiar Equipo
+                                        </button>
+                                    )}
+                                    <button 
+                                        onClick={() => { setIsMobileUserMenuOpen(false); signOut(); }}
+                                        className="flex items-center gap-2 px-3 py-2 rounded-xl text-sm font-bold text-destructive hover:bg-destructive/10 transition-all text-left w-full"
+                                    >
+                                        <LogOut className="w-4 h-4" /> Cerrar Sesión
+                                    </button>
+                                </div>
+                            </>
+                        )}
+                    </div>
+                )}
             </header>
 
             {/* DESKTOP TOP NAVIGATION (Hidden on mobile) */}
             <header className="hidden lg:flex fixed top-0 left-0 right-0 z-50 h-20 bg-background/95 backdrop-blur-xl border-b border-border/10 items-center justify-between px-8 transition-all duration-300">
-                {/* Brand / Logo */}
-                <div 
-                    className="flex items-center gap-3 cursor-pointer group" 
-                    onClick={() => navigate('/')}
-                >
-                    <div className="p-2 bg-primary/10 rounded-xl group-hover:bg-primary/20 transition-colors">
-                        <PiggyBank className="w-8 h-8 text-primary" />
-                    </div>
-                    <span className="font-black text-2xl tracking-tighter bg-clip-text text-transparent bg-gradient-to-br from-foreground to-foreground/70">ContaHogar</span>
+                {/* Logo */}
+                <div className="flex items-center gap-3 cursor-pointer" onClick={() => navigate('/')}>
+                    <img src="/logo.png" alt="ContaHogar" className="w-8 h-8 drop-shadow-md" />
+                    <span className="font-outfit font-black text-xl tracking-tight bg-clip-text text-transparent bg-gradient-to-r from-primary to-primary/60">
+                        ContaHogar
+                    </span>
                 </div>
 
-                {/* Primary Navigation Links */}
-                <nav className="flex items-center gap-1.5 bg-muted/30 p-1.5 rounded-2xl border border-border/50">
-                    {primaryNavItems.map(item => {
+                {/* Main Navigation */}
+                <nav className="flex items-center gap-1.5">
+                    {primaryNavItems.map((item) => {
                         const active = isActive(item.path, item.exact);
                         return (
-                            <button 
-                                key={item.path} 
-                                onClick={() => navigate(item.path)} 
+                            <button
+                                key={item.path}
+                                onClick={() => navigate(item.path)}
                                 className={cn(
-                                    "flex items-center gap-2 px-4 py-2.5 rounded-xl text-sm font-bold transition-all", 
+                                    "px-4 py-2.5 rounded-xl font-bold transition-all duration-300 flex items-center gap-2 text-sm",
                                     active 
-                                        ? "bg-primary text-primary-foreground shadow-md shadow-primary/20 scale-105" 
-                                        : "text-muted-foreground hover:bg-background hover:text-foreground hover:shadow-sm"
+                                        ? "bg-primary text-primary-foreground shadow-md" 
+                                        : "text-muted-foreground hover:bg-muted hover:text-foreground"
                                 )}
                             >
-                                <item.icon className={cn("w-4 h-4", active && "stroke-[2.5px]")} />
+                                <item.icon className="w-4 h-4" />
                                 {item.label}
                             </button>
                         );
                     })}
-                    
-                    {/* Secondary menu via Hover Dropdown */}
-                    <div className="relative group/dropdown">
-                        <button className="flex items-center gap-2 px-4 py-2.5 rounded-xl text-sm font-bold text-muted-foreground hover:bg-background hover:text-foreground hover:shadow-sm transition-all">
-                            <Menu className="w-4 h-4" />
+
+                    {/* Desktop "Más" Dropdown */}
+                    <div className="relative group/more">
+                        <button className="px-4 py-2.5 rounded-xl font-bold transition-all duration-300 flex items-center gap-2 text-sm text-muted-foreground hover:bg-muted hover:text-foreground">
+                            <MoreHorizontal className="w-4 h-4" />
                             Más
+                            <ChevronDown className="w-3 h-3 opacity-50 group-hover/more:rotate-180 transition-transform" />
                         </button>
-                        
-                        {/* Dropdown Content with Hover Dead-Zone Fix */}
-                        <div className="absolute top-full right-0 pt-2 w-56 z-50 opacity-0 translate-y-2 pointer-events-none group-hover/dropdown:opacity-100 group-hover/dropdown:translate-y-0 group-hover/dropdown:pointer-events-auto transition-all duration-300">
+                        <div className="absolute top-full left-0 pt-2 w-56 z-50 opacity-0 translate-y-2 pointer-events-none group-hover/more:opacity-100 group-hover/more:translate-y-0 group-hover/more:pointer-events-auto transition-all duration-300">
                             <div className="bg-background/95 backdrop-blur-xl border border-border/50 rounded-2xl shadow-2xl p-2 grid gap-1">
-                                {secondaryNavItems.map(item => {
+                                {secondaryNavItems.map((item) => {
                                     const active = isActive(item.path, item.exact);
                                     return (
                                         <button 
-                                            key={item.path} 
-                                            onClick={() => navigate(item.path)} 
+                                            key={item.path}
+                                            onClick={() => navigate(item.path)}
                                             className={cn(
-                                                "flex items-center gap-3 px-4 py-3 rounded-xl text-sm font-bold transition-all text-left group/item", 
+                                                "flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-bold transition-all text-left",
                                                 active 
                                                     ? "bg-primary/10 text-primary" 
-                                                    : "text-muted-foreground hover:bg-muted hover:text-foreground"
+                                                    : "hover:bg-muted text-muted-foreground hover:text-foreground"
                                             )}
                                         >
-                                            <div className={cn("p-1.5 rounded-lg transition-colors", active ? "bg-primary/20" : "bg-background group-hover/item:bg-background shadow-sm border border-border/50")}>
-                                                <item.icon className={cn("w-4 h-4", active && "stroke-[2.5px]")} />
-                                            </div>
+                                            <item.icon className="w-4 h-4" />
                                             {item.label}
                                         </button>
                                     );
@@ -206,48 +257,51 @@ const MobileNav = () => {
 
                 {/* Action Buttons */}
                 <div className="flex items-center gap-3">
-                    {/* Selector de Equipo */}
-                    <div className="relative group/team">
-                        <button className="flex items-center gap-2 bg-muted/50 hover:bg-muted text-foreground px-4 py-2.5 rounded-xl font-bold transition-all duration-300 text-sm border border-border/50">
-                            <Users className="w-4 h-4" /> 
-                            <span className="max-w-[120px] truncate">{activeTeam?.name || "Sin Equipo"}</span>
-                            <ChevronDown className="w-4 h-4 text-muted-foreground" />
-                        </button>
-                        <div className="absolute top-full right-0 pt-2 w-64 z-50 opacity-0 translate-y-2 pointer-events-none group-hover/team:opacity-100 group-hover/team:translate-y-0 group-hover/team:pointer-events-auto transition-all duration-300">
-                            <div className="bg-background/95 backdrop-blur-xl border border-border/50 rounded-2xl shadow-2xl p-2 grid gap-1">
-                                {teams.map((t) => (
-                                    <button 
-                                        key={t.team_id}
-                                        onClick={() => {
-                                            setActiveTeamId(t.team_id);
-                                            window.location.href = '/'; // Force reload to clear react-query cache and ensure clean state
-                                        }}
-                                        className={cn(
-                                            "flex items-center justify-between px-3 py-2 rounded-xl text-sm font-bold transition-all text-left group/item hover:bg-muted",
-                                            activeTeam?.id === t.team_id && "bg-primary/10 text-primary hover:bg-primary/15"
+                    {/* User Profile Desktop */}
+                    {user && (
+                        <div className="relative">
+                            <button 
+                                onClick={() => setIsDesktopUserMenuOpen(!isDesktopUserMenuOpen)}
+                                className="flex items-center gap-2 bg-muted/50 hover:bg-muted text-foreground px-4 py-2.5 rounded-xl font-bold transition-all duration-300 text-sm border border-border/50"
+                            >
+                                <Users className="w-4 h-4" /> 
+                                <span className="max-w-[120px] truncate">
+                                    {user.user_metadata?.full_name?.split(' ')[0] || user.email?.split('@')[0]}
+                                </span>
+                                <ChevronDown className="w-4 h-4 text-muted-foreground" />
+                            </button>
+                            
+                            {isDesktopUserMenuOpen && (
+                                <>
+                                    <div className="absolute top-full right-0 mt-2 w-64 bg-background/95 backdrop-blur-xl border border-border/50 rounded-2xl shadow-2xl p-2 z-50 grid gap-1 animate-in fade-in zoom-in-95">
+                                        <div className="px-3 py-2 text-[10px] uppercase tracking-widest text-muted-foreground border-b border-border/10 mb-1">
+                                            <div className="truncate font-bold text-foreground">Equipo: {activeTeam?.name}</div>
+                                        </div>
+                                        {teams.length > 1 && (
+                                            <button 
+                                                onClick={() => { setIsDesktopUserMenuOpen(false); navigate('/select-team'); }}
+                                                className="flex items-center gap-2 px-3 py-2 rounded-xl text-sm font-bold hover:bg-muted transition-all text-left w-full"
+                                            >
+                                                <ArrowLeftRight className="w-4 h-4 text-muted-foreground" /> Cambiar Equipo
+                                            </button>
                                         )}
-                                    >
-                                        <span className="truncate flex-1">{t.teams.name}</span>
-                                        {activeTeam?.id === t.team_id && <CheckCircle2 className="w-4 h-4 shrink-0" />}
-                                    </button>
-                                ))}
-                                <div className="h-px bg-border/50 my-1"></div>
-                                <button 
-                                    onClick={() => navigate('/ajustes?tab=equipos')}
-                                    className="flex items-center gap-2 px-3 py-2 rounded-xl text-sm font-bold text-muted-foreground hover:bg-muted transition-all text-left"
-                                >
-                                    <Plus className="w-4 h-4" /> Administrar Equipos
-                                </button>
-                                <button 
-                                    onClick={signOut}
-                                    className="flex items-center gap-2 px-3 py-2 rounded-xl text-sm font-bold text-destructive hover:bg-destructive/10 transition-all text-left"
-                                >
-                                    <LogOut className="w-4 h-4" /> Cerrar Sesión
-                                </button>
-                            </div>
+                                        <button 
+                                            onClick={() => { setIsDesktopUserMenuOpen(false); navigate('/equipos'); }}
+                                            className="flex items-center gap-2 px-3 py-2 rounded-xl text-sm font-bold text-muted-foreground hover:bg-muted transition-all text-left w-full"
+                                        >
+                                            <Users className="w-4 h-4" /> Administrar Equipos
+                                        </button>
+                                        <button 
+                                            onClick={() => { setIsDesktopUserMenuOpen(false); signOut(); }}
+                                            className="flex items-center gap-2 px-3 py-2 rounded-xl text-sm font-bold text-destructive hover:bg-destructive/10 transition-all text-left w-full"
+                                        >
+                                            <LogOut className="w-4 h-4" /> Cerrar Sesión
+                                        </button>
+                                    </div>
+                                </>
+                            )}
                         </div>
-                    </div>
-
+                    )}
                     {favorites.length > 0 && (
                         <div className="relative group/quick">
                             <button className="flex items-center gap-2 bg-primary/10 hover:bg-primary/20 text-primary px-4 py-2.5 rounded-xl font-bold transition-all duration-300 text-sm shadow-sm">
@@ -425,27 +479,6 @@ const MobileNav = () => {
                                     </SheetClose>
                                 );
                             })}
-                        </div>
-                        
-                        <div className="mt-8 pt-4 border-t border-border/10 flex flex-col gap-3 pb-8">
-                            {teams.length > 1 && (
-                                <SheetClose asChild>
-                                    <button 
-                                        onClick={() => navigate('/select-team')}
-                                        className="flex items-center justify-center gap-2 p-4 rounded-2xl bg-secondary text-secondary-foreground font-bold border border-border/50 active:scale-95 transition-all"
-                                    >
-                                        <ArrowLeftRight className="w-5 h-5" />
-                                        Cambiar Equipo
-                                    </button>
-                                </SheetClose>
-                            )}
-                            <button 
-                                onClick={signOut}
-                                className="flex items-center justify-center gap-2 p-4 rounded-2xl bg-destructive/10 text-destructive font-bold border border-destructive/20 active:scale-95 transition-all"
-                            >
-                                <LogOut className="w-5 h-5" />
-                                Cerrar Sesión
-                            </button>
                         </div>
                     </div>
                 </SheetContent>

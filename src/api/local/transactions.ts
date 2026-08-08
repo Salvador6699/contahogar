@@ -12,7 +12,7 @@ const getTeamId = () => {
 export const getTransactions = async (): Promise<Transaction[]> => {
   const { data, error } = await supabase
     .from('transactions')
-    .select('*').eq('team_id', getTeamId())
+    .select('*, user_profiles(full_name, email)').eq('team_id', getTeamId())
     .order('date', { ascending: false })
     .order('created_at', { ascending: false });
   if (error) throw new Error(error.message);
@@ -20,8 +20,9 @@ export const getTransactions = async (): Promise<Transaction[]> => {
 };
 
 export const addTransaction = async (transaction: Omit<Transaction, "id">): Promise<void> => {
+  const { data: { user } } = await supabase.auth.getUser();
   const newTransaction = {
-    id: uuidv4(), team_id: getTeamId(),
+    id: uuidv4(), team_id: getTeamId(), user_id: user?.id,
     ...transaction
   };
   const { error } = await supabase.from('transactions').insert([newTransaction]);

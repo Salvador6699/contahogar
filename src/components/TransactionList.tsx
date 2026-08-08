@@ -147,13 +147,23 @@ const TransactionList = ({ transactions, onEdit, onDelete }: TransactionListProp
                             {transaction.description}
                           </p>
                         )}
-                        <p className="text-[10px] font-medium text-muted-foreground/80">
-                          {new Date(transaction.date).toLocaleDateString('es-ES', {
-                            year: 'numeric',
-                            month: 'long',
-                            day: 'numeric',
-                          })}
-                        </p>
+                        <div className="flex items-center gap-2">
+                          <p className="text-[10px] font-medium text-muted-foreground/80">
+                            {new Date(transaction.date).toLocaleDateString('es-ES', {
+                              year: 'numeric',
+                              month: 'long',
+                              day: 'numeric',
+                            })}
+                          </p>
+                          {transaction.user_profiles?.full_name && (
+                            <>
+                              <span className="text-[10px] text-muted-foreground/30">•</span>
+                              <span className="text-[10px] font-medium text-muted-foreground/60 truncate max-w-[100px]">
+                                por {transaction.user_profiles.full_name.split(' ')[0]}
+                              </span>
+                            </>
+                          )}
+                        </div>
                       </div>
                       <div className="flex items-center justify-between w-full sm:w-auto gap-4 mt-3 sm:mt-0 pt-3 sm:pt-0 border-t sm:border-t-0 border-border/10">
                         <p className={`text-xl font-bold ${colorClass} whitespace-nowrap`}>

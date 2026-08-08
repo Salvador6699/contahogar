@@ -73,7 +73,6 @@ import { cn } from "@/lib/utils";
 import { format, addMonths } from "date-fns";
 import { AccountManager } from "@/components/AccountManager";
 import { RecurringExpensesManager } from "@/components/RecurringExpensesManager";
-import { TeamManager } from "@/components/TeamManager";
 import { useAccounts } from "@/hooks/useAccounts";
 import { useCategories } from "@/hooks/useCategories";
 import { useTeam } from "@/contexts/TeamContext";
@@ -84,10 +83,10 @@ const SettingsPage = () => {
   const { activeRole } = useTeam();
 
   const [activeTab, setActiveTab] = useState<
-    "cuentas" | "categorias" | "apariencia" | "gastos_fijos" | "equipos"
+    "cuentas" | "categorias" | "apariencia" | "gastos_fijos"
   >(() => {
     const tabParam = searchParams.get("tab");
-    if (tabParam === "gastos_fijos" || tabParam === "cuentas" || tabParam === "categorias" || tabParam === "apariencia" || tabParam === "equipos") {
+    if (tabParam === "gastos_fijos" || tabParam === "cuentas" || tabParam === "categorias" || tabParam === "apariencia") {
       return tabParam as any;
     }
     return "cuentas";
@@ -95,7 +94,7 @@ const SettingsPage = () => {
 
   useEffect(() => {
     const tabParam = searchParams.get("tab");
-    if (tabParam === "gastos_fijos" || tabParam === "cuentas" || tabParam === "categorias" || tabParam === "apariencia" || tabParam === "equipos") {
+    if (tabParam === "gastos_fijos" || tabParam === "cuentas" || tabParam === "categorias" || tabParam === "apariencia") {
       setActiveTab(tabParam as any);
     }
   }, [searchParams]);
@@ -327,7 +326,7 @@ const SettingsPage = () => {
         </div>
 
         {/* Custom Tabs Navigation */}
-        <div className="grid grid-cols-2 lg:grid-cols-5 gap-2 mb-6">
+        <div className="grid grid-cols-2 lg:grid-cols-4 gap-2 mb-6">
           {activeRole === 'admin' && (
             <>
               <Button
@@ -336,7 +335,7 @@ const SettingsPage = () => {
                 className="w-full flex items-center justify-center rounded-xl"
               >
                 <Wallet className="w-4 h-4 mr-2" />
-                <span className="hidden lg:inline">Cuentas</span>
+                <span>Cuentas</span>
               </Button>
               <Button
                 variant={activeTab === "categorias" ? "default" : "outline"}
@@ -344,7 +343,7 @@ const SettingsPage = () => {
                 className="w-full flex items-center justify-center rounded-xl"
               >
                 <Tag className="w-4 h-4 mr-2" />
-                <span className="hidden lg:inline">Categorías</span>
+                <span>Categorías</span>
               </Button>
 
               <Button
@@ -353,19 +352,10 @@ const SettingsPage = () => {
                 className="w-full flex items-center justify-center rounded-xl"
               >
                 <Clock className="w-4 h-4 mr-2" />
-                <span className="hidden lg:inline">Gastos Fijos</span>
+                <span>Gastos Fijos</span>
               </Button>
             </>
           )}
-
-          <Button
-            variant={activeTab === "equipos" ? "default" : "outline"}
-            onClick={() => setActiveTab("equipos")}
-            className="w-full flex items-center justify-center rounded-xl"
-          >
-            <Users className="w-4 h-4 mr-2" />
-            <span className="hidden lg:inline">Equipos</span>
-          </Button>
 
           <Button
             variant={activeTab === "apariencia" ? "default" : "outline"}
@@ -373,17 +363,11 @@ const SettingsPage = () => {
             className="w-full flex items-center justify-center rounded-xl"
           >
             <Sun className="w-4 h-4 mr-2" />
-            <span className="hidden lg:inline">Apariencia</span>
+            <span>Apariencia</span>
           </Button>
         </div>
 
         <div className="space-y-6">
-          {/* TAB: EQUIPOS */}
-          {activeTab === "equipos" && (
-            <div className="animate-in fade-in slide-in-from-bottom-2 duration-300">
-              <TeamManager />
-            </div>
-          )}
           {/* TAB: CUENTAS */}
           {activeRole === 'admin' && activeTab === "cuentas" && (
             <div className="animate-in fade-in slide-in-from-bottom-2 duration-300">
