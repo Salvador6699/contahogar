@@ -2,15 +2,22 @@ import { Category } from "@/types/finance";
 import { supabase } from "@/lib/supabase";
 import { v4 as uuidv4 } from "uuid";
 
+const getTeamId = () => {
+  const teamId = localStorage.getItem('contahogar_active_team_id');
+  if (!teamId) throw new Error("No hay equipo activo");
+  return teamId;
+};
+
+
 export const getCategories = async (): Promise<Category[]> => {
-  const { data, error } = await supabase.from('categories').select('*').order('name');
+  const { data, error } = await supabase.from('categories').select('*').eq('team_id', getTeamId()).order('name');
   if (error) throw new Error(error.message);
   return data as Category[];
 };
 
 export const addCategory = async (name: string): Promise<void> => {
   const newCategory = {
-    id: uuidv4(),
+    id: uuidv4(), team_id: getTeamId(),
     name: name.trim(),
     icon: "Tag",
     color: "#94a3b8"

@@ -2,15 +2,22 @@ import { Loan, Transaction } from "@/types/finance";
 import { supabase } from "@/lib/supabase";
 import { v4 as uuidv4 } from "uuid";
 
+const getTeamId = () => {
+  const teamId = localStorage.getItem('contahogar_active_team_id');
+  if (!teamId) throw new Error("No hay equipo activo");
+  return teamId;
+};
+
+
 export const getLoans = async (): Promise<Loan[]> => {
-  const { data, error } = await supabase.from('loans').select('*');
+  const { data, error } = await supabase.from('loans').select('*').eq('team_id', getTeamId());
   if (error) throw new Error(error.message);
   return data as Loan[];
 };
 
 export const addLoan = async (loan: Omit<Loan, "id">): Promise<Loan> => {
   const newLoan = {
-    id: uuidv4(),
+    id: uuidv4(), team_id: getTeamId(),
     ...loan
   };
   const { data, error } = await supabase.from('loans').insert([newLoan]).select().single();
@@ -79,7 +86,7 @@ export const applyFractionatedTransaction = async (
     const isSetupFeeFuture = new Date(fractionationData.setupFeeDate) > new Date();
     transactionsToInsert.push({
       ...transaction,
-      id: uuidv4(),
+      id: uuidv4(), team_id: getTeamId(),
       amount: setupFee,
       category: "Gastos Financieros",
       date: fractionationData.setupFeeDate,
@@ -98,7 +105,7 @@ export const applyFractionatedTransaction = async (
 
     transactionsToInsert.push({
       ...transaction,
-      id: uuidv4(),
+      id: uuidv4(), team_id: getTeamId(),
       amount: installmentAmount,
       date: dateStr,
       isPending: isPending || false,
@@ -108,7 +115,8 @@ export const applyFractionatedTransaction = async (
   }
   
   if (transactionsToInsert.length > 0) {
-    const { error: txsError } = await supabase.from('transactions').insert(transactionsToInsert);
+    const txsWithTeam = transactionsToInsert.map(t => ({ ...t, team_id: getTeamId() }));
+    const { error: txsError } = await supabase.from('transactions').insert(txsWithTeam);
     if (txsError) throw new Error(txsError.message);
   }
 };
@@ -142,7 +150,7 @@ export const applyLoanTransaction = async (
 
   if (!isStarted) {
     transactionsToInsert.push({
-      id: uuidv4(),
+      id: uuidv4(), team_id: getTeamId(),
       date,
       amount,
       category: "Ingresos",
@@ -157,7 +165,7 @@ export const applyLoanTransaction = async (
   if (setupFee > 0) {
     const isSetupFeeFuture = new Date(setupFeeDate) > new Date();
     transactionsToInsert.push({
-      id: uuidv4(),
+      id: uuidv4(), team_id: getTeamId(),
       date: setupFeeDate,
       amount: setupFee,
       category: "Gastos Financieros",
@@ -175,7 +183,7 @@ export const applyLoanTransaction = async (
     const dateStr = dt.toISOString().split("T")[0];
     
     transactionsToInsert.push({
-      id: uuidv4(),
+      id: uuidv4(), team_id: getTeamId(),
       amount: installmentAmount,
       date: dateStr,
       category: "Devolución Préstamo",
@@ -188,7 +196,8 @@ export const applyLoanTransaction = async (
   }
   
   if (transactionsToInsert.length > 0) {
-    const { error: txsError } = await supabase.from('transactions').insert(transactionsToInsert);
+    const txsWithTeam = transactionsToInsert.map(t => ({ ...t, team_id: getTeamId() }));
+    const { error: txsError } = await supabase.from('transactions').insert(txsWithTeam);
     if (txsError) throw new Error(txsError.message);
   }
 };

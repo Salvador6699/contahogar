@@ -2,9 +2,16 @@ import { Budget, SavingsGoal } from "@/types/finance";
 import { supabase } from "@/lib/supabase";
 import { v4 as uuidv4 } from "uuid";
 
+const getTeamId = () => {
+  const teamId = localStorage.getItem('contahogar_active_team_id');
+  if (!teamId) throw new Error("No hay equipo activo");
+  return teamId;
+};
+
+
 // Budgets
 export const getBudgets = async (): Promise<Budget[]> => {
-  const { data, error } = await supabase.from('budgets').select('*');
+  const { data, error } = await supabase.from('budgets').select('*').eq('team_id', getTeamId());
   if (error) throw new Error(error.message);
   return data as Budget[];
 };
@@ -16,21 +23,22 @@ export const saveBudgetsForMonth = async (month: string, budgets: Budget[]): Pro
 
   // 2. Insert new budgets
   if (budgets.length > 0) {
-    const { error: insertError } = await supabase.from('budgets').insert(budgets);
+    const budgetsWithTeam = budgets.map(b => ({ ...b, team_id: getTeamId() }));
+    const { error: insertError } = await supabase.from('budgets').insert(budgetsWithTeam);
     if (insertError) throw new Error(insertError.message);
   }
 };
 
 // Goals
 export const getSavingsGoals = async (): Promise<SavingsGoal[]> => {
-  const { data, error } = await supabase.from('savings_goals').select('*');
+  const { data, error } = await supabase.from('savings_goals').select('*').eq('team_id', getTeamId());
   if (error) throw new Error(error.message);
   return data as SavingsGoal[];
 };
 
 export const addSavingsGoal = async (goal: Omit<SavingsGoal, "id">): Promise<SavingsGoal> => {
   const newGoal = {
-    id: uuidv4(),
+    id: uuidv4(), team_id: getTeamId(),
     ...goal
   };
   const { data, error } = await supabase.from('savings_goals').insert([newGoal]).select().single();

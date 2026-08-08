@@ -38,6 +38,7 @@ import {
   Dumbbell,
   CreditCard,
   Settings,
+  Users
 } from "lucide-react";
 import * as Icons from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -72,27 +73,30 @@ import { cn } from "@/lib/utils";
 import { format, addMonths } from "date-fns";
 import { AccountManager } from "@/components/AccountManager";
 import { RecurringExpensesManager } from "@/components/RecurringExpensesManager";
+import { TeamManager } from "@/components/TeamManager";
 import { useAccounts } from "@/hooks/useAccounts";
 import { useCategories } from "@/hooks/useCategories";
+import { useTeam } from "@/contexts/TeamContext";
 
 const SettingsPage = () => {
   const { setTheme } = useTheme();
   const [searchParams] = useSearchParams();
+  const { activeRole } = useTeam();
 
   const [activeTab, setActiveTab] = useState<
-    "cuentas" | "categorias" | "apariencia" | "gastos_fijos"
+    "cuentas" | "categorias" | "apariencia" | "gastos_fijos" | "equipos"
   >(() => {
     const tabParam = searchParams.get("tab");
-    if (tabParam === "gastos_fijos" || tabParam === "cuentas" || tabParam === "categorias" || tabParam === "apariencia") {
-      return tabParam;
+    if (tabParam === "gastos_fijos" || tabParam === "cuentas" || tabParam === "categorias" || tabParam === "apariencia" || tabParam === "equipos") {
+      return tabParam as any;
     }
     return "cuentas";
   });
 
   useEffect(() => {
     const tabParam = searchParams.get("tab");
-    if (tabParam === "gastos_fijos" || tabParam === "cuentas" || tabParam === "categorias" || tabParam === "apariencia") {
-      setActiveTab(tabParam);
+    if (tabParam === "gastos_fijos" || tabParam === "cuentas" || tabParam === "categorias" || tabParam === "apariencia" || tabParam === "equipos") {
+      setActiveTab(tabParam as any);
     }
   }, [searchParams]);
 
@@ -323,31 +327,44 @@ const SettingsPage = () => {
         </div>
 
         {/* Custom Tabs Navigation */}
-        <div className="grid grid-cols-2 gap-2 mb-6">
-          <Button
-            variant={activeTab === "cuentas" ? "default" : "outline"}
-            onClick={() => setActiveTab("cuentas")}
-            className="w-full flex items-center justify-center rounded-xl"
-          >
-            <Wallet className="w-4 h-4 mr-2" />
-            Cuentas
-          </Button>
-          <Button
-            variant={activeTab === "categorias" ? "default" : "outline"}
-            onClick={() => setActiveTab("categorias")}
-            className="w-full flex items-center justify-center rounded-xl"
-          >
-            <Tag className="w-4 h-4 mr-2" />
-            Categorías
-          </Button>
+        <div className="grid grid-cols-2 lg:grid-cols-5 gap-2 mb-6">
+          {activeRole === 'admin' && (
+            <>
+              <Button
+                variant={activeTab === "cuentas" ? "default" : "outline"}
+                onClick={() => setActiveTab("cuentas")}
+                className="w-full flex items-center justify-center rounded-xl"
+              >
+                <Wallet className="w-4 h-4 mr-2" />
+                <span className="hidden lg:inline">Cuentas</span>
+              </Button>
+              <Button
+                variant={activeTab === "categorias" ? "default" : "outline"}
+                onClick={() => setActiveTab("categorias")}
+                className="w-full flex items-center justify-center rounded-xl"
+              >
+                <Tag className="w-4 h-4 mr-2" />
+                <span className="hidden lg:inline">Categorías</span>
+              </Button>
+
+              <Button
+                variant={activeTab === "gastos_fijos" ? "default" : "outline"}
+                onClick={() => setActiveTab("gastos_fijos")}
+                className="w-full flex items-center justify-center rounded-xl"
+              >
+                <Clock className="w-4 h-4 mr-2" />
+                <span className="hidden lg:inline">Gastos Fijos</span>
+              </Button>
+            </>
+          )}
 
           <Button
-            variant={activeTab === "gastos_fijos" ? "default" : "outline"}
-            onClick={() => setActiveTab("gastos_fijos")}
+            variant={activeTab === "equipos" ? "default" : "outline"}
+            onClick={() => setActiveTab("equipos")}
             className="w-full flex items-center justify-center rounded-xl"
           >
-            <Clock className="w-4 h-4 mr-2" />
-            Gastos Fijos
+            <Users className="w-4 h-4 mr-2" />
+            <span className="hidden lg:inline">Equipos</span>
           </Button>
 
           <Button
@@ -356,13 +373,19 @@ const SettingsPage = () => {
             className="w-full flex items-center justify-center rounded-xl"
           >
             <Sun className="w-4 h-4 mr-2" />
-            Apariencia
+            <span className="hidden lg:inline">Apariencia</span>
           </Button>
         </div>
 
         <div className="space-y-6">
+          {/* TAB: EQUIPOS */}
+          {activeTab === "equipos" && (
+            <div className="animate-in fade-in slide-in-from-bottom-2 duration-300">
+              <TeamManager />
+            </div>
+          )}
           {/* TAB: CUENTAS */}
-          {activeTab === "cuentas" && (
+          {activeRole === 'admin' && activeTab === "cuentas" && (
             <div className="animate-in fade-in slide-in-from-bottom-2 duration-300">
               <AccountManager />
             </div>
@@ -443,7 +466,7 @@ const SettingsPage = () => {
                             variant="ghost"
                             size="icon"
                             className="h-10 w-10 text-destructive/70 hover:text-destructive hover:bg-destructive/10"
-                            onClick={() => handleDeleteCat(cat.id)}
+                            onClick={() => handleDeleteCategory(cat.id)}
                           >
                             <Trash2 className="w-4 h-4" />
                           </Button>

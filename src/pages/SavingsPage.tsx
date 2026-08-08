@@ -5,6 +5,7 @@ import { calculateAccountBalance, formatCurrency } from '@/lib/calculations';
 import { useAccounts } from '@/hooks/useAccounts';
 import { useTransactions } from '@/hooks/useTransactions';
 import { usePlanning } from '@/hooks/usePlanning';
+import { useTeam } from '@/contexts/TeamContext';
 import { useRecurringRules } from '@/hooks/useRecurringRules';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -15,6 +16,7 @@ import { differenceInMonths, parseISO, startOfMonth, addMonths, endOfMonth } fro
 import { toast } from 'sonner';
 
 export const SavingsPage = () => {
+    const { activeRole } = useTeam();
     const { accounts, isLoading: isAccLoading } = useAccounts();
     const { transactions, updateTransaction: rqUpdateTransaction, isLoading: isTxLoading } = useTransactions();
     const { goals, addGoal: rqAddGoal, updateGoal: rqUpdateGoal, deleteGoal: rqDeleteGoal, isGoalsLoading } = usePlanning();

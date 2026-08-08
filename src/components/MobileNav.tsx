@@ -23,7 +23,11 @@ import {
   Target,
   PiggyBank,
   Zap,
-  Landmark
+  Landmark,
+  Users,
+  ChevronDown,
+  CheckCircle2,
+  LogOut
 } from 'lucide-react';
 import * as Icons from 'lucide-react';
 import { cn, withKeyboardClose } from '@/lib/utils';
@@ -49,6 +53,8 @@ import { useCategories } from '@/hooks/useCategories';
 import { calculateCategorySummaries } from '@/lib/calculations';
 import { FavoriteExpense, Category } from '@/types/finance';
 import { format } from 'date-fns';
+import { useTeam } from '@/contexts/TeamContext';
+import { useAuth } from '@/contexts/AuthContext';
 
 const MobileNav = () => {
     const navigate = useNavigate();
@@ -56,6 +62,8 @@ const MobileNav = () => {
 
     const { favorites } = useFavorites();
     const { categories } = useCategories();
+    const { teams, activeTeam, setActiveTeamId } = useTeam();
+    const { signOut } = useAuth();
 
 
     interface NavItem {
@@ -111,7 +119,7 @@ const MobileNav = () => {
 
     const { title, icon } = getPageDetails();
 
-    const primaryNavPaths = ['/', '/comparativa', '/presupuestos', '/calendario', '/ahorros', '/prestamos', '/historial', '/buscar'];
+    const primaryNavPaths = ['/', '/presupuestos', '/comparativa', '/historial'];
     const primaryNavItems = allDrawerNavItems.filter(item => primaryNavPaths.includes(item.path));
     const secondaryNavItems = allDrawerNavItems.filter(item => !primaryNavPaths.includes(item.path));
 
@@ -198,6 +206,48 @@ const MobileNav = () => {
 
                 {/* Action Buttons */}
                 <div className="flex items-center gap-3">
+                    {/* Selector de Equipo */}
+                    <div className="relative group/team">
+                        <button className="flex items-center gap-2 bg-muted/50 hover:bg-muted text-foreground px-4 py-2.5 rounded-xl font-bold transition-all duration-300 text-sm border border-border/50">
+                            <Users className="w-4 h-4" /> 
+                            <span className="max-w-[120px] truncate">{activeTeam?.name || "Sin Equipo"}</span>
+                            <ChevronDown className="w-4 h-4 text-muted-foreground" />
+                        </button>
+                        <div className="absolute top-full right-0 pt-2 w-64 z-50 opacity-0 translate-y-2 pointer-events-none group-hover/team:opacity-100 group-hover/team:translate-y-0 group-hover/team:pointer-events-auto transition-all duration-300">
+                            <div className="bg-background/95 backdrop-blur-xl border border-border/50 rounded-2xl shadow-2xl p-2 grid gap-1">
+                                {teams.map((t) => (
+                                    <button 
+                                        key={t.team_id}
+                                        onClick={() => {
+                                            setActiveTeamId(t.team_id);
+                                            window.location.href = '/'; // Force reload to clear react-query cache and ensure clean state
+                                        }}
+                                        className={cn(
+                                            "flex items-center justify-between px-3 py-2 rounded-xl text-sm font-bold transition-all text-left group/item hover:bg-muted",
+                                            activeTeam?.id === t.team_id && "bg-primary/10 text-primary hover:bg-primary/15"
+                                        )}
+                                    >
+                                        <span className="truncate flex-1">{t.teams.name}</span>
+                                        {activeTeam?.id === t.team_id && <CheckCircle2 className="w-4 h-4 shrink-0" />}
+                                    </button>
+                                ))}
+                                <div className="h-px bg-border/50 my-1"></div>
+                                <button 
+                                    onClick={() => navigate('/ajustes?tab=equipos')}
+                                    className="flex items-center gap-2 px-3 py-2 rounded-xl text-sm font-bold text-muted-foreground hover:bg-muted transition-all text-left"
+                                >
+                                    <Plus className="w-4 h-4" /> Administrar Equipos
+                                </button>
+                                <button 
+                                    onClick={signOut}
+                                    className="flex items-center gap-2 px-3 py-2 rounded-xl text-sm font-bold text-destructive hover:bg-destructive/10 transition-all text-left"
+                                >
+                                    <LogOut className="w-4 h-4" /> Cerrar Sesión
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+
                     {favorites.length > 0 && (
                         <div className="relative group/quick">
                             <button className="flex items-center gap-2 bg-primary/10 hover:bg-primary/20 text-primary px-4 py-2.5 rounded-xl font-bold transition-all duration-300 text-sm shadow-sm">
@@ -352,28 +402,51 @@ const MobileNav = () => {
                             <span className="bg-clip-text text-transparent bg-gradient-to-br from-foreground to-foreground/60">Menú Principal</span>
                         </SheetTitle>
                     </SheetHeader>
-                    <div className="flex-1 overflow-y-auto py-4 px-4 custom-scrollbar grid grid-cols-2 gap-3 content-start">
-                        {allDrawerNavItems.map((item) => {
-                            const active = isActive(item.path, item.exact);
-                            return (
-                                <SheetClose asChild key={item.path}>
-                                    <button
-                                        onClick={() => navigate(item.path)}
-                                        className={cn(
-                                            "flex flex-col items-center justify-center gap-2 p-4 rounded-2xl transition-all duration-300 font-bold group w-full text-center border",
-                                            active 
-                                                ? "bg-primary/10 text-primary border-primary/20 shadow-sm" 
-                                                : "bg-card text-muted-foreground hover:bg-primary/5 hover:text-primary border-border/50 active:scale-95"
-                                        )}
+                    <div className="flex-1 overflow-y-auto py-4 px-4 custom-scrollbar flex flex-col">
+                        <div className="grid grid-cols-2 gap-3 content-start">
+                            {allDrawerNavItems.map((item) => {
+                                const active = isActive(item.path, item.exact);
+                                return (
+                                    <SheetClose asChild key={item.path}>
+                                        <button
+                                            onClick={() => navigate(item.path)}
+                                            className={cn(
+                                                "flex flex-col items-center justify-center gap-2 p-4 rounded-2xl transition-all duration-300 font-bold group w-full text-center border",
+                                                active 
+                                                    ? "bg-primary/10 text-primary border-primary/20 shadow-sm" 
+                                                    : "bg-card text-muted-foreground hover:bg-primary/5 hover:text-primary border-border/50 active:scale-95"
+                                            )}
+                                        >
+                                            <div className="relative">
+                                                <item.icon className={cn("w-6 h-6", active && "stroke-[2.5px]")} />
+                                            </div>
+                                            <span className="text-xs uppercase tracking-[0.1em]">{item.label}</span>
+                                        </button>
+                                    </SheetClose>
+                                );
+                            })}
+                        </div>
+                        
+                        <div className="mt-8 pt-4 border-t border-border/10 flex flex-col gap-3 pb-8">
+                            {teams.length > 1 && (
+                                <SheetClose asChild>
+                                    <button 
+                                        onClick={() => navigate('/select-team')}
+                                        className="flex items-center justify-center gap-2 p-4 rounded-2xl bg-secondary text-secondary-foreground font-bold border border-border/50 active:scale-95 transition-all"
                                     >
-                                        <div className="relative">
-                                            <item.icon className={cn("w-6 h-6", active && "stroke-[2.5px]")} />
-                                        </div>
-                                        <span className="text-xs uppercase tracking-[0.1em]">{item.label}</span>
+                                        <ArrowLeftRight className="w-5 h-5" />
+                                        Cambiar Equipo
                                     </button>
                                 </SheetClose>
-                            );
-                        })}
+                            )}
+                            <button 
+                                onClick={signOut}
+                                className="flex items-center justify-center gap-2 p-4 rounded-2xl bg-destructive/10 text-destructive font-bold border border-destructive/20 active:scale-95 transition-all"
+                            >
+                                <LogOut className="w-5 h-5" />
+                                Cerrar Sesión
+                            </button>
+                        </div>
                     </div>
                 </SheetContent>
             </Sheet>

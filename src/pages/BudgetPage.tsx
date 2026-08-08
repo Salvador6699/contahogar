@@ -30,13 +30,15 @@ import { useAccounts } from '@/hooks/useAccounts';
 import { useTransactions } from '@/hooks/useTransactions';
 import { useCategories } from '@/hooks/useCategories';
 import { usePlanning } from '@/hooks/usePlanning';
+import { useTeam } from '@/contexts/TeamContext';
 
 const BudgetPage = () => {
+    const { activeRole } = useTeam();
     const [legacyData, setLegacyData] = useState(loadData());
     const { accounts, isLoading: isAccLoading } = useAccounts();
     const { transactions, isLoading: isTxLoading } = useTransactions();
     const { categories, isLoading: isCatLoading } = useCategories();
-    const { budgets, saveBudgets, isLoading: isBudLoading } = usePlanning();
+    const { budgets, saveBudgets, isBudgetsLoading: isBudLoading } = usePlanning();
 
     const data = useMemo(() => ({
         ...legacyData,
@@ -458,45 +460,49 @@ const BudgetPage = () => {
                     </h1>
 
                     <div className="flex flex-col sm:flex-row w-full sm:w-auto items-stretch sm:items-center gap-2 mt-2 sm:mt-0 z-10">
-                        <Button 
-                            onClick={() => setIsAddModalOpen(true)}
-                            variant="outline"
-                            className="font-bold border-2"
-                        >
-                            <PlusCircle className="w-4 h-4 mr-2" />
-                            Añadir manual
-                        </Button>
-                        <Button 
-                            onClick={handleCopyPreviousMonth}
-                            variant="secondary"
-                            className="bg-primary/5 hover:bg-primary/15 text-primary border border-primary/20 hover:border-primary/40 font-bold shadow-sm transition-all"
-                        >
-                            <Copy className="w-4 h-4 mr-2" />
-                            Copiar mes anterior
-                        </Button>
-                        <Button 
-                            onClick={handleAutoAssignFutureExpenses}
-                            variant="secondary"
-                            className="bg-primary/10 hover:bg-primary/20 text-primary border border-primary/20 font-bold shadow-sm transition-all"
-                        >
-                            <PlusCircle className="w-4 h-4 mr-2" />
-                            Autoasignar
-                        </Button>
-                        <Button 
-                            onClick={handleClearAll}
-                            variant="destructive"
-                            className="bg-destructive/10 hover:bg-destructive/20 text-destructive border border-destructive/20 font-bold shadow-sm transition-all"
-                        >
-                            <Trash2 className="w-4 h-4 mr-2" />
-                            Limpiar todos
-                        </Button>
-                        <Button 
-                            onClick={handleSave} 
-                            className="font-bold shadow-md hover:shadow-lg transition-all"
-                        >
-                            <Save className="w-4 h-4 mr-2" />
-                            Guardar Cambios
-                        </Button>
+                        {activeRole === 'admin' && (
+                            <>
+                                <Button 
+                                    onClick={() => setIsAddModalOpen(true)}
+                                    variant="outline"
+                                    className="font-bold border-2"
+                                >
+                                    <PlusCircle className="w-4 h-4 mr-2" />
+                                    Añadir manual
+                                </Button>
+                                <Button 
+                                    onClick={handleCopyPreviousMonth}
+                                    variant="secondary"
+                                    className="bg-primary/5 hover:bg-primary/15 text-primary border border-primary/20 hover:border-primary/40 font-bold shadow-sm transition-all"
+                                >
+                                    <Copy className="w-4 h-4 mr-2" />
+                                    Copiar mes anterior
+                                </Button>
+                                <Button 
+                                    onClick={handleAutoAssignFutureExpenses}
+                                    variant="secondary"
+                                    className="bg-primary/10 hover:bg-primary/20 text-primary border border-primary/20 font-bold shadow-sm transition-all"
+                                >
+                                    <PlusCircle className="w-4 h-4 mr-2" />
+                                    Autoasignar
+                                </Button>
+                                <Button 
+                                    onClick={handleClearAll}
+                                    variant="destructive"
+                                    className="bg-destructive/10 hover:bg-destructive/20 text-destructive border border-destructive/20 font-bold shadow-sm transition-all"
+                                >
+                                    <Trash2 className="w-4 h-4 mr-2" />
+                                    Limpiar todos
+                                </Button>
+                                <Button 
+                                    onClick={handleSave} 
+                                    className="font-bold shadow-md hover:shadow-lg transition-all"
+                                >
+                                    <Save className="w-4 h-4 mr-2" />
+                                    Guardar Cambios
+                                </Button>
+                            </>
+                        )}
                     </div>
                 </div>
 

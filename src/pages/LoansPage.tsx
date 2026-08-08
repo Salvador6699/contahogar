@@ -12,8 +12,10 @@ import { Transaction } from '@/types/finance';
 import { useAccounts } from '@/hooks/useAccounts';
 import { useTransactions } from '@/hooks/useTransactions';
 import { useLoans } from '@/hooks/useLoans';
+import { useTeam } from '@/contexts/TeamContext';
 
 const LoansPage = () => {
+    const { activeRole } = useTeam();
   const { accounts, isLoading: isAccLoading } = useAccounts();
   const { transactions, updateTransaction, isLoading: isTxLoading } = useTransactions();
   const { loans, deleteLoan, applyLoanTransaction, updateLoan, isLoading: isLoansLoading } = useLoans();
