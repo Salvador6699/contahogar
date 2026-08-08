@@ -69,6 +69,27 @@ export const syncRecurringTransactionsToSupabase = async (): Promise<void> => {
     }
     const generatedIds = new Set<string>();
 
+    // Helper: find a fractionation loan that covers this rule+date
+    const findMatchingFractionLoan = (txId: string, dateStr: string) => {
+      return loans?.find(l => {
+        if (l.type !== 'fractionation') return false;
+        const od = l.originalTransactionData;
+        if (!od) return false;
+        // Direct match by txId stored in originalTransactionData
+        if (od.id && od.id === txId) return true;
+        // Match by date + amount + description (old backup format has no id)
+        if (od.date === dateStr && od.amount === rule.amount && od.description === rule.name) return true;
+        // Range match: loan covers this date and name matches (future cuotas)
+        try {
+          const loanStart = parseISO(l.startDate);
+          const loanEnd = addMonths(loanStart, (l.installments || 1) - 1);
+          const cur = parseISO(dateStr);
+          if (l.name === rule.name && !isBefore(cur, loanStart) && !isAfter(cur, loanEnd)) return true;
+        } catch (_) { /* ignore parse errors */ }
+        return false;
+      });
+    };
+
     let iterations = 0;
     const MAX_ITERATIONS = 500;
 
@@ -82,28 +103,36 @@ export const syncRecurringTransactionsToSupabase = async (): Promise<void> => {
 
       if (existingTxIndex !== -1) {
         const existingTx = transactions[existingTxIndex];
-        // Only update if it's still pending AND has NOT been fractionated (linkedLoanId means it's been split)
-        if (existingTx.isPending && !existingTx.linkedLoanId) {
-          transactionsToUpsert.push({
-            ...existingTx,
-            amount: rule.amount,
-            category: rule.category,
-            accountId: rule.accountId,
-            type: rule.type,
-            description: rule.name,
-            date: dateStr,
-          });
+        // Leave alone if: already confirmed, already linked to a loan, or now covered by a fractionation loan
+        if (!existingTx.isPending || existingTx.linkedLoanId) {
+          // leave untouched
+        } else {
+          const matchingLoan = findMatchingFractionLoan(txId, dateStr);
+          if (matchingLoan) {
+            // Mark as fractionated retroactively (e.g. old backup without linkedLoanId)
+            transactionsToUpsert.push({
+              ...existingTx,
+              amount: 0,
+              isPending: false,
+              isIgnored: true,
+              linkedLoanId: matchingLoan.id,
+              description: rule.name + ' (Fraccionado)',
+            });
+          } else {
+            transactionsToUpsert.push({
+              ...existingTx,
+              amount: rule.amount,
+              category: rule.category,
+              accountId: rule.accountId,
+              type: rule.type,
+              description: rule.name,
+              date: dateStr,
+            });
+          }
         }
-        // If it has linkedLoanId or isPending=false, leave it untouched
       } else {
         // Create new pending transaction
-        const matchingLoan = loans?.find(l => 
-          l.type === "fractionation" && 
-          l.originalTransactionData && 
-          (l.originalTransactionData.id === txId || 
-            (l.originalTransactionData.date === dateStr && l.originalTransactionData.amount === rule.amount && l.originalTransactionData.description === rule.name)
-          )
-        );
+        const matchingLoan = findMatchingFractionLoan(txId, dateStr);
 
         if (matchingLoan) {
           transactionsToUpsert.push({
