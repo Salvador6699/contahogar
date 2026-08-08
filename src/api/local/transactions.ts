@@ -29,7 +29,7 @@ export const addTransaction = async (transaction: Omit<Transaction, "id">): Prom
   if (error) throw new Error(error.message);
 };
 
-export const updateTransaction = async (transaction: Transaction): Promise<void> => {
+export const updateTransaction = async (transaction: Partial<Transaction> & { id: string }): Promise<void> => {
   const { error } = await supabase.from('transactions').update(transaction).eq('id', transaction.id);
   if (error) throw new Error(error.message);
 };
