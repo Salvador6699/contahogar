@@ -36,6 +36,22 @@ export default defineConfig(({ mode }) => ({
             type: 'image/png',
             purpose: 'any maskable'
           }
+        ],
+        shortcuts: [
+          {
+            name: "Nueva Transacción",
+            short_name: "Transacción",
+            description: "Ir a la pantalla principal",
+            url: "/",
+            icons: [{ src: "logo.png", sizes: "192x192" }]
+          },
+          {
+            name: "Ver Presupuestos",
+            short_name: "Presupuestos",
+            description: "Ir a la sección de presupuestos",
+            url: "/presupuestos",
+            icons: [{ src: "logo.png", sizes: "192x192" }]
+          }
         ]
       }
     })

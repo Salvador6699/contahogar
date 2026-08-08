@@ -1,10 +1,26 @@
 import { Outlet, Navigate, useLocation } from 'react-router-dom';
 import MobileNav from './MobileNav';
 import { useTeam } from '@/contexts/TeamContext';
+import { useTheme } from 'next-themes';
+import { useEffect } from 'react';
 
 const AppLayout = () => {
   const { activeTeam, teams, loading: teamLoading } = useTeam();
   const location = useLocation();
+  const { resolvedTheme } = useTheme();
+
+  useEffect(() => {
+    let metaThemeColor = document.querySelector('meta[name="theme-color"]');
+    if (!metaThemeColor) {
+      metaThemeColor = document.createElement('meta');
+      metaThemeColor.setAttribute('name', 'theme-color');
+      document.head.appendChild(metaThemeColor);
+    }
+    metaThemeColor.setAttribute(
+      'content', 
+      resolvedTheme === 'dark' ? '#09090b' : '#ffffff'
+    );
+  }, [resolvedTheme]);
 
   if (teamLoading) {
     return (

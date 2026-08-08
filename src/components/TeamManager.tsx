@@ -9,6 +9,7 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/com
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { useNavigate } from "react-router-dom";
+import Swal from 'sweetalert2';
 
 export const TeamManager = () => {
   const { teams, activeTeam, activeRole, refreshTeams, setActiveTeamId } = useTeam();
@@ -163,7 +164,20 @@ export const TeamManager = () => {
       return;
     }
 
-    if (window.confirm("¿Seguro que quieres expulsar a este miembro del equipo?")) {
+    const result = await Swal.fire({
+      title: '¿Expulsar miembro?',
+      text: '¿Seguro que quieres expulsar a este miembro del equipo?',
+      icon: 'warning',
+      showCancelButton: true,
+      confirmButtonColor: 'hsl(var(--destructive))',
+      cancelButtonColor: 'hsl(var(--muted))',
+      confirmButtonText: 'Sí, expulsar',
+      cancelButtonText: 'Cancelar',
+      background: 'hsl(var(--background))',
+      color: 'hsl(var(--foreground))'
+    });
+
+    if (result.isConfirmed) {
       try {
         const { error } = await supabase
           .from('team_members')
@@ -180,10 +194,21 @@ export const TeamManager = () => {
     }
   };
 
-  const copyInviteCode = () => {
+  const copyInviteCode = async () => {
     if (activeTeam) {
-      navigator.clipboard.writeText(activeTeam.invite_code);
-      toast.success("Código copiado al portapapeles");
+      if (navigator.share) {
+        try {
+          await navigator.share({
+            title: 'Únete a mi equipo en ContaHogar',
+            text: `Únete a mi contabilidad usando este código: ${activeTeam.invite_code}`
+          });
+        } catch (err) {
+          console.error("Error al compartir", err);
+        }
+      } else {
+        navigator.clipboard.writeText(activeTeam.invite_code);
+        toast.success("Código copiado al portapapeles");
+      }
     }
   };
 
@@ -261,7 +286,20 @@ export const TeamManager = () => {
                     variant="destructive" 
                     className="w-full gap-2"
                     onClick={async () => {
-                      if (window.confirm("¿Seguro que quieres eliminar este equipo entero? Esta acción NO se puede deshacer y borrará todas las cuentas y transacciones.")) {
+                      const result = await Swal.fire({
+                        title: '¿Eliminar equipo?',
+                        text: 'Esta acción NO se puede deshacer y borrará todas las cuentas y transacciones.',
+                        icon: 'error',
+                        showCancelButton: true,
+                        confirmButtonColor: 'hsl(var(--destructive))',
+                        cancelButtonColor: 'hsl(var(--muted))',
+                        confirmButtonText: 'Sí, eliminar',
+                        cancelButtonText: 'Cancelar',
+                        background: 'hsl(var(--background))',
+                        color: 'hsl(var(--foreground))'
+                      });
+
+                      if (result.isConfirmed) {
                         setLoading(true);
                         const { error } = await supabase.from('teams').delete().eq('id', activeTeam.id);
                         setLoading(false);
@@ -284,7 +322,20 @@ export const TeamManager = () => {
                 variant="outline" 
                 className="w-full gap-2 text-destructive hover:bg-destructive/10 hover:text-destructive"
                 onClick={async () => {
-                  if (window.confirm("¿Seguro que quieres abandonar este equipo? No podrás volver a entrar sin el código.")) {
+                  const result = await Swal.fire({
+                    title: '¿Abandonar equipo?',
+                    text: 'No podrás volver a entrar sin el código de invitación.',
+                    icon: 'warning',
+                    showCancelButton: true,
+                    confirmButtonColor: 'hsl(var(--destructive))',
+                    cancelButtonColor: 'hsl(var(--muted))',
+                    confirmButtonText: 'Sí, abandonar',
+                    cancelButtonText: 'Cancelar',
+                    background: 'hsl(var(--background))',
+                    color: 'hsl(var(--foreground))'
+                  });
+
+                  if (result.isConfirmed) {
                     setLoading(true);
                     const { error } = await supabase.from('team_members').delete().eq('team_id', activeTeam.id).eq('user_id', user?.id);
                     setLoading(false);

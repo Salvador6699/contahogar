@@ -10,6 +10,7 @@ import { Input } from '@/components/ui/input';
 import { PiggyBank, PlusCircle, Save, Trash2, Plus, Minus, Search, X, ChevronLeft, ChevronRight, Copy } from 'lucide-react';
 import { toast } from 'sonner';
 import { cn } from '@/lib/utils';
+import Swal from 'sweetalert2';
 import {
   Select,
   SelectContent,
@@ -151,8 +152,21 @@ const BudgetPage = () => {
         });
     };
 
-    const handleClearAll = () => {
-        if (window.confirm('¿Estás seguro de que quieres limpiar todos los presupuestos de este mes? (Se aplicará al guardar)')) {
+    const handleClearAll = async () => {
+        const result = await Swal.fire({
+            title: '¿Limpiar presupuestos?',
+            text: '¿Estás seguro de que quieres limpiar todos los presupuestos de este mes? (Se aplicará al guardar)',
+            icon: 'warning',
+            showCancelButton: true,
+            confirmButtonColor: 'hsl(var(--primary))',
+            cancelButtonColor: 'hsl(var(--destructive))',
+            confirmButtonText: 'Sí, limpiar',
+            cancelButtonText: 'Cancelar',
+            background: 'hsl(var(--background))',
+            color: 'hsl(var(--foreground))'
+        });
+
+        if (result.isConfirmed) {
             setLocalAssignments({});
             toast.success('Todos los presupuestos limpiados. No olvides guardar.');
         }
