@@ -82,8 +82,8 @@ export const syncRecurringTransactionsToSupabase = async (): Promise<void> => {
 
       if (existingTxIndex !== -1) {
         const existingTx = transactions[existingTxIndex];
-        // Only update if it's still pending
-        if (existingTx.isPending) {
+        // Only update if it's still pending AND has NOT been fractionated (linkedLoanId means it's been split)
+        if (existingTx.isPending && !existingTx.linkedLoanId) {
           transactionsToUpsert.push({
             ...existingTx,
             amount: rule.amount,
@@ -94,6 +94,7 @@ export const syncRecurringTransactionsToSupabase = async (): Promise<void> => {
             date: dateStr,
           });
         }
+        // If it has linkedLoanId or isPending=false, leave it untouched
       } else {
         // Create new pending transaction
         const matchingLoan = loans?.find(l => 
