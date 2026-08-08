@@ -32,3 +32,9 @@ replace.*
 archivos/
 ContaHogarV1/
 docs/
+v2/
+
+# Debug/scratch scripts
+*.mjs
+*.sql
+user_inputs.txt
