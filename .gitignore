@@ -37,4 +37,5 @@ v2/
 # Debug/scratch scripts
 *.mjs
 *.sql
+!supabase/*.sql
 user_inputs.txt
