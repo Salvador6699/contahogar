@@ -155,6 +155,31 @@ export const TeamManager = () => {
     }
   };
 
+  const handleKickMember = async (userId: string) => {
+    if (!activeTeam || activeRole !== 'admin') return;
+    
+    if (userId === user?.id) {
+      toast.error("Para salirte del equipo usa el botón 'Abandonar Equipo'");
+      return;
+    }
+
+    if (window.confirm("¿Seguro que quieres expulsar a este miembro del equipo?")) {
+      try {
+        const { error } = await supabase
+          .from('team_members')
+          .delete()
+          .eq('team_id', activeTeam.id)
+          .eq('user_id', userId);
+
+        if (error) throw error;
+        toast.success("Miembro expulsado");
+        fetchMembers();
+      } catch (err: any) {
+        toast.error("Error al expulsar al miembro");
+      }
+    }
+  };
+
   const copyInviteCode = () => {
     if (activeTeam) {
       navigator.clipboard.writeText(activeTeam.invite_code);
@@ -306,6 +331,16 @@ export const TeamManager = () => {
                     <option value="admin">Administrador</option>
                     <option value="user">Usuario</option>
                   </select>
+                  {member.user_id !== user?.id && (
+                    <Button 
+                      variant="ghost" 
+                      size="icon" 
+                      className="h-7 w-7 text-destructive hover:bg-destructive/10 hover:text-destructive"
+                      onClick={() => handleKickMember(member.user_id)}
+                    >
+                      <Trash2 size={14} />
+                    </Button>
+                  )}
                 </div>
               </div>
             ))}
