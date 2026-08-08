@@ -209,25 +209,33 @@ const BackupPage = () => {
                                         </div>
 
                                         <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-4">
-                                            <Button 
-                                                onClick={handleRestore}
-                                                disabled={!selectedSnapshot || isRestoring}
-                                                className={cn(
-                                                    "flex-1 h-12 rounded-xl font-black text-white shadow-xl transition-all",
-                                                    selectedSnapshot ? "bg-primary hover:bg-primary/90" : "bg-muted text-muted-foreground shadow-none"
-                                                )}
-                                            >
-                                                {isRestoring ? 'Restaurando...' : selectedSnapshot ? `Iniciar Restauración: ${format(parseISO(selectedSnapshot.created_at), "d MMM", { locale: es })}` : 'Selecciona un día verde'}
-                                            </Button>
-                                            
-                                            <Button
-                                                onClick={handleManualBackup}
-                                                disabled={isCreatingBackup || isLoading}
-                                                variant="outline"
-                                                className="h-12 px-6 rounded-xl font-black border-primary text-primary hover:bg-primary/10 transition-all shrink-0"
-                                            >
-                                                {isCreatingBackup ? 'Forzando...' : 'Forzar Copia Ahora'}
-                                            </Button>
+                                            {activeRole === 'admin' ? (
+                                                <>
+                                                    <Button 
+                                                        onClick={handleRestore}
+                                                        disabled={!selectedSnapshot || isRestoring}
+                                                        className={cn(
+                                                            "flex-1 h-12 rounded-xl font-black text-white shadow-xl transition-all",
+                                                            selectedSnapshot ? "bg-primary hover:bg-primary/90" : "bg-muted text-muted-foreground shadow-none"
+                                                        )}
+                                                    >
+                                                        {isRestoring ? 'Restaurando...' : selectedSnapshot ? `Iniciar Restauración: ${format(parseISO(selectedSnapshot.created_at), "d MMM", { locale: es })}` : 'Selecciona un día verde'}
+                                                    </Button>
+                                                    
+                                                    <Button
+                                                        onClick={handleManualBackup}
+                                                        disabled={isCreatingBackup || isLoading}
+                                                        variant="outline"
+                                                        className="h-12 px-6 rounded-xl font-black border-primary text-primary hover:bg-primary/10 transition-all shrink-0"
+                                                    >
+                                                        {isCreatingBackup ? 'Forzando...' : 'Forzar Copia Ahora'}
+                                                    </Button>
+                                                </>
+                                            ) : (
+                                                <div className="w-full text-center p-3 rounded-xl border border-dashed border-primary/20 bg-primary/5">
+                                                    <p className="text-sm font-medium text-primary/80">Solo los administradores pueden gestionar o restaurar copias de seguridad.</p>
+                                                </div>
+                                            )}
                                         </div>
                                         
                                         <div className="p-3 bg-destructive/10 rounded-xl border border-destructive/20 flex gap-3 mt-2">

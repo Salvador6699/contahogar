@@ -240,10 +240,12 @@ export const SavingsPage = () => {
                             Gestiona tu capital destinado a metas y gastos futuros.
                         </p>
                     </div>
-                    <Button onClick={() => { setEditingGoal(null); setIsModalOpen(true); }} className="rounded-2xl h-12 px-6 font-bold shadow-lg shadow-primary/20 hover:scale-105 transition-transform">
-                        <Plus className="w-5 h-5 mr-2" />
-                        Nueva Meta
-                    </Button>
+                    {activeRole === 'admin' && (
+                        <Button onClick={() => { setEditingGoal(null); setIsModalOpen(true); }} className="rounded-2xl h-12 px-6 font-bold shadow-lg shadow-primary/20 hover:scale-105 transition-transform">
+                            <Plus className="w-5 h-5 mr-2" />
+                            Nueva Meta
+                        </Button>
+                    )}
                 </div>
 
                 {/* Capital Card */}
@@ -337,25 +339,29 @@ export const SavingsPage = () => {
                                         <CardContent className="p-4 sm:p-5 flex flex-col sm:flex-row gap-4 sm:items-center">
                                             {/* Priority Controls */}
                                             <div className="flex sm:flex-col gap-1 items-center justify-center order-first">
-                                                <Button 
-                                                    variant="ghost" 
-                                                    size="icon" 
-                                                    className="w-8 h-8 rounded-full" 
-                                                    disabled={index === 0}
-                                                    onClick={() => handleMovePriority(index, 'up')}
-                                                >
-                                                    <ArrowUpCircle className="w-5 h-5 text-muted-foreground" />
-                                                </Button>
+                                                {activeRole === 'admin' && (
+                                                    <Button 
+                                                        variant="ghost" 
+                                                        size="icon" 
+                                                        className="w-8 h-8 rounded-full" 
+                                                        disabled={index === 0}
+                                                        onClick={() => handleMovePriority(index, 'up')}
+                                                    >
+                                                        <ArrowUpCircle className="w-5 h-5 text-muted-foreground" />
+                                                    </Button>
+                                                )}
                                                 <span className="text-xs font-bold text-muted-foreground w-4 text-center">{goal.displayPriority}</span>
-                                                <Button 
-                                                    variant="ghost" 
-                                                    size="icon" 
-                                                    className="w-8 h-8 rounded-full" 
-                                                    disabled={index === unifiedGoals.length - 1}
-                                                    onClick={() => handleMovePriority(index, 'down')}
-                                                >
-                                                    <ArrowDownCircle className="w-5 h-5 text-muted-foreground" />
-                                                </Button>
+                                                {activeRole === 'admin' && (
+                                                    <Button 
+                                                        variant="ghost" 
+                                                        size="icon" 
+                                                        className="w-8 h-8 rounded-full" 
+                                                        disabled={index === unifiedGoals.length - 1}
+                                                        onClick={() => handleMovePriority(index, 'down')}
+                                                    >
+                                                        <ArrowDownCircle className="w-5 h-5 text-muted-foreground" />
+                                                    </Button>
+                                                )}
                                             </div>
 
                                             {/* Info */}
@@ -410,23 +416,25 @@ export const SavingsPage = () => {
                                                 )}
 
                                                 {/* Actions */}
-                                                <div className="flex gap-1 mt-1 sm:mt-0">
-                                                    {!isComplete && (
-                                                        <Button variant="ghost" size="icon" className="h-8 w-8 text-muted-foreground hover:text-foreground" onClick={() => handleToggleIgnore(goal)}>
-                                                            {goal.isIgnored ? <EyeOff className="w-3.5 h-3.5" /> : <Eye className="w-3.5 h-3.5" />}
-                                                        </Button>
-                                                    )}
-                                                    {!goal.isVirtual && (
-                                                        <>
-                                                            <Button variant="ghost" size="icon" className="h-8 w-8 text-muted-foreground hover:text-foreground" onClick={() => { setEditingGoal(goal as SavingsGoal); setIsModalOpen(true); }}>
-                                                                <Edit2 className="w-3.5 h-3.5" />
+                                                {activeRole === 'admin' && (
+                                                    <div className="flex gap-1 mt-1 sm:mt-0">
+                                                        {!isComplete && (
+                                                            <Button variant="ghost" size="icon" className="h-8 w-8 text-muted-foreground hover:text-foreground" onClick={() => handleToggleIgnore(goal)}>
+                                                                {goal.isIgnored ? <EyeOff className="w-3.5 h-3.5" /> : <Eye className="w-3.5 h-3.5" />}
                                                             </Button>
-                                                            <Button variant="ghost" size="icon" className="h-8 w-8 text-muted-foreground hover:text-destructive" onClick={() => handleDeleteManual(goal.id)}>
-                                                                <Trash2 className="w-3.5 h-3.5" />
-                                                            </Button>
-                                                        </>
-                                                    )}
-                                                </div>
+                                                        )}
+                                                        {!goal.isVirtual && (
+                                                            <>
+                                                                <Button variant="ghost" size="icon" className="h-8 w-8 text-muted-foreground hover:text-foreground" onClick={() => { setEditingGoal(goal as SavingsGoal); setIsModalOpen(true); }}>
+                                                                    <Edit2 className="w-3.5 h-3.5" />
+                                                                </Button>
+                                                                <Button variant="ghost" size="icon" className="h-8 w-8 text-muted-foreground hover:text-destructive" onClick={() => handleDeleteManual(goal.id)}>
+                                                                    <Trash2 className="w-3.5 h-3.5" />
+                                                                </Button>
+                                                            </>
+                                                        )}
+                                                    </div>
+                                                )}
                                             </div>
                                         </CardContent>
                                     </Card>
