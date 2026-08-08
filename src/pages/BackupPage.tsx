@@ -6,6 +6,7 @@ import { Separator } from '@/components/ui/separator';
 import { loadData, migrateData } from '@/lib/storage';
 import { exportTransactionsToCSV } from '@/lib/exportUtils';
 import { toast } from 'sonner';
+import { swalSuccess, swalError, swalConfirm, swalLoading, swalClose } from '@/lib/swal';
 import { restoreToSupabase } from '@/lib/supabase';
 import { useQueryClient } from '@tanstack/react-query';
 import { useSnapshots } from '@/hooks/useSnapshots';
@@ -37,30 +38,30 @@ const BackupPage = () => {
     const handleRestore = async () => {
         if (!selectedSnapshot) return;
 
-        const confirmRestore = window.confirm(
-            `¿Estás seguro de que quieres restaurar los datos del ${format(parseISO(selectedSnapshot.created_at), "d 'de' MMMM", { locale: es })}?\n\nEsto sobrescribirá tus datos actuales en la nube.`
+        const confirmed = await swalConfirm(
+            '¿Restaurar datos?',
+            `Vas a volver al ${format(parseISO(selectedSnapshot.created_at), "d 'de' MMMM 'a las' HH:mm", { locale: es })}. Esto sobrescribirá tus datos actuales en la nube.`
         );
-        if (!confirmRestore) return;
+        if (!confirmed) return;
 
         setIsRestoring(true);
-        const toastId = toast.loading('Restaurando máquina del tiempo...');
+        swalLoading('Restaurando Máquina del Tiempo...');
 
         try {
-            // 1. Fetch full snapshot data
             const rawData = await getSnapshotData(selectedSnapshot.id);
 
             if (!rawData || !rawData.accounts || !rawData.transactions) {
                 throw new Error('El backup está corrupto o vacío.');
             }
 
-            // 2. Wipe Supabase and restore data (full replacement)
             await restoreToSupabase(rawData);
             queryClient.invalidateQueries();
-            toast.success('¡Restauración completada con éxito!', { id: toastId });
             setSelectedSnapshot(null);
+            await swalSuccess('¡Restauración completada!', `Tus datos han vuelto al ${format(parseISO(selectedSnapshot.created_at), "d 'de' MMMM", { locale: es })}.`);
         } catch (error) {
             console.error('Error restoring data:', error);
-            toast.error(error instanceof Error ? error.message : 'Error crítico al restaurar', { id: toastId });
+            swalClose();
+            await swalError('Error al restaurar', error instanceof Error ? error.message : 'Error crítico al restaurar');
         } finally {
             setIsRestoring(false);
         }
@@ -68,13 +69,14 @@ const BackupPage = () => {
 
     const handleManualBackup = async () => {
         setIsCreatingBackup(true);
-        const toastId = toast.loading('Forzando nueva copia de seguridad en la nube...');
+        swalLoading('Forzando copia de seguridad en la nube...');
         try {
             await createSnapshot();
-            toast.success('¡Copia manual creada con éxito! Se ha reemplazado la copia de hoy.', { id: toastId });
+            await swalSuccess('¡Copia creada!', 'La copia de hoy ha sido actualizada con el estado actual de tus datos.');
         } catch (error) {
             console.error('Error creating manual backup:', error);
-            toast.error('Error al crear la copia de seguridad', { id: toastId });
+            swalClose();
+            await swalError('Error en la copia', 'No se pudo crear la copia de seguridad.');
         } finally {
             setIsCreatingBackup(false);
         }
@@ -88,16 +90,23 @@ const BackupPage = () => {
         const file = event.target.files?.[0];
         if (!file) return;
 
+        const confirmed = await swalConfirm(
+            '¿Restauración de emergencia?',
+            `Se importará el archivo "${file.name}" y se sobrescribirán todos los datos actuales de Supabase.`
+        );
+        if (!confirmed) {
+            if (fileInputRef.current) fileInputRef.current.value = '';
+            return;
+        }
+
         setImporting(true);
-        const toastId = toast.loading('Rescatando datos a la nube...');
+        swalLoading('Rescatando datos a la nube...');
 
         try {
             const text = await file.text();
             const rawData = JSON.parse(text);
 
-            if (!rawData) {
-                throw new Error('El archivo está vacío o corrupto.');
-            }
+            if (!rawData) throw new Error('El archivo está vacío o corrupto.');
 
             const migratedData = migrateData(rawData);
 
@@ -107,10 +116,11 @@ const BackupPage = () => {
 
             await restoreToSupabase(migratedData);
             queryClient.invalidateQueries();
-            toast.success('¡Restauración de emergencia completada con éxito!', { id: toastId });
+            await swalSuccess('¡Restauración completada!', 'Todos los datos han sido importados desde el archivo JSON.');
         } catch (error) {
             console.error('Error importing data:', error);
-            toast.error(error instanceof Error ? error.message : 'Error crítico al importar', { id: toastId });
+            swalClose();
+            await swalError('Error al importar', error instanceof Error ? error.message : 'Error crítico al importar');
         } finally {
             setImporting(false);
             if (fileInputRef.current) fileInputRef.current.value = '';

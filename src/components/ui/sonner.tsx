@@ -16,6 +16,18 @@ const Toaster = ({ ...props }: ToasterProps) => {
     return () => window.removeEventListener('resize', checkMobile);
   }, []);
 
+  // Dismiss all toasts when clicking outside of them
+  useEffect(() => {
+    const handleClick = (e: MouseEvent) => {
+      const target = e.target as HTMLElement;
+      if (!target.closest('[data-sonner-toast]')) {
+        toast.dismiss();
+      }
+    };
+    document.addEventListener('click', handleClick, { capture: false });
+    return () => document.removeEventListener('click', handleClick, { capture: false });
+  }, []);
+
   return (
     <Sonner
       theme={theme as ToasterProps["theme"]}

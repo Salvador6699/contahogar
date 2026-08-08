@@ -3,7 +3,11 @@ import { supabase } from "@/lib/supabase";
 import { v4 as uuidv4 } from "uuid";
 
 export const getTransactions = async (): Promise<Transaction[]> => {
-  const { data, error } = await supabase.from('transactions').select('*').order('date', { ascending: false });
+  const { data, error } = await supabase
+    .from('transactions')
+    .select('*')
+    .order('date', { ascending: false })
+    .order('created_at', { ascending: false });
   if (error) throw new Error(error.message);
   return data as Transaction[];
 };
