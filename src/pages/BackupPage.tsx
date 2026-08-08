@@ -14,10 +14,12 @@ import { format, subDays, parseISO, isSameDay, startOfToday } from 'date-fns';
 import { es } from 'date-fns/locale';
 import { cn } from '@/lib/utils';
 import { CloudSnapshotSummary } from '@/api/local/snapshots';
+import { useTeam } from '@/contexts/TeamContext';
 
 const BackupPage = () => {
     const queryClient = useQueryClient();
     const { snapshots, isLoading, getSnapshotData, createSnapshot } = useSnapshots();
+    const { activeRole } = useTeam();
     const [selectedSnapshot, setSelectedSnapshot] = useState<CloudSnapshotSummary | null>(null);
     const [isRestoring, setIsRestoring] = useState(false);
     const [isCreatingBackup, setIsCreatingBackup] = useState(false);
@@ -206,7 +208,7 @@ const BackupPage = () => {
                                             })}
                                         </div>
 
-                                        <div className="flex items-center gap-4">
+                                        <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-4">
                                             <Button 
                                                 onClick={handleRestore}
                                                 disabled={!selectedSnapshot || isRestoring}
@@ -222,7 +224,7 @@ const BackupPage = () => {
                                                 onClick={handleManualBackup}
                                                 disabled={isCreatingBackup || isLoading}
                                                 variant="outline"
-                                                className="h-12 px-6 rounded-xl font-black border-primary text-primary hover:bg-primary/10 transition-all"
+                                                className="h-12 px-6 rounded-xl font-black border-primary text-primary hover:bg-primary/10 transition-all shrink-0"
                                             >
                                                 {isCreatingBackup ? 'Forzando...' : 'Forzar Copia Ahora'}
                                             </Button>
@@ -266,30 +268,32 @@ const BackupPage = () => {
                             </CardContent>
                         </Card>
 
-                        {/* Emergency Restore Section */}
-                        <Card className="border-destructive shadow-sm">
-                            <CardHeader>
-                                <div className="flex items-center gap-2 mb-1">
-                                    <HardDrive className="w-5 h-5 text-destructive" />
-                                    <CardTitle className="text-base font-black uppercase tracking-wider text-destructive">Rescate de Emergencia</CardTitle>
-                                </div>
-                            </CardHeader>
-                            <CardContent className="space-y-6">
-                                <div className="space-y-3">
-                                    <p className="text-[11px] text-destructive/80 leading-tight font-bold">Si tienes un archivo .json antiguo en tu ordenador, súbelo aquí para recuperar tu base de datos de Supabase. Elimina esta sección cuando ya no la necesites.</p>
-                                    <input
-                                        ref={fileInputRef}
-                                        type="file"
-                                        accept=".json"
-                                        onChange={handleFileChange}
-                                        className="hidden"
-                                    />
-                                    <Button onClick={handleImportClick} disabled={importing} className="w-full h-12 gap-2 bg-destructive hover:bg-destructive/90 text-white font-black transition-all rounded-xl">
-                                        {importing ? 'Restaurando...' : 'Subir Backup Manual (.json)'}
-                                    </Button>
-                                </div>
-                            </CardContent>
-                        </Card>
+                        {/* Emergency Restore Section - Solo Admin */}
+                        {activeRole === 'admin' && (
+                            <Card className="border-destructive shadow-sm">
+                                <CardHeader>
+                                    <div className="flex items-center gap-2 mb-1">
+                                        <HardDrive className="w-5 h-5 text-destructive" />
+                                        <CardTitle className="text-base font-black uppercase tracking-wider text-destructive">Rescate de Emergencia</CardTitle>
+                                    </div>
+                                </CardHeader>
+                                <CardContent className="space-y-6">
+                                    <div className="space-y-3">
+                                        <p className="text-[11px] text-destructive/80 leading-tight font-bold">Si tienes un archivo .json antiguo en tu ordenador, súbelo aquí para recuperar tu base de datos de Supabase. Elimina esta sección cuando ya no la necesites.</p>
+                                        <input
+                                            ref={fileInputRef}
+                                            type="file"
+                                            accept=".json"
+                                            onChange={handleFileChange}
+                                            className="hidden"
+                                        />
+                                        <Button onClick={handleImportClick} disabled={importing} className="w-full h-12 gap-2 bg-destructive hover:bg-destructive/90 text-white font-black transition-all rounded-xl">
+                                            {importing ? 'Restaurando...' : 'Subir Backup Manual (.json)'}
+                                        </Button>
+                                    </div>
+                                </CardContent>
+                            </Card>
+                        )}
 
 
                     </div>
