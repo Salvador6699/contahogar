@@ -95,10 +95,12 @@ const LoansPage = () => {
             Gestiona tus pagos a plazos y préstamos
           </p>
         </div>
-        <Button onClick={() => setIsModalOpen(true)} className="gap-2 rounded-full shadow-md hover:shadow-lg transition-all">
-          <Plus className="w-4 h-4" />
-          <span className="hidden sm:inline">Nuevo Préstamo</span>
-        </Button>
+        {activeRole === 'admin' && (
+          <Button onClick={() => setIsModalOpen(true)} className="gap-2 rounded-full shadow-md hover:shadow-lg transition-all">
+            <Plus className="w-4 h-4" />
+            <span className="hidden sm:inline">Nuevo Préstamo</span>
+          </Button>
+        )}
       </div>
 
       {loanSummaries.length === 0 ? (
@@ -108,9 +110,11 @@ const LoansPage = () => {
           <p className="text-muted-foreground mb-6">
             Añade un préstamo aquí o fracciona un gasto desde la página principal.
           </p>
-          <Button onClick={() => setIsModalOpen(true)} variant="outline">
-            Añadir mi primer préstamo
-          </Button>
+          {activeRole === 'admin' && (
+            <Button onClick={() => setIsModalOpen(true)} variant="outline">
+              Añadir mi primer préstamo
+            </Button>
+          )}
         </div>
       ) : (
         <div className="space-y-8">
@@ -122,7 +126,7 @@ const LoansPage = () => {
               </h2>
               <div className="grid gap-4 md:grid-cols-2">
                 {activeLoans.map((loan) => (
-                  <LoanCard key={loan.id} loan={loan} onDelete={() => handleDelete(loan.id, loan.name, loan.amountPaid)} onUpdateTx={handleUpdateTransaction} onUpdateLoan={handleUpdateLoan} />
+                  <LoanCard key={loan.id} loan={loan} activeRole={activeRole} onDelete={() => handleDelete(loan.id, loan.name, loan.amountPaid)} onUpdateTx={handleUpdateTransaction} onUpdateLoan={handleUpdateLoan} />
                 ))}
               </div>
             </div>
@@ -133,7 +137,7 @@ const LoansPage = () => {
               <h2 className="text-lg font-semibold text-muted-foreground">Completados</h2>
               <div className="grid gap-4 md:grid-cols-2 opacity-75">
                 {completedLoans.map((loan) => (
-                  <LoanCard key={loan.id} loan={loan} onDelete={() => handleDelete(loan.id, loan.name, loan.amountPaid)} onUpdateTx={handleUpdateTransaction} onUpdateLoan={handleUpdateLoan} />
+                  <LoanCard key={loan.id} loan={loan} activeRole={activeRole} onDelete={() => handleDelete(loan.id, loan.name, loan.amountPaid)} onUpdateTx={handleUpdateTransaction} onUpdateLoan={handleUpdateLoan} />
                 ))}
               </div>
             </div>
@@ -151,7 +155,7 @@ const LoansPage = () => {
   );
 };
 
-const LoanCard = ({ loan, onDelete, onUpdateTx, onUpdateLoan }: { loan: any, onDelete: () => void, onUpdateTx: (id: string, updates: Partial<Transaction>) => void, onUpdateLoan: (id: string, updates: Partial<any>) => void }) => {
+const LoanCard = ({ loan, activeRole, onDelete, onUpdateTx, onUpdateLoan }: { loan: any, activeRole: string | null, onDelete: () => void, onUpdateTx: (id: string, updates: Partial<Transaction>) => void, onUpdateLoan: (id: string, updates: Partial<any>) => void }) => {
   const [isExpanded, setIsExpanded] = useState(false);
   const [isEditingLoan, setIsEditingLoan] = useState(false);
   const [editStartDate, setEditStartDate] = useState(loan.startDate || "");
@@ -190,22 +194,26 @@ const LoanCard = ({ loan, onDelete, onUpdateTx, onUpdateLoan }: { loan: any, onD
             <h3 className="font-semibold text-lg line-clamp-1">{loan.name}</h3>
           </div>
           <div className="flex items-center gap-1">
-            <Button
-              variant="ghost"
-              size="icon"
-              className="text-muted-foreground hover:text-primary opacity-0 group-hover:opacity-100 transition-opacity"
-              onClick={() => setIsEditingLoan(!isEditingLoan)}
-            >
-              <Edit2 className="w-4 h-4" />
-            </Button>
-            <Button 
-              variant="ghost" 
-              size="icon" 
-              className="text-muted-foreground hover:text-destructive opacity-0 group-hover:opacity-100 transition-opacity"
-              onClick={onDelete}
-            >
-              <Trash2 className="w-4 h-4" />
-            </Button>
+            {activeRole === 'admin' && (
+              <>
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  className="text-muted-foreground hover:text-primary opacity-0 group-hover:opacity-100 transition-opacity"
+                  onClick={() => setIsEditingLoan(!isEditingLoan)}
+                >
+                  <Edit2 className="w-4 h-4" />
+                </Button>
+                <Button 
+                  variant="ghost" 
+                  size="icon" 
+                  className="text-muted-foreground hover:text-destructive opacity-0 group-hover:opacity-100 transition-opacity"
+                  onClick={onDelete}
+                >
+                  <Trash2 className="w-4 h-4" />
+                </Button>
+              </>
+            )}
             <Button
               variant="ghost"
               size="icon"
