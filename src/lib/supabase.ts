@@ -63,10 +63,11 @@ export const restoreToSupabase = async (data: any): Promise<void> => {
   const safeSavingsGoals = (data.savingsGoals || []).map((sg: any) => ({ id: sg.id, name: sg.name, targetAmount: sg.targetAmount, currentAmount: sg.currentAmount, deadline: sg.deadline, accountId: safeAccountId(sg.accountId), color: sg.color, category: sg.category, priority: sg.priority, isIgnored: sg.isIgnored || false })).filter((sg: any) => sg.accountId != null);
   
   const parseFreq = (f: string) => {
-    if (f === 'Semanal') return 'weekly';
-    if (f === 'Anual') return 'yearly';
+    if (f === 'Semanal' || f === 'weekly') return 'weekly';
+    if (f === 'Anual' || f === 'yearly') return 'yearly';
     if (f === 'custom') return 'custom';
-    return 'monthly';
+    if (f === 'monthly' || f === 'Mensual') return 'monthly';
+    return 'monthly'; // fallback
   };
   const safeRecurringRules = (data.recurringRules || []).map((r: any) => ({ id: r.id, name: r.name, amount: r.amount, category: r.category, accountId: safeAccountId(r.accountId), frequency: parseFreq(r.frequency), customInterval: r.customInterval, customIntervalUnit: r.customIntervalUnit, startDate: r.startDate, type: r.type === 'income' ? 'income' : 'expense', savingsPriority: r.savingsPriority })).filter((r: any) => r.accountId != null);
   
@@ -110,10 +111,11 @@ export const uploadToSupabase = async (data: any): Promise<void> => {
   const safeSavingsGoals = (data.savingsGoals || []).map((sg: any) => ({ id: sg.id, name: sg.name, targetAmount: sg.targetAmount, currentAmount: sg.currentAmount, deadline: sg.deadline, accountId: safeAccountId(sg.accountId), color: sg.color, category: sg.category, priority: sg.priority, isIgnored: sg.isIgnored || false })).filter((sg: any) => sg.accountId != null);
   
   const parseFreq = (f: string) => {
-    if (f === 'Semanal') return 'weekly';
-    if (f === 'Anual') return 'yearly';
+    if (f === 'Semanal' || f === 'weekly') return 'weekly';
+    if (f === 'Anual' || f === 'yearly') return 'yearly';
     if (f === 'custom') return 'custom';
-    return 'monthly';
+    if (f === 'monthly' || f === 'Mensual') return 'monthly';
+    return 'monthly'; // fallback
   };
   const safeRecurringRules = (data.recurringRules || []).map((r: any) => ({ id: r.id, name: r.name, amount: r.amount, category: r.category, accountId: safeAccountId(r.accountId), frequency: parseFreq(r.frequency), customInterval: r.customInterval, customIntervalUnit: r.customIntervalUnit, startDate: r.startDate, type: r.type === 'income' ? 'income' : 'expense', savingsPriority: r.savingsPriority })).filter((r: any) => r.accountId != null);
   
