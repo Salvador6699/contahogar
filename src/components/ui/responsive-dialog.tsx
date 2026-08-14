@@ -62,7 +62,7 @@ export function ResponsiveDialog({
   return (
     <ResponsiveDialogContext.Provider value={{ isMobile }}>
       {isMobile ? (
-        <Drawer open={open} onOpenChange={onOpenChange} dismissible={!!onOpenChange}>
+        <Drawer open={open} onOpenChange={onOpenChange} dismissible={!!onOpenChange} repositionInputs={false}>
           {children}
         </Drawer>
       ) : (
