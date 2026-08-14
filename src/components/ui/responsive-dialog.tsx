@@ -6,15 +6,9 @@ import {
   DialogHeader,
   DialogTitle,
   DialogDescription,
+  DialogClose,
 } from "@/components/ui/dialog";
-import {
-  Drawer,
-  DrawerContent,
-  DrawerClose,
-  DrawerHeader,
-  DrawerTitle,
-  DrawerDescription,
-} from "@/components/ui/drawer";
+
 import { cn } from "@/lib/utils";
 import { X } from "lucide-react";
 
@@ -61,15 +55,9 @@ export function ResponsiveDialog({
 
   return (
     <ResponsiveDialogContext.Provider value={{ isMobile }}>
-      {isMobile ? (
-        <Drawer open={open} onOpenChange={onOpenChange} dismissible={!!onOpenChange} repositionInputs={false}>
-          {children}
-        </Drawer>
-      ) : (
-        <Dialog open={open} onOpenChange={onOpenChange}>
-          {children}
-        </Dialog>
-      )}
+      <Dialog open={open} onOpenChange={onOpenChange}>
+        {children}
+      </Dialog>
     </ResponsiveDialogContext.Provider>
   );
 }
@@ -82,17 +70,22 @@ export function ResponsiveDialogContent({
 
   if (isMobile) {
     return (
-      <DrawerContent className={cn("px-4 pb-6 modal-gradient-bg", className)}>
+      <DialogContent 
+        className={cn(
+          "w-full h-[100dvh] max-h-[100dvh] max-w-none border-0 rounded-none p-0 modal-gradient-bg !translate-y-0 !top-0 !translate-x-0 !left-0 flex flex-col", 
+          className
+        )}
+      >
         <div className="sticky top-0 z-10 flex justify-end p-2 bg-transparent">
-          <DrawerClose className="rounded-full p-2 hover:bg-accent transition-colors">
+          <DialogClose className="rounded-full p-2 hover:bg-accent transition-colors">
             <X className="h-5 w-5 text-muted-foreground" />
             <span className="sr-only">Cerrar</span>
-          </DrawerClose>
+          </DialogClose>
         </div>
         <div className="flex flex-col flex-1 min-h-0 pb-safe">
           {children}
         </div>
-      </DrawerContent>
+      </DialogContent>
     );
   }
 
@@ -110,7 +103,7 @@ export function ResponsiveDialogHeader({
   const { isMobile } = React.useContext(ResponsiveDialogContext);
 
   if (isMobile) {
-    return <DrawerHeader className={cn("text-left", className)}>{children}</DrawerHeader>;
+    return <DialogHeader className={cn("text-left px-4", className)}>{children}</DialogHeader>;
   }
 
   return <DialogHeader className={className}>{children}</DialogHeader>;
@@ -120,12 +113,6 @@ export function ResponsiveDialogTitle({
   children,
   className,
 }: ResponsiveDialogTitleProps) {
-  const { isMobile } = React.useContext(ResponsiveDialogContext);
-
-  if (isMobile) {
-    return <DrawerTitle className={className}>{children}</DrawerTitle>;
-  }
-
   return <DialogTitle className={className}>{children}</DialogTitle>;
 }
 
@@ -133,11 +120,5 @@ export function ResponsiveDialogDescription({
   children,
   className,
 }: ResponsiveDialogDescriptionProps) {
-  const { isMobile } = React.useContext(ResponsiveDialogContext);
-
-  if (isMobile) {
-    return <DrawerDescription className={className}>{children}</DrawerDescription>;
-  }
-
   return <DialogDescription className={className}>{children}</DialogDescription>;
 }
