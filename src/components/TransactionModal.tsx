@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import {
   ResponsiveDialog,
   ResponsiveDialogContent,
@@ -429,21 +429,7 @@ const TransactionModal = ({
                 </button>
               </div>
             )}
-            <div 
-              ref={scrollContainerRef}
-              className="overflow-y-auto px-1 custom-scrollbar pb-32 flex-1 min-h-0 sm:overflow-y-visible"
-              onTouchMove={(e) => {
-                if (
-                  document.activeElement &&
-                  (document.activeElement.tagName === "INPUT" || document.activeElement.tagName === "TEXTAREA")
-                ) {
-                  if (document.activeElement === e.target || document.activeElement.contains(e.target as Node)) {
-                    return;
-                  }
-                  (document.activeElement as HTMLElement).blur();
-                }
-              }}
-            >
+            <div className="flex-1 min-h-0">
               <div className="flex flex-col sm:grid sm:grid-cols-2 sm:gap-8 space-y-5 sm:space-y-0">
                 {/* Columna Izquierda */}
                 <div className="space-y-5">
@@ -716,7 +702,7 @@ const TransactionModal = ({
               </div>
             </div>
 
-            <div className="flex gap-3 pt-4 pb-2 mt-auto border-t border-border/30 bg-background/95 backdrop-blur-sm sticky bottom-0 z-20 boton-guardar">
+            <div className="flex gap-3 pt-6 pb-2 mt-auto">
               <Button
                 type="button"
                 variant="outline"
