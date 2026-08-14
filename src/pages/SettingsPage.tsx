@@ -68,7 +68,7 @@ import {
 } from "@/components/ui/select";
 import { Switch } from "@/components/ui/switch";
 import { Category, Account } from "@/types/finance";
-import { toast } from "sonner";
+import { appToast as toast } from "@/lib/swal";
 import { cn } from "@/lib/utils";
 import { format, addMonths } from "date-fns";
 import { AccountManager } from "@/components/AccountManager";

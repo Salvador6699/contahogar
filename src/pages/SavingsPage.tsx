@@ -13,7 +13,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { PiggyBank, Plus, Target, CalendarDays, ArrowUpCircle, ArrowDownCircle, Info, Edit2, Trash2, Filter, Eye, EyeOff, Calculator } from 'lucide-react';
 import SavingsGoalModal from '@/components/SavingsGoalModal';
 import { differenceInMonths, parseISO, startOfMonth, addMonths, endOfMonth } from 'date-fns';
-import { toast } from 'sonner';
+import { appToast as toast } from "@/lib/swal";
 
 export const SavingsPage = () => {
     const { activeRole } = useTeam();

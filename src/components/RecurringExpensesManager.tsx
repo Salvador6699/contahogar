@@ -23,7 +23,7 @@ import {
 import { format } from "date-fns";
 import { Clock, Edit2, Trash2, Calendar, PlusCircle } from "lucide-react";
 import { cn } from "@/lib/utils";
-import { toast } from "sonner";
+import { appToast as toast } from "@/lib/swal";
 
 export const RecurringExpensesManager = () => {
   const [searchParams] = useSearchParams();

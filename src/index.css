@@ -206,6 +206,30 @@ All colors MUST be HSL.
 }
 
 /* ═══════════════════════════════════════════
+   MOBILE UX: STICKY FOOTERS Y TECLADO
+   ═══════════════════════════════════════════ */
+.mobile-form-layout {
+  display: flex;
+  flex-direction: column;
+  height: 100dvh;
+  max-height: 100dvh;
+  overflow: hidden;
+}
+
+.mobile-form-body {
+  flex: 1 1 auto;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+}
+
+.mobile-form-footer {
+  flex: 0 0 auto;
+  background: hsl(var(--background));
+  padding-bottom: max(1rem, env(safe-area-inset-bottom));
+  z-index: 10;
+}
+
+/* ═══════════════════════════════════════════
    SPLASH SCREEN
    ═══════════════════════════════════════════ */
 .splash-screen {
@@ -374,6 +398,8 @@ All colors MUST be HSL.
   border: 1px solid hsl(var(--border)) !important;
   box-shadow: 0 25px 50px -12px rgba(0,0,0,0.25) !important;
   padding: 2rem !important;
+  background-color: hsl(var(--background)) !important;
+  color: hsl(var(--foreground)) !important;
 }
 
 .swal-app-title {

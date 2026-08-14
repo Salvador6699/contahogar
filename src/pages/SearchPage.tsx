@@ -29,7 +29,7 @@ import { Checkbox } from '@/components/ui/checkbox';
 import { Label } from '@/components/ui/label';
 import { cn } from '@/lib/utils';
 import { Badge } from '@/components/ui/badge';
-import { toast } from 'sonner';
+import { appToast as toast } from "@/lib/swal";
 
 const SearchPage = () => {
   const navigate = useNavigate();

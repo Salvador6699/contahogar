@@ -8,7 +8,7 @@ import { Category, Account, FavoriteExpense } from '@/types/finance';
 import { Trash2, Plus, Zap, AlertCircle, Image as ImageIcon, ArrowLeft } from 'lucide-react';
 import * as Icons from 'lucide-react';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { toast } from 'sonner';
+import { appToast as toast } from "@/lib/swal";
 import { cn } from '@/lib/utils';
 import { useAccounts } from '@/hooks/useAccounts';
 import { useCategories } from '@/hooks/useCategories';

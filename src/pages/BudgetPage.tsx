@@ -8,7 +8,7 @@ import { v4 as uuidv4 } from 'uuid';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { PiggyBank, PlusCircle, Save, Trash2, Plus, Minus, Search, X, ChevronLeft, ChevronRight, Copy } from 'lucide-react';
-import { toast } from 'sonner';
+import { appToast as toast } from "@/lib/swal";
 import { cn } from '@/lib/utils';
 import Swal from 'sweetalert2';
 import {

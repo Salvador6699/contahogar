@@ -1,97 +1,58 @@
-import Swal from 'sweetalert2';
+﻿import Swal from 'sweetalert2';
+import withReactContent from 'sweetalert2-react-content';
 
-/**
- * Gets computed CSS custom property value from the document root.
- * Used to read app theme colors for SweetAlert2.
- */
-const getCSSVar = (name: string): string => {
-  return getComputedStyle(document.documentElement).getPropertyValue(name).trim();
+export const MySwal = withReactContent(Swal);
+
+export const Toast = MySwal.mixin({
+  toast: true,
+  position: 'top-end',
+  showConfirmButton: false,
+  timer: 3000,
+  timerProgressBar: true,
+  customClass: {
+    popup: 'swal-app-popup',
+    title: 'swal-app-title text-sm',
+  },
+  didOpen: (toast) => {
+    toast.addEventListener('mouseenter', Swal.stopTimer)
+    toast.addEventListener('mouseleave', Swal.resumeTimer)
+  }
+});
+
+export const appToast = {
+  success: (title: string, text?: string) => Toast.fire({ icon: 'success', title, text }),
+  error: (title: string, text?: string) => Toast.fire({ icon: 'error', title, text }),
+  info: (title: string, text?: string) => Toast.fire({ icon: 'info', title, text }),
+  warning: (title: string, text?: string) => Toast.fire({ icon: 'warning', title, text }),
+  message: (title: string) => Toast.fire({ title })
 };
 
-/**
- * Resolves an hsl() CSS variable to a full color string.
- * Supabase stores them as "220 14.3% 95.9%" (raw HSL values without the hsl() wrapper).
- */
-const resolveHsl = (varName: string): string => {
-  const raw = getCSSVar(varName);
-  if (!raw) return '';
-  // If it already starts with '#' or 'rgb', return as-is
-  if (raw.startsWith('#') || raw.startsWith('rgb')) return raw;
-  // Otherwise treat it as HSL values
-  return `hsl(${raw})`;
-};
+export const AppAlert = MySwal.mixin({
+  customClass: {
+    popup: 'swal-app-popup',
+    title: 'swal-app-title',
+    htmlContainer: 'swal-app-text',
+    confirmButton: 'swal-app-confirm',
+    cancelButton: 'swal-app-cancel',
+  },
+  buttonsStyling: false,
+  confirmButtonText: 'Aceptar',
+  cancelButtonText: 'Cancelar',
+});
 
-/**
- * Creates a SweetAlert2 instance pre-configured with the app's current theme.
- * Call this function every time to pick up the current theme (light/dark).
- */
-const getThemeOptions = () => {
-  const isDark = document.documentElement.classList.contains('dark');
-
-  return {
-    background: resolveHsl('--background') || (isDark ? '#1a1a2e' : '#ffffff'),
-    color: resolveHsl('--foreground') || (isDark ? '#f8f8f8' : '#1a1a1a'),
-    confirmButtonColor: resolveHsl('--primary') || '#6366f1',
-    customClass: {
-      popup: 'swal-app-popup',
-      confirmButton: 'swal-app-confirm',
-      cancelButton: 'swal-app-cancel',
-      title: 'swal-app-title',
-      htmlContainer: 'swal-app-text',
-    },
-  };
-};
-
-/** Success modal — requires user to click Aceptar */
-export const swalSuccess = (title: string, text?: string) =>
-  Swal.fire({
-    ...getThemeOptions(),
-    icon: 'success',
+// Legacy exports for ContaHogar
+export const swalSuccess = (title: string, text?: string) => AppAlert.fire({ icon: 'success', title, text });
+export const swalError = (title: string, text?: string) => AppAlert.fire({ icon: 'error', title, text });
+export const swalConfirm = async (title: string, text?: string, confirmText = 'Sí, continuar') => {
+  const result = await AppAlert.fire({
     title,
     text,
-    confirmButtonText: 'Aceptar',
-    buttonsStyling: false,
-  });
-
-/** Error modal — requires user to click Aceptar */
-export const swalError = (title: string, text?: string) =>
-  Swal.fire({
-    ...getThemeOptions(),
-    icon: 'error',
-    title,
-    text,
-    confirmButtonText: 'Aceptar',
-    buttonsStyling: false,
-  });
-
-/** Confirmation modal — returns true if the user clicks Confirmar */
-export const swalConfirm = async (title: string, text?: string): Promise<boolean> => {
-  const result = await Swal.fire({
-    ...getThemeOptions(),
     icon: 'warning',
-    title,
-    text,
     showCancelButton: true,
-    confirmButtonText: 'Confirmar',
-    cancelButtonText: 'Cancelar',
-    buttonsStyling: false,
+    confirmButtonText: confirmText,
   });
   return result.isConfirmed;
 };
-
-/** Loading modal — call swalClose() or swalSuccess/Error to dismiss */
-export const swalLoading = (title: string) => {
-  Swal.fire({
-    ...getThemeOptions(),
-    title,
-    allowOutsideClick: false,
-    allowEscapeKey: false,
-    showConfirmButton: false,
-    didOpen: () => {
-      Swal.showLoading();
-    },
-    buttonsStyling: false,
-  });
-};
-
+export const swalLoading = (title: string) => AppAlert.fire({ title, allowOutsideClick: false, didOpen: () => { Swal.showLoading() } });
 export const swalClose = () => Swal.close();
+

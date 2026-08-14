@@ -39,7 +39,7 @@ import { useScrollOnFocus } from "@/hooks/useScrollOnFocus";
 import { withKeyboardClose } from "@/lib/utils";
 import { Textarea } from "@/components/ui/textarea";
 import { Switch } from "@/components/ui/switch";
-import { toast } from "sonner";
+import { appToast as toast } from "@/lib/swal";
 import { useAccounts } from "@/hooks/useAccounts";
 
 export interface FractionationData {
@@ -372,7 +372,7 @@ const TransactionModal = ({
         ) : (
           <form
             onSubmit={handleSubmit}
-            className="contenedor-formulario min-h-0"
+            className="flex flex-col flex-1 min-h-0 relative"
           >
             {accounts.length > 1 && (
               <div className="flex justify-between items-center bg-muted/30 px-4 py-3 rounded-xl border border-border/50 mb-4 mx-1">
@@ -402,7 +402,20 @@ const TransactionModal = ({
                 </button>
               </div>
             )}
-            <div className="overflow-y-auto px-1 custom-scrollbar pb-32 flex-1 min-h-0 sm:overflow-y-visible">
+            <div 
+              className="overflow-y-auto px-1 custom-scrollbar pb-32 flex-1 min-h-0 sm:overflow-y-visible"
+              onTouchMove={(e) => {
+                if (
+                  document.activeElement &&
+                  (document.activeElement.tagName === "INPUT" || document.activeElement.tagName === "TEXTAREA")
+                ) {
+                  if (document.activeElement === e.target || document.activeElement.contains(e.target as Node)) {
+                    return;
+                  }
+                  (document.activeElement as HTMLElement).blur();
+                }
+              }}
+            >
               <div className="flex flex-col sm:grid sm:grid-cols-2 sm:gap-8 space-y-5 sm:space-y-0">
                 {/* Columna Izquierda */}
                 <div className="space-y-5">

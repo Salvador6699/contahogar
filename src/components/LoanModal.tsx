@@ -4,7 +4,7 @@ import { Button } from "./ui/button";
 import { Input } from "./ui/input";
 import { Label } from "./ui/label";
 import { Account } from "@/types/finance";
-import { toast } from "sonner";
+import { appToast as toast } from "@/lib/swal";
 
 interface LoanModalProps {
   isOpen: boolean;

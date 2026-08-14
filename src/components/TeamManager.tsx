@@ -2,7 +2,7 @@ import React, { useState, useEffect } from "react";
 import { useTeam } from "@/contexts/TeamContext";
 import { useAuth } from "@/contexts/AuthContext";
 import { supabase } from "@/lib/supabase";
-import { toast } from "sonner";
+import { appToast as toast } from "@/lib/swal";
 import { Users, UserPlus, Key, LogOut, CheckCircle2, Copy, Trash2, Edit2, Save, X, ArrowRightLeft } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";

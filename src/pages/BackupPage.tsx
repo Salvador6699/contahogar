@@ -5,7 +5,7 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/com
 import { Separator } from '@/components/ui/separator';
 import { loadData, migrateData } from '@/lib/storage';
 import { exportTransactionsToCSV } from '@/lib/exportUtils';
-import { toast } from 'sonner';
+import { appToast as toast } from "@/lib/swal";
 import { swalSuccess, swalError, swalConfirm, swalLoading, swalClose } from '@/lib/swal';
 import { restoreToSupabase } from '@/lib/supabase';
 import { useQueryClient } from '@tanstack/react-query';

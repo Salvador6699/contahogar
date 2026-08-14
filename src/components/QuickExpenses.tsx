@@ -6,7 +6,7 @@ import { Plus, Zap, Settings, X, MoreHorizontal, Layout, Pencil, Trash2 } from '
 import * as Icons from 'lucide-react';
 import { formatCurrency } from '@/lib/calculations';
 import { cn } from '@/lib/utils';
-import { toast } from 'sonner';
+import { appToast as toast } from "@/lib/swal";
 
 interface QuickExpensesProps {
   favorites: FavoriteExpense[];

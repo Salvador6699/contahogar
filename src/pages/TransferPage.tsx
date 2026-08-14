@@ -14,7 +14,7 @@ import {
 } from '@/components/ui/select';
 import { Transaction } from '@/types/finance';
 import { formatCurrency, calculateAccountBalance } from '@/lib/calculations';
-import { toast } from 'sonner';
+import { appToast as toast } from "@/lib/swal";
 import { useScrollOnFocus } from '@/hooks/useScrollOnFocus';
 import { withKeyboardClose } from '@/lib/utils';
 import { v4 as uuidv4 } from 'uuid';

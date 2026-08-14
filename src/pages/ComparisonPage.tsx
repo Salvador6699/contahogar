@@ -8,7 +8,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Transaction } from '@/types/finance';
 import { getCategorySuggestions } from '@/lib/storage';
 import { formatCurrency, calculateAccountBalance } from '@/lib/calculations';
-import { toast } from 'sonner';
+import { appToast as toast } from "@/lib/swal";
 import { useAccounts } from '@/hooks/useAccounts';
 import { useTransactions } from '@/hooks/useTransactions';
 import { useCategories } from '@/hooks/useCategories';

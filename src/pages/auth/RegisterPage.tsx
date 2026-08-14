@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import { supabase } from '@/lib/supabase';
-import { toast } from 'sonner';
+import { appToast as toast } from "@/lib/swal";
 import { ShieldCheck, Mail, Lock, UserPlus, User } from 'lucide-react';
 
 const RegisterPage = () => {

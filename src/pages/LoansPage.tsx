@@ -4,7 +4,7 @@ import { formatCurrency } from '@/lib/calculations';
 import { Button } from '@/components/ui/button';
 import { Progress } from '@/components/ui/progress';
 import { Input } from '@/components/ui/input';
-import { toast } from 'sonner';
+import { appToast as toast } from "@/lib/swal";
 import LoanModal from '@/components/LoanModal';
 import { format, parseISO } from 'date-fns';
 import { es } from 'date-fns/locale';
