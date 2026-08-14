@@ -62,27 +62,45 @@ export function ResponsiveDialog({
   );
 }
 
+function useVisualViewport() {
+  const [height, setHeight] = React.useState(
+    typeof window !== 'undefined' ? window.innerHeight : 0
+  );
+
+  React.useEffect(() => {
+    if (typeof window === 'undefined') return;
+    const handleResize = () => {
+      setHeight(window.visualViewport?.height || window.innerHeight);
+    };
+    handleResize();
+    window.visualViewport?.addEventListener("resize", handleResize);
+    window.addEventListener("resize", handleResize);
+    return () => {
+      window.visualViewport?.removeEventListener("resize", handleResize);
+      window.removeEventListener("resize", handleResize);
+    };
+  }, []);
+
+  return height;
+}
+
 export function ResponsiveDialogContent({
   children,
   className,
 }: ResponsiveDialogContentProps) {
   const { isMobile } = React.useContext(ResponsiveDialogContext);
+  const viewportHeight = useVisualViewport();
 
   if (isMobile) {
     return (
       <DialogContent 
         className={cn(
-          "w-full h-[100dvh] max-h-[100dvh] max-w-none border-0 rounded-none p-0 modal-gradient-bg !translate-y-0 !top-0 !translate-x-0 !left-0 flex flex-col", 
+          "w-full max-w-none border-0 rounded-none p-0 modal-gradient-bg !translate-y-0 !top-0 !translate-x-0 !left-0 flex flex-col", 
           className
         )}
+        style={{ height: viewportHeight ? `${viewportHeight}px` : '100dvh' }}
       >
-        <div className="sticky top-0 z-10 flex justify-end p-2 bg-transparent">
-          <DialogClose className="rounded-full p-2 hover:bg-accent transition-colors">
-            <X className="h-5 w-5 text-muted-foreground" />
-            <span className="sr-only">Cerrar</span>
-          </DialogClose>
-        </div>
-        <div className="flex flex-col flex-1 min-h-0 pb-safe">
+        <div className="flex flex-col flex-1 min-h-0 pb-safe pt-8">
           {children}
         </div>
       </DialogContent>

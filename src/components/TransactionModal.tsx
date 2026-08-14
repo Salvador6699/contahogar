@@ -97,6 +97,33 @@ const TransactionModal = ({
   const [firstInstallmentDate, setFirstInstallmentDate] = useState("");
   const [setupFee, setSetupFee] = useState("");
   const [setupFeeDate, setSetupFeeDate] = useState("");
+  const scrollContainerRef = React.useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    const container = scrollContainerRef.current;
+    if (!container) return;
+
+    const handleFocusIn = (e: FocusEvent) => {
+      const target = e.target as HTMLElement;
+      if (!target || !['INPUT', 'TEXTAREA'].includes(target.tagName)) return;
+
+      const SUGGESTIONS_SPACE = 220;
+
+      setTimeout(() => {
+        const inputRect = target.getBoundingClientRect();
+        const visibleHeight = window.visualViewport?.height ?? window.innerHeight;
+        const inputBottomWithSpace = inputRect.bottom + SUGGESTIONS_SPACE;
+
+        if (inputBottomWithSpace > visibleHeight) {
+          const overflow = inputBottomWithSpace - visibleHeight;
+          container.scrollBy({ top: overflow, behavior: 'smooth' });
+        }
+      }, 350);
+    };
+
+    container.addEventListener('focusin', handleFocusIn);
+    return () => container.removeEventListener('focusin', handleFocusIn);
+  }, []);
 
   useEffect(() => {
     if (isFractionated && !firstInstallmentDate && date) {
@@ -403,6 +430,7 @@ const TransactionModal = ({
               </div>
             )}
             <div 
+              ref={scrollContainerRef}
               className="overflow-y-auto px-1 custom-scrollbar pb-32 flex-1 min-h-0 sm:overflow-y-visible"
               onTouchMove={(e) => {
                 if (
