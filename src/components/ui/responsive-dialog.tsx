@@ -40,6 +40,7 @@ interface ResponsiveDialogDescriptionProps {
 interface ResponsiveDialogContentProps {
   children: React.ReactNode;
   className?: string;
+  hideCloseButton?: boolean;
 }
 
 const ResponsiveDialogContext = React.createContext<{ isMobile: boolean }>({
@@ -62,59 +63,29 @@ export function ResponsiveDialog({
   );
 }
 
-function useVisualViewport() {
-  const [height, setHeight] = React.useState(
-    typeof window !== 'undefined' ? window.innerHeight : 0
-  );
-
-  React.useEffect(() => {
-    if (typeof window === 'undefined') return;
-    const handleResize = () => {
-      setHeight(window.visualViewport?.height || window.innerHeight);
-    };
-    handleResize();
-    window.visualViewport?.addEventListener("resize", handleResize);
-    window.addEventListener("resize", handleResize);
-    return () => {
-      window.visualViewport?.removeEventListener("resize", handleResize);
-      window.removeEventListener("resize", handleResize);
-    };
-  }, []);
-
-  return height;
-}
-
 export function ResponsiveDialogContent({
   children,
   className,
+  hideCloseButton,
 }: ResponsiveDialogContentProps) {
   const { isMobile } = React.useContext(ResponsiveDialogContext);
-  const viewportHeight = useVisualViewport();
 
   if (isMobile) {
     return (
       <DialogContent 
+        hideCloseButton={hideCloseButton}
         className={cn(
-          "w-full max-w-none border-0 rounded-none p-0 modal-gradient-bg !translate-y-0 !top-0 !translate-x-0 !left-0 overflow-y-auto custom-scrollbar block", 
+          "w-full max-w-none border-0 rounded-none !p-0 modal-gradient-bg", 
           className
         )}
-        style={{ height: viewportHeight ? `${viewportHeight}px` : '100dvh' }}
       >
-        <div className="sticky top-0 z-10 flex justify-end p-2 bg-transparent pointer-events-none">
-          <DialogClose className="rounded-full p-2 hover:bg-accent transition-colors pointer-events-auto bg-background/50 backdrop-blur-sm">
-            <X className="h-5 w-5 text-muted-foreground" />
-            <span className="sr-only">Cerrar</span>
-          </DialogClose>
-        </div>
-        <div className="flex flex-col min-h-full pb-safe px-2 sm:px-4">
-          {children}
-        </div>
+        {children}
       </DialogContent>
     );
   }
 
   return (
-    <DialogContent className={cn("sm:max-w-[425px] modal-gradient-bg max-h-[85vh] flex flex-col", className)}>
+    <DialogContent hideCloseButton={hideCloseButton} className={cn("sm:max-w-[425px] modal-gradient-bg max-h-[85vh] flex flex-col", className)}>
       {children}
     </DialogContent>
   );

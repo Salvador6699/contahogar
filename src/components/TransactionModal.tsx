@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useRef } from "react";
+import { DialogClose } from "@/components/ui/dialog";
 import {
   ResponsiveDialog,
   ResponsiveDialogContent,
@@ -34,6 +35,7 @@ import {
   Clock,
   MessageSquare,
   ChevronDown,
+  X,
 } from "lucide-react";
 import { useScrollOnFocus } from "@/hooks/useScrollOnFocus";
 import { withKeyboardClose } from "@/lib/utils";
@@ -77,7 +79,7 @@ const TransactionModal = ({
   defaultAccountId = "",
 }: TransactionModalProps) => {
   const { accounts: hookAccounts, isLoading: isAccLoading } = useAccounts();
-  const scrollOnFocus = useScrollOnFocus(240);
+  const scrollOnFocus = useScrollOnFocus();
   const [date, setDate] = useState("");
   const [amount, setAmount] = useState("");
   const [category, setCategory] = useState("");
@@ -336,13 +338,7 @@ const TransactionModal = ({
 
   return (
     <ResponsiveDialog open={isOpen} onOpenChange={onClose}>
-      <ResponsiveDialogContent className="sm:max-w-[800px] w-full">
-        <ResponsiveDialogHeader>
-          <ResponsiveDialogTitle className="text-2xl">
-            {title}
-          </ResponsiveDialogTitle>
-        </ResponsiveDialogHeader>
-
+      <ResponsiveDialogContent hideCloseButton={true} className="sm:max-w-[800px] w-full">
         {step === "account" ? (
           <div className="py-6 space-y-6">
             <p className="text-center text-muted-foreground text-lg font-medium">
@@ -399,50 +395,40 @@ const TransactionModal = ({
         ) : (
           <form
             onSubmit={handleSubmit}
-            className="flex flex-col flex-1 min-h-0 relative"
+            className="flex flex-col gap-6"
           >
+            <div>
+              <h2 className="text-2xl font-bold">{title}</h2>
+            </div>
+
             {accounts.length > 1 && (
-              <div className="flex justify-between items-center bg-muted/30 px-4 py-3 rounded-xl border border-border/50 mb-4 mx-1">
-                <div className="flex items-center gap-2">
-                  {accounts.find((a) => a.id === accountId)?.logo ? (
-                    <img
-                      src={accounts.find((a) => a.id === accountId)?.logo}
-                      alt="Logo"
-                      className="w-5 h-5 object-contain rounded-sm"
-                    />
-                  ) : (
-                    <Building2 className="w-4 h-4 text-muted-foreground" />
-                  )}
-                  <span className="text-sm font-medium text-muted-foreground">
-                    Cuenta:{" "}
-                    <span className="font-bold text-foreground">
-                      {accounts.find((a) => a.id === accountId)?.name}
+              <div className="flex justify-between items-center bg-muted/30 px-4 py-3 rounded-xl border border-border/50 mx-1">
+                  <div className="flex items-center gap-2">
+                    {accounts.find((a) => a.id === accountId)?.logo ? (
+                      <img
+                        src={accounts.find((a) => a.id === accountId)?.logo}
+                        alt="Logo"
+                        className="w-5 h-5 object-contain rounded-sm"
+                      />
+                    ) : (
+                      <Building2 className="w-4 h-4 text-muted-foreground" />
+                    )}
+                    <span className="text-sm font-medium text-muted-foreground">
+                      Cuenta:{" "}
+                      <span className="font-bold text-foreground">
+                        {accounts.find((a) => a.id === accountId)?.name}
+                      </span>
                     </span>
-                  </span>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => setStep("account")}
+                    className="text-xs font-bold text-primary hover:underline px-2 py-1 rounded-md bg-primary/10"
+                  >
+                    Cambiar
+                  </button>
                 </div>
-                <button
-                  type="button"
-                  onClick={() => setStep("account")}
-                  className="text-xs font-bold text-primary hover:underline px-2 py-1 rounded-md bg-primary/10"
-                >
-                  Cambiar
-                </button>
-              </div>
-            )}
-            <div 
-              className="flex-1 min-h-0"
-              onTouchMove={(e) => {
-                if (
-                  document.activeElement &&
-                  (document.activeElement.tagName === "INPUT" || document.activeElement.tagName === "TEXTAREA")
-                ) {
-                  if (document.activeElement === e.target || document.activeElement.contains(e.target as Node)) {
-                    return;
-                  }
-                  (document.activeElement as HTMLElement).blur();
-                }
-              }}
-            >
+              )}
               <div className="flex flex-col sm:grid sm:grid-cols-2 sm:gap-8 space-y-5 sm:space-y-0">
                 {/* Columna Izquierda */}
                 <div className="space-y-5">
@@ -456,16 +442,14 @@ const TransactionModal = ({
                     </Label>
                     <Input
                       id="amount"
-                      type="number"
-                      step="0.01"
-                      min="0.01"
+                      type="text"
+                      inputMode="decimal"
                       value={amount}
                       onChange={(e) => setAmount(e.target.value)}
                       placeholder="0.00"
                       required
                       className="w-full text-2xl h-14"
                       onFocus={scrollOnFocus}
-                      inputMode="decimal"
                       enterKeyHint="next"
                     />
                   </div>
@@ -567,6 +551,7 @@ const TransactionModal = ({
                       onChange={(e) => setDate(e.target.value)}
                       required
                       className="w-full h-12"
+                      onFocus={scrollOnFocus}
                     />
                   </div>
                 </div>
@@ -637,6 +622,7 @@ const TransactionModal = ({
                                 className="h-10"
                                 placeholder="Ej: 148.00"
                                 required={isFractionated}
+                                onFocus={scrollOnFocus}
                               />
                             </div>
                             <div className="space-y-2">
@@ -649,6 +635,7 @@ const TransactionModal = ({
                                 onChange={(e) => setSetupFee(e.target.value)}
                                 className="h-10"
                                 placeholder="Ej: 5.00"
+                                onFocus={scrollOnFocus}
                               />
                             </div>
                             <div className="space-y-2">
@@ -670,6 +657,7 @@ const TransactionModal = ({
                                   onChange={(e) => setSetupFeeDate(e.target.value)}
                                   className="h-10"
                                   required={parseFloat(setupFee) > 0}
+                                  onFocus={scrollOnFocus}
                                 />
                               </div>
                             )}
@@ -713,9 +701,8 @@ const TransactionModal = ({
                   </div>
                 </div>
               </div>
-            </div>
 
-            <div className="flex gap-3 pt-4 pb-4 mt-auto border-t border-border/30 bg-background/95 backdrop-blur-md sticky bottom-0 z-20">
+            <div className="sticky bottom-[-1.5rem] z-20 -mb-6 -mx-6 px-6 pb-6 pt-4 bg-background border-t border-border/30 flex gap-3 mt-4">
               <Button
                 type="button"
                 variant="outline"

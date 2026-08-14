@@ -31,8 +31,8 @@ DialogOverlay.displayName = DialogPrimitive.Overlay.displayName;
 
 const DialogContent = React.forwardRef<
   React.ElementRef<typeof DialogPrimitive.Content>,
-  React.ComponentPropsWithoutRef<typeof DialogPrimitive.Content>
->(({ className, children, ...props }, ref) => (
+  React.ComponentPropsWithoutRef<typeof DialogPrimitive.Content> & { hideCloseButton?: boolean }
+>(({ className, children, hideCloseButton, ...props }, ref) => (
   <DialogPortal>
     <DialogOverlay />
     <DialogPrimitive.Content
@@ -44,13 +44,28 @@ const DialogContent = React.forwardRef<
       )}
       {...props}
     >
-      <div className="flex flex-col flex-1 overflow-y-auto custom-scrollbar p-6 gap-4">
+      <div 
+        className="flex flex-col flex-1 overflow-y-auto custom-scrollbar p-6 gap-4"
+        onTouchMove={(e) => {
+          if (
+            document.activeElement &&
+            (document.activeElement.tagName === "INPUT" || document.activeElement.tagName === "TEXTAREA")
+          ) {
+            if (document.activeElement === e.target || document.activeElement.contains(e.target as Node)) {
+              return;
+            }
+            (document.activeElement as HTMLElement).blur();
+          }
+        }}
+      >
         {children}
       </div>
-      <DialogPrimitive.Close className="absolute right-4 top-4 z-50 rounded-full bg-background/80 backdrop-blur-sm p-1 opacity-70 ring-offset-background cursor-pointer transition-opacity hover:opacity-100 focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 disabled:pointer-events-none data-[state=open]:bg-accent data-[state=open]:text-muted-foreground">
-        <X className="h-4 w-4" />
-        <span className="sr-only">Close</span>
-      </DialogPrimitive.Close>
+      {!hideCloseButton && (
+        <DialogPrimitive.Close className="absolute right-4 top-4 z-50 rounded-full bg-background/80 backdrop-blur-sm p-1 opacity-70 ring-offset-background cursor-pointer transition-opacity hover:opacity-100 focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 disabled:pointer-events-none data-[state=open]:bg-accent data-[state=open]:text-muted-foreground">
+          <X className="h-4 w-4" />
+          <span className="sr-only">Close</span>
+        </DialogPrimitive.Close>
+      )}
     </DialogPrimitive.Content>
   </DialogPortal>
 ));
