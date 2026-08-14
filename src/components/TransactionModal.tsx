@@ -429,7 +429,20 @@ const TransactionModal = ({
                 </button>
               </div>
             )}
-            <div className="flex-1 min-h-0">
+            <div 
+              className="flex-1 min-h-0"
+              onTouchMove={(e) => {
+                if (
+                  document.activeElement &&
+                  (document.activeElement.tagName === "INPUT" || document.activeElement.tagName === "TEXTAREA")
+                ) {
+                  if (document.activeElement === e.target || document.activeElement.contains(e.target as Node)) {
+                    return;
+                  }
+                  (document.activeElement as HTMLElement).blur();
+                }
+              }}
+            >
               <div className="flex flex-col sm:grid sm:grid-cols-2 sm:gap-8 space-y-5 sm:space-y-0">
                 {/* Columna Izquierda */}
                 <div className="space-y-5">
@@ -702,7 +715,7 @@ const TransactionModal = ({
               </div>
             </div>
 
-            <div className="flex gap-3 pt-6 pb-2 mt-auto">
+            <div className="flex gap-3 pt-4 pb-4 mt-auto border-t border-border/30 bg-background/95 backdrop-blur-md sticky bottom-0 z-20">
               <Button
                 type="button"
                 variant="outline"
