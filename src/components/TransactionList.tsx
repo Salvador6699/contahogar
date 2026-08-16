@@ -5,6 +5,7 @@ import { Input } from '@/components/ui/input';
 import { Transaction } from '@/types/finance';
 import { formatCurrency } from '@/lib/calculations';
 import { Pencil, Trash2, Calendar, Clock, Search, ChevronLeft, ChevronRight, CreditCard } from 'lucide-react';
+import { motion, AnimatePresence } from 'framer-motion';
 import {
   AlertDialog,
   AlertDialogAction,
@@ -107,6 +108,7 @@ const TransactionList = ({ transactions, onEdit, onDelete }: TransactionListProp
         ) : (
           <>
             <div className="space-y-2">
+              <AnimatePresence mode="popLayout">
               {paginatedTransactions.map((transaction) => {
                 const isIncome = transaction.type === 'income';
                 let borderLeftClass = isIncome ? 'border-l-income' : 'border-l-expense';
@@ -117,10 +119,17 @@ const TransactionList = ({ transactions, onEdit, onDelete }: TransactionListProp
                 }
 
                 return (
-                  <Card
+                  <motion.div
                     key={transaction.id}
-                    className={`p-3 sm:p-4 bg-white dark:bg-card border border-border/40 border-l-[4px] ${borderLeftClass} shadow-sm hover:shadow-md hover:-translate-y-0.5 transition-all duration-300 rounded-2xl group`}
+                    layout
+                    initial={{ opacity: 0, scale: 0.95, y: 10 }}
+                    animate={{ opacity: 1, scale: 1, y: 0 }}
+                    exit={{ opacity: 0, scale: 0.9, y: -10 }}
+                    transition={{ type: "spring", stiffness: 400, damping: 30 }}
                   >
+                    <Card
+                      className={`p-3 sm:p-4 bg-white dark:bg-card border border-border/40 border-l-[4px] ${borderLeftClass} shadow-sm hover:shadow-md hover:-translate-y-0.5 transition-all duration-300 rounded-2xl group`}
+                    >
                     <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 min-w-0">
                       <div className="flex-1 min-w-0">
                         <div className="flex items-center gap-2 mb-0.5">
@@ -190,8 +199,10 @@ const TransactionList = ({ transactions, onEdit, onDelete }: TransactionListProp
                       </div>
                     </div>
                   </Card>
+                </motion.div>
                 );
               })}
+              </AnimatePresence>
             </div>
 
             {/* Pagination */}

@@ -45,6 +45,9 @@ import { useNavigate, useSearchParams } from "react-router-dom";
 import { appToast as toast } from "@/lib/swal";
 import { v4 as uuidv4 } from "uuid";
 import { useQueryClient } from "@tanstack/react-query";
+import { DndContext, closestCenter, KeyboardSensor, PointerSensor, useSensor, useSensors, DragEndEvent } from '@dnd-kit/core';
+import { arrayMove, SortableContext, sortableKeyboardCoordinates, verticalListSortingStrategy } from '@dnd-kit/sortable';
+import { SortableWidget } from "@/components/SortableWidget";
 import { useAccounts } from "@/hooks/useAccounts";
 import { useTransactions } from "@/hooks/useTransactions";
 import { useCategories } from "@/hooks/useCategories";
@@ -89,6 +92,52 @@ const Index = () => {
 
   const { favorites, deleteFavorite } = useFavorites();
   const { applyFractionatedTransaction } = useLoans();
+
+  const [widgetOrder, setWidgetOrder] = useState<string[]>(() => {
+    const defaultOrder = ["summaries", "upcoming", "categories", "transactions"];
+    const saved = localStorage.getItem("homeWidgetOrder");
+    if (saved) {
+      try {
+        const parsed = JSON.parse(saved) as string[];
+        // Migrar 'charts' antiguo a los nuevos
+        let migrated = parsed.flatMap(item => item === "charts" ? ["upcoming", "categories"] : item);
+        
+        // Asegurar que no falte ninguno de los por defecto
+        const missing = defaultOrder.filter(w => !migrated.includes(w));
+        migrated = [...migrated, ...missing];
+        
+        // Limpiar inválidos
+        migrated = migrated.filter(w => defaultOrder.includes(w));
+        
+        return migrated;
+      } catch (e) {}
+    }
+    return defaultOrder;
+  });
+
+  const sensors = useSensors(
+    useSensor(PointerSensor, {
+        activationConstraint: {
+            distance: 5,
+        }
+    }),
+    useSensor(KeyboardSensor, {
+      coordinateGetter: sortableKeyboardCoordinates,
+    })
+  );
+
+  const handleDragEnd = (event: DragEndEvent) => {
+    const { active, over } = event;
+    if (over && active.id !== over.id) {
+      setWidgetOrder((items) => {
+        const oldIndex = items.indexOf(active.id as string);
+        const newIndex = items.indexOf(over.id as string);
+        const newOrder = arrayMove(items, oldIndex, newIndex);
+        localStorage.setItem("homeWidgetOrder", JSON.stringify(newOrder));
+        return newOrder;
+      });
+    }
+  };
 
   const {
     filteredTransactions,
@@ -440,6 +489,95 @@ const Index = () => {
     return <div className="p-8 text-center text-muted-foreground animate-pulse">Cargando datos...</div>;
   }
 
+  const WIDGET_COMPONENTS: Record<string, React.ReactNode> = {
+    summaries: (
+      <div className="w-full">
+        <SummaryCards
+          totalIncome={totalIncome}
+          totalExpenses={totalExpenses}
+          history={history}
+          spendingPace={spendingPace}
+          transactions={regularTransactions}
+          onEditTransaction={handleEditTransaction}
+          onDeleteTransaction={handleDeleteTransaction}
+        />
+      </div>
+    ),
+    upcoming: pendingExpenseCategories.length > 0 ? (
+      <div className="w-full">
+        <div className="bg-white dark:bg-card rounded-[32px] p-6 shadow-md hover:shadow-lg transition-all duration-300 border border-white/20 dark:border-white/5">
+          <div className="flex items-center gap-2 mb-4">
+             <Calendar className="w-5 h-5 text-muted-foreground" />
+             <h3 className="text-sm font-bold uppercase tracking-widest text-muted-foreground">Próximos Pagos</h3>
+          </div>
+          <CategoryBreakdown
+            categories={pendingExpenseCategories.slice(0, 3)}
+            type="expense"
+            isPending={true}
+            transactions={pendingTransactions}
+            onEditTransaction={handleEditTransaction}
+            onDeleteTransaction={handleDeleteTransaction}
+            onConfirmTransaction={handleConfirmTransaction}
+            onToggleIgnoreTransaction={handleToggleIgnoreTransaction}
+            categoryCatalog={data.categories}
+            accounts={data.accounts}
+          />
+          {pendingExpenseCategories.length > 3 && (
+            <Button variant="ghost" className="w-full mt-2 text-xs font-bold" onClick={() => navigate('/proximos')}>Ver todos ({pendingExpenseCategories.length})</Button>
+          )}
+        </div>
+      </div>
+    ) : <div className="hidden"></div>,
+    categories: expenseCategories.length > 0 ? (
+      <div className="w-full">
+        <div className="bg-white dark:bg-card rounded-[32px] p-6 shadow-md hover:shadow-lg transition-all duration-300 border border-white/20 dark:border-white/5">
+           <div className="flex items-center gap-2 mb-4">
+             <BarChart3 className="w-5 h-5 text-muted-foreground" />
+             <h3 className="text-sm font-bold uppercase tracking-widest text-muted-foreground">Gastos por Categoría</h3>
+           </div>
+           <CategoryBreakdown
+              categories={expenseCategories}
+              type="expense"
+              isPending={false}
+              categoryCatalog={data.categories}
+              transactions={data.transactions}
+              selectedAccount={accountFilter}
+              baseDate={baseDate}
+              budgets={data.budgets}
+              onEditTransaction={handleEditTransaction}
+              onDeleteTransaction={handleDeleteTransaction}
+            />
+        </div>
+      </div>
+    ) : <div className="hidden"></div>,
+    transactions: (
+      <div className="bg-white dark:bg-card rounded-3xl p-6 shadow-sm border border-border/50 w-full">
+        <div className="flex items-center justify-between mb-6">
+           <h3 className="text-lg font-bold">Últimos Movimientos</h3>
+           <Button variant="ghost" size="sm" onClick={() => navigate('/historial')} className="text-xs font-bold">Ver historial</Button>
+        </div>
+        
+        <TransactionList
+          transactions={regularTransactions}
+          onEdit={handleEditTransaction}
+          onDelete={handleDeleteTransaction}
+        />
+
+        {/* Empty State */}
+        {!hasAnyData && (
+          <div className="text-center py-12 border border-dashed border-border rounded-2xl mt-4">
+            <p className="text-muted-foreground text-lg font-bold">
+              Aún no hay transacciones registradas.
+            </p>
+            <p className="text-muted-foreground mt-2 text-sm">
+              Usa los botones de Añadir Gasto o Ingreso arriba.
+            </p>
+          </div>
+        )}
+      </div>
+    )
+  };
+
   return (
     <>
       <div className="w-full">
@@ -502,96 +640,25 @@ const Index = () => {
               />
             </div>
 
-            {/* Second Row: Summaries */}
-            <div className="w-full">
-              <SummaryCards
-                totalIncome={totalIncome}
-                totalExpenses={totalExpenses}
-                history={history}
-                spendingPace={spendingPace}
-                transactions={regularTransactions}
-                onEditTransaction={handleEditTransaction}
-                onDeleteTransaction={handleDeleteTransaction}
-              />
-            </div>
-
-            {/* Third Row: Widgets */}
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-6 lg:gap-8">
-              {/* Upcoming Payments Widget */}
-              {pendingExpenseCategories.length > 0 && (
-                <div className="bg-white dark:bg-card rounded-[32px] p-6 shadow-md hover:shadow-lg transition-all duration-300 border border-white/20 dark:border-white/5">
-                  <div className="flex items-center gap-2 mb-4">
-                     <Calendar className="w-5 h-5 text-muted-foreground" />
-                     <h3 className="text-sm font-bold uppercase tracking-widest text-muted-foreground">Próximos Pagos</h3>
-                  </div>
-                  <CategoryBreakdown
-                    categories={pendingExpenseCategories.slice(0, 3)}
-                    type="expense"
-                    isPending={true}
-                    transactions={pendingTransactions}
-                    onEditTransaction={handleEditTransaction}
-                    onDeleteTransaction={handleDeleteTransaction}
-                    onConfirmTransaction={handleConfirmTransaction}
-                    onToggleIgnoreTransaction={handleToggleIgnoreTransaction}
-                    categoryCatalog={data.categories}
-                    accounts={data.accounts}
-                  />
-                  {pendingExpenseCategories.length > 3 && (
-                    <Button variant="ghost" className="w-full mt-2 text-xs font-bold" onClick={() => navigate('/proximos')}>Ver todos ({pendingExpenseCategories.length})</Button>
-                  )}
+            {/* Draggable Widgets Area */}
+            <DndContext 
+              sensors={sensors}
+              collisionDetection={closestCenter}
+              onDragEnd={handleDragEnd}
+            >
+              <SortableContext 
+                items={widgetOrder}
+                strategy={verticalListSortingStrategy}
+              >
+                <div className="flex flex-col gap-6 lg:gap-8 mb-8 pb-24 w-full">
+                  {widgetOrder.map((id) => (
+                    <SortableWidget key={id} id={id}>
+                      {WIDGET_COMPONENTS[id]}
+                    </SortableWidget>
+                  ))}
                 </div>
-              )}
-
-              {/* Gastos por Categoría Widget */}
-              {expenseCategories.length > 0 && (
-                <div className="bg-white dark:bg-card rounded-[32px] p-6 shadow-md hover:shadow-lg transition-all duration-300 border border-white/20 dark:border-white/5">
-                   <div className="flex items-center gap-2 mb-4">
-                     <BarChart3 className="w-5 h-5 text-muted-foreground" />
-                     <h3 className="text-sm font-bold uppercase tracking-widest text-muted-foreground">Gastos por Categoría</h3>
-                   </div>
-                   <CategoryBreakdown
-                      categories={expenseCategories}
-                      type="expense"
-                      isPending={false}
-                      categoryCatalog={data.categories}
-                      transactions={data.transactions}
-                      selectedAccount={accountFilter}
-                      baseDate={baseDate}
-                      budgets={data.budgets}
-                      onEditTransaction={handleEditTransaction}
-                      onDeleteTransaction={handleDeleteTransaction}
-                    />
-                </div>
-              )}
-            </div>
-          </div>
-
-          <div className="space-y-8 pb-24 items-start">
-            {/* Bottom Section: Transaction List */}
-            <div className="bg-white dark:bg-card rounded-3xl p-6 shadow-sm border border-border/50">
-              <div className="flex items-center justify-between mb-6">
-                 <h3 className="text-lg font-bold">Últimos Movimientos</h3>
-                 <Button variant="ghost" size="sm" onClick={() => navigate('/historial')} className="text-xs font-bold">Ver historial</Button>
-              </div>
-              
-              <TransactionList
-                transactions={regularTransactions}
-                onEdit={handleEditTransaction}
-                onDelete={handleDeleteTransaction}
-              />
-
-              {/* Empty State */}
-              {!hasAnyData && (
-                <div className="text-center py-12 border border-dashed border-border rounded-2xl mt-4">
-                  <p className="text-muted-foreground text-lg font-bold">
-                    Aún no hay transacciones registradas.
-                  </p>
-                  <p className="text-muted-foreground mt-2 text-sm">
-                    Usa los botones de Añadir Gasto o Ingreso arriba.
-                  </p>
-                </div>
-              )}
-            </div>
+              </SortableContext>
+            </DndContext>
           </div>
         </div>
 
