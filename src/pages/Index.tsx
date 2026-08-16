@@ -37,6 +37,8 @@ import {
   ChevronRight,
   Scale,
   BarChart3,
+  ArrowDownCircle,
+  ArrowUpCircle,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useNavigate, useSearchParams } from "react-router-dom";
@@ -85,7 +87,7 @@ const Index = () => {
   const [activeQuickFavorite, setActiveQuickFavorite] =
     useState<FavoriteExpense | null>(null);
 
-  const { favorites } = useFavorites();
+  const { favorites, deleteFavorite } = useFavorites();
   const { applyFractionatedTransaction } = useLoans();
 
   const {
@@ -444,38 +446,35 @@ const Index = () => {
         <div className="w-full max-w-full mx-auto px-4 lg:px-12 py-6 sm:py-8 transition-all duration-500 pb-32">
           <div className="mb-6 sm:mb-8">
             {/* Month Navigator Header */}
-            <div className="flex items-center justify-between p-4 bg-white dark:bg-card rounded-2xl shadow-sm border border-border/50 mb-8 overflow-hidden">
-              <div className="flex items-center gap-2 mx-auto">
+            <div className="flex flex-col sm:flex-row items-center justify-between mb-8 gap-4">
+              <div className="flex items-center gap-2 mx-auto sm:mx-0 bg-white dark:bg-card p-1.5 rounded-full shadow-sm border border-border/50">
                 <Button
-                  variant="outline"
+                  variant="ghost"
                   size="icon"
-                  className="h-9 w-9 rounded-full"
+                  className="h-8 w-8 rounded-full hover:bg-muted"
                   onClick={handlePrevMonth}
                 >
                   <ChevronLeft className="w-4 h-4" />
                 </Button>
-                <div className="flex flex-col items-center min-w-[120px] px-2">
-                  <span className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground/70">
-                    Periodo
-                  </span>
-                  <span className="text-base font-extrabold text-primary capitalize leading-tight">
+                <div className="flex flex-col items-center min-w-[100px] px-2 cursor-default">
+                  <span className="text-sm font-bold text-primary capitalize leading-tight">
                     {selectedMonthLabel}
                   </span>
                 </div>
                 <Button
-                  variant="outline"
+                  variant="ghost"
                   size="icon"
-                  className="h-9 w-9 rounded-full border-primary/20 hover:border-primary/40 hover:bg-primary/5 transition-all"
+                  className="h-8 w-8 rounded-full hover:bg-muted"
                   onClick={handleNextMonth}
                 >
-                  <ChevronRight className="w-4 h-4 text-primary" />
+                  <ChevronRight className="w-4 h-4" />
                 </Button>
                 {!isCurrentMonth && (
                   <Button
-                    variant="ghost"
+                    variant="default"
                     size="sm"
                     onClick={handleBackToCurrentMonth}
-                    className="text-xs h-8"
+                    className="h-8 rounded-full text-xs ml-1"
                   >
                     Hoy
                   </Button>
@@ -494,12 +493,17 @@ const Index = () => {
             />
           </div>
 
-          <div className="grid grid-cols-1 xl:grid-cols-2 gap-6 lg:gap-8 mb-8">
-            <div className="space-y-6">
+          <div className="flex flex-col gap-6 lg:gap-8 mb-8">
+            {/* Top Row: Hero Balance */}
+            <div className="w-full">
               <BalanceCard
                 balance={balance}
                 projectedBalance={projectedBalance}
               />
+            </div>
+
+            {/* Second Row: Summaries */}
+            <div className="w-full">
               <SummaryCards
                 totalIncome={totalIncome}
                 totalExpenses={totalExpenses}
@@ -510,49 +514,43 @@ const Index = () => {
                 onDeleteTransaction={handleDeleteTransaction}
               />
             </div>
-            <div className="space-y-6">
-              {/* Pending/Future Categories */}
-              {pendingExpenseCategories.length > 0 && (
-                <CategoryBreakdown
-                  categories={pendingExpenseCategories}
-                  type="expense"
-                  isPending={true}
-                  transactions={pendingTransactions}
-                  onEditTransaction={handleEditTransaction}
-                  onDeleteTransaction={handleDeleteTransaction}
-                  onConfirmTransaction={handleConfirmTransaction}
-                  onToggleIgnoreTransaction={handleToggleIgnoreTransaction}
-                  categoryCatalog={data.categories}
-                  accounts={data.accounts}
-                />
-              )}
-              {pendingIncomeCategories.length > 0 && (
-                <CategoryBreakdown
-                  categories={pendingIncomeCategories}
-                  type="income"
-                  isPending={true}
-                  transactions={pendingTransactions}
-                  onEditTransaction={handleEditTransaction}
-                  onDeleteTransaction={handleDeleteTransaction}
-                  onConfirmTransaction={handleConfirmTransaction}
-                  onToggleIgnoreTransaction={handleToggleIgnoreTransaction}
-                  categoryCatalog={data.categories}
-                  accounts={data.accounts}
-                  budgets={data.budgets}
-                />
-              )}
-            </div>
-          </div>
 
-          <div className="space-y-8 pb-24 items-start">
-            {/* Breakdowns */}
-            <div className="space-y-8">
-              <div className="grid grid-cols-1 gap-8 items-start">
-                {/* Category Breakdowns */}
-                <div className="space-y-8">
-                  {expenseCategories.length > 0 && (
-                    <CategoryBreakdown
-                      categories={expenseCategories}
+            {/* Third Row: Widgets */}
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6 lg:gap-8">
+              {/* Upcoming Payments Widget */}
+              {pendingExpenseCategories.length > 0 && (
+                <div className="bg-white dark:bg-card rounded-[32px] p-6 shadow-md hover:shadow-lg transition-all duration-300 border border-white/20 dark:border-white/5">
+                  <div className="flex items-center gap-2 mb-4">
+                     <Calendar className="w-5 h-5 text-muted-foreground" />
+                     <h3 className="text-sm font-bold uppercase tracking-widest text-muted-foreground">Próximos Pagos</h3>
+                  </div>
+                  <CategoryBreakdown
+                    categories={pendingExpenseCategories.slice(0, 3)}
+                    type="expense"
+                    isPending={true}
+                    transactions={pendingTransactions}
+                    onEditTransaction={handleEditTransaction}
+                    onDeleteTransaction={handleDeleteTransaction}
+                    onConfirmTransaction={handleConfirmTransaction}
+                    onToggleIgnoreTransaction={handleToggleIgnoreTransaction}
+                    categoryCatalog={data.categories}
+                    accounts={data.accounts}
+                  />
+                  {pendingExpenseCategories.length > 3 && (
+                    <Button variant="ghost" className="w-full mt-2 text-xs font-bold" onClick={() => navigate('/proximos')}>Ver todos ({pendingExpenseCategories.length})</Button>
+                  )}
+                </div>
+              )}
+
+              {/* Top Expenses Widget */}
+              {expenseCategories.length > 0 && (
+                <div className="bg-white dark:bg-card rounded-[32px] p-6 shadow-md hover:shadow-lg transition-all duration-300 border border-white/20 dark:border-white/5">
+                   <div className="flex items-center gap-2 mb-4">
+                     <BarChart3 className="w-5 h-5 text-muted-foreground" />
+                     <h3 className="text-sm font-bold uppercase tracking-widest text-muted-foreground">Top Gastos</h3>
+                   </div>
+                   <CategoryBreakdown
+                      categories={expenseCategories.slice(0, 3)}
                       type="expense"
                       isPending={false}
                       categoryCatalog={data.categories}
@@ -563,28 +561,20 @@ const Index = () => {
                       onEditTransaction={handleEditTransaction}
                       onDeleteTransaction={handleDeleteTransaction}
                     />
-                  )}
-
-                  {/* 3. Current Income Categories */}
-                  {incomeCategories.length > 0 && (
-                    <CategoryBreakdown
-                      categories={incomeCategories}
-                      type="income"
-                      isPending={false}
-                      categoryCatalog={data.categories}
-                      transactions={data.transactions}
-                      selectedAccount={accountFilter}
-                      baseDate={baseDate}
-                      onEditTransaction={handleEditTransaction}
-                      onDeleteTransaction={handleDeleteTransaction}
-                    />
-                  )}
+                    <Button variant="ghost" className="w-full mt-2 text-xs font-bold" onClick={() => navigate('/presupuestos')}>Ver desglose completo</Button>
                 </div>
-              </div>
+              )}
             </div>
+          </div>
 
+          <div className="space-y-8 pb-24 items-start">
             {/* Bottom Section: Transaction List */}
-            <div>
+            <div className="bg-white dark:bg-card rounded-3xl p-6 shadow-sm border border-border/50">
+              <div className="flex items-center justify-between mb-6">
+                 <h3 className="text-lg font-bold">Últimos Movimientos</h3>
+                 <Button variant="ghost" size="sm" onClick={() => navigate('/historial')} className="text-xs font-bold">Ver historial</Button>
+              </div>
+              
               <TransactionList
                 transactions={regularTransactions}
                 onEdit={handleEditTransaction}
@@ -593,12 +583,12 @@ const Index = () => {
 
               {/* Empty State */}
               {!hasAnyData && (
-                <div className="text-center py-12 bg-card rounded-3xl border border-dashed border-border p-8 mt-8">
+                <div className="text-center py-12 border border-dashed border-border rounded-2xl mt-4">
                   <p className="text-muted-foreground text-lg font-bold">
                     Aún no hay transacciones registradas.
                   </p>
                   <p className="text-muted-foreground mt-2 text-sm">
-                    Usa los botones de Ingreso y Gasto arriba a la derecha.
+                    Usa los botones de Añadir Gasto o Ingreso arriba.
                   </p>
                 </div>
               )}

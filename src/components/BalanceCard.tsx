@@ -13,35 +13,26 @@ const BalanceCard = ({ balance, projectedBalance }: BalanceCardProps) => {
   const hasPendingTransactions = balance !== projectedBalance;
 
   return (
-    <Card className="p-6 bg-gradient-to-br from-primary via-primary/90 to-primary/80 text-primary-foreground shadow-xl border-none overflow-hidden relative group">
-      <div className="absolute inset-0 bg-white/5 opacity-0 group-hover:opacity-100 transition-opacity duration-500 pointer-events-none" />
-      <div className="flex items-center justify-between mb-4 relative z-10">
-        <h2 className="text-sm font-medium tracking-wide uppercase opacity-80">Saldo Actual</h2>
-        <div className="p-2 bg-white/10 rounded-full">
-          {isPositive ? (
-            <TrendingUp className="w-5 h-5" />
-          ) : (
-            <TrendingDown className="w-5 h-5" />
-          )}
-        </div>
+    <Card className="p-10 sm:p-12 bg-gradient-to-br from-primary via-primary to-primary/80 text-primary-foreground shadow-[0_20px_50px_-12px_rgba(var(--primary),0.5)] border border-white/10 overflow-hidden relative group rounded-[40px]">
+      <div className="absolute inset-0 bg-[url('https://grainy-gradients.vercel.app/noise.svg')] opacity-20 mix-blend-overlay pointer-events-none" />
+      <div className="absolute top-0 right-0 -mt-8 -mr-8 p-8 opacity-20 pointer-events-none blur-[2px]">
+        <TrendingUp className="w-64 h-64 transform rotate-12 text-white/40" />
       </div>
-      <div className="space-y-4 relative z-10">
-        <div>
-          <p className={`text-4xl sm:text-5xl font-bold tracking-tight ${!isPositive ? 'text-red-200' : ''}`}>
+      <div className="absolute inset-0 bg-gradient-to-t from-black/10 to-transparent opacity-50 pointer-events-none" />
+      <div className="absolute inset-0 bg-white/5 opacity-0 group-hover:opacity-100 transition-opacity duration-700 pointer-events-none" />
+      
+      <div className="flex flex-col items-center justify-center text-center space-y-2 relative z-10">
+        <h2 className="text-sm font-extrabold tracking-[0.2em] uppercase text-white/80 mb-2">Saldo Total</h2>
+        <div className="py-2">
+          <p className={`text-6xl sm:text-7xl font-black tracking-tighter drop-shadow-md ${!isPositive ? 'text-red-300' : 'text-white'}`}>
             {formatCurrency(balance)}
           </p>
-          <div className="flex items-center gap-2 mt-2">
-            <div className={`w-2 h-2 rounded-full ${isPositive ? 'bg-income' : 'bg-destructive'}`} />
-            <p className="text-xs font-medium opacity-80">
-              {isPositive ? 'Balance positivo' : 'Balance negativo'}
-            </p>
-          </div>
         </div>
         
         {hasPendingTransactions && (
-          <div className="pt-4 border-t border-white/10">
-            <p className="text-xs font-medium opacity-70 mb-1">Saldo Previsto (incluye futuras)</p>
-            <p className={`text-2xl font-bold ${!isProjectedPositive ? 'text-red-200' : ''}`}>
+          <div className="mt-8 pt-6 px-12 border-t border-white/20 flex flex-col items-center w-full max-w-sm">
+            <p className="text-[11px] font-black opacity-70 mb-1 uppercase tracking-[0.2em]">Saldo Previsto (Futuros)</p>
+            <p className={`text-2xl font-bold ${!isProjectedPositive ? 'text-red-300' : 'text-white'}`}>
               {formatCurrency(projectedBalance)}
             </p>
           </div>

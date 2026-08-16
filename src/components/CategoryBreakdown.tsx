@@ -206,16 +206,15 @@ const CategoryBreakdown = ({
             {formatCurrency(pendingTotal)}
           </span>
         </h3>
-        <div className={`grid grid-cols-1 ${!isPending ? 'sm:grid-cols-2 2xl:grid-cols-3' : ''} gap-3`}>
+        <div className="flex flex-col gap-2">
           {paginatedItems.map((transaction) => {
             const isLoan = !!transaction.linkedLoanId;
-            const itemBgClass = isLoan ? 'bg-purple-50 dark:bg-purple-900/10' : bgClass;
-            const itemBorderClass = isLoan ? 'border-purple-200 dark:border-purple-800/50' : borderClass;
+            const borderLeftClass = isLoan ? 'border-l-purple-500' : (type === 'expense' ? 'border-l-expense' : 'border-l-income');
             
             return (
-            <Card
-              key={transaction.id}
-              className={`p-4 ${itemBgClass} border-2 ${itemBorderClass} hover:shadow-md transition-all`}
+              <Card
+                key={transaction.id}
+              className={`p-3 sm:p-4 bg-white dark:bg-card border border-border/40 border-l-[4px] ${borderLeftClass} shadow-sm hover:shadow-md hover:-translate-y-0.5 transition-all duration-300 rounded-2xl group`}
             >
               <div className="flex items-start justify-between gap-3">
                 <div className="flex items-center gap-3 min-w-0">
@@ -240,8 +239,8 @@ const CategoryBreakdown = ({
                         </div>
                       );
                     })()}
-                    <div className="min-w-0">
-                      <div className="flex items-center gap-2">
+                    <div className="min-w-0 flex-1">
+                      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-1 sm:gap-2">
                         <p className="font-bold text-foreground capitalize truncate">{transaction.category}</p>
                         {onConfirmTransaction && (
                           <button 
@@ -362,7 +361,7 @@ const CategoryBreakdown = ({
         <Tag className="w-5 h-5" />
         {title}
       </h3>
-      <div className="grid grid-cols-1 sm:grid-cols-2 2xl:grid-cols-3 gap-3">
+      <div className="flex flex-col gap-2">
         {paginatedCategories.map((category, index) => {
           const catHistory = calculateCategoryHistory(transactions, category.category, type, 6, selectedAccount, baseDate);
           const chartColor = type === 'expense' ? '#ef4444' : '#22c55e';
@@ -396,11 +395,13 @@ const CategoryBreakdown = ({
             }
           }
 
+          const catBorderLeftClass = type === 'expense' ? 'border-l-expense' : 'border-l-income';
+
           return (
             <Card
               key={index}
               onClick={() => setSelectedCategoryName(category.category)}
-              className={`p-4 ${bgClass} border-2 ${borderClass} hover:shadow-md transition-all cursor-pointer active:scale-[0.98]`}
+              className={`p-3 sm:p-4 bg-white dark:bg-card border border-border/40 border-l-[4px] ${catBorderLeftClass} shadow-sm hover:shadow-md hover:-translate-y-0.5 transition-all duration-300 cursor-pointer active:scale-[0.98] rounded-2xl group`}
             >
               <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
                 <div className="flex-1 flex items-center gap-3 min-w-0">

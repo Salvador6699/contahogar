@@ -53,41 +53,41 @@ const SummaryCards = ({ totalIncome, totalExpenses, history, spendingPace, trans
 
 
   return (
-    <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-1 gap-4">
+    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 lg:gap-6">
       {/* Ingresos Card */}
       <Card 
-        className="p-5 border-none shadow-sm bg-white dark:bg-card hover:shadow-md transition-all duration-300 group overflow-hidden relative cursor-pointer active:scale-[0.98]"
+        className="p-6 sm:p-8 border border-income/20 shadow-[0_8px_30px_rgb(0,0,0,0.04)] bg-gradient-to-br from-white to-income/5 dark:from-card dark:to-income/10 hover:shadow-[0_8px_30px_rgba(var(--income),0.15)] transition-all duration-300 group overflow-hidden relative cursor-pointer active:scale-[0.98] rounded-[32px]"
         onClick={() => setOpenModal('income')}
       >
-        <div className="absolute top-0 left-0 w-1 h-full bg-income" />
-        <div className="flex flex-col gap-4">
-          <div className="flex items-center justify-between w-full">
-            <div className="flex items-center gap-4">
-              <div className="p-3 bg-income/10 rounded-xl group-hover:bg-income/20 transition-colors">
-                <ArrowUpCircle className="w-7 h-7 text-income" />
-              </div>
-              <p className="text-sm font-black text-muted-foreground uppercase tracking-[0.2em]">Ingresos</p>
+        <div className="absolute top-0 right-0 w-32 h-32 bg-income/20 rounded-full blur-3xl -mr-10 -mt-10 pointer-events-none" />
+        <div className="flex flex-col gap-4 relative z-10">
+          <div className="flex items-center gap-5">
+            <div className="p-4 bg-income/10 rounded-2xl group-hover:bg-income/20 transition-colors shrink-0">
+              <ArrowUpCircle className="w-8 h-8 text-income" />
             </div>
-            <p className="text-2xl font-black text-foreground tabular-nums">{formatCurrency(totalIncome)}</p>
+            <div className="min-w-0">
+               <p className="text-[11px] font-black text-muted-foreground uppercase tracking-[0.2em] mb-1">Ingresos</p>
+               <p className="text-3xl sm:text-4xl font-black text-foreground tabular-nums tracking-tighter truncate">{formatCurrency(totalIncome)}</p>
+            </div>
           </div>
         </div>
       </Card>
 
       {/* Gastos Card */}
       <Card 
-        className="p-5 border-none shadow-sm bg-white dark:bg-card hover:shadow-md transition-all duration-300 group overflow-hidden relative cursor-pointer active:scale-[0.98]"
+        className="p-6 sm:p-8 border border-expense/20 shadow-[0_8px_30px_rgb(0,0,0,0.04)] bg-gradient-to-br from-white to-expense/5 dark:from-card dark:to-expense/10 hover:shadow-[0_8px_30px_rgba(var(--expense),0.15)] transition-all duration-300 group overflow-hidden relative cursor-pointer active:scale-[0.98] rounded-[32px]"
         onClick={() => setOpenModal('expense')}
       >
-        <div className="absolute top-0 left-0 w-1 h-full bg-expense" />
-        <div className="flex flex-col gap-4">
-          <div className="flex items-center justify-between w-full">
-            <div className="flex items-center gap-4">
-              <div className="p-3 bg-expense/10 rounded-xl group-hover:bg-expense/20 transition-colors">
-                <ArrowDownCircle className="w-7 h-7 text-expense" />
-              </div>
-              <p className="text-sm font-black text-muted-foreground uppercase tracking-[0.2em]">Gastos</p>
+        <div className="absolute top-0 right-0 w-32 h-32 bg-expense/20 rounded-full blur-3xl -mr-10 -mt-10 pointer-events-none" />
+        <div className="flex flex-col gap-4 relative z-10">
+          <div className="flex items-center gap-5">
+            <div className="p-4 bg-expense/10 rounded-2xl group-hover:bg-expense/20 transition-colors shrink-0">
+              <ArrowDownCircle className="w-8 h-8 text-expense" />
             </div>
-            <p className="text-2xl font-black text-foreground tabular-nums">{formatCurrency(totalExpenses)}</p>
+            <div className="min-w-0">
+               <p className="text-[11px] font-black text-muted-foreground uppercase tracking-[0.2em] mb-1">Gastos</p>
+               <p className="text-3xl sm:text-4xl font-black text-foreground tabular-nums tracking-tighter truncate">{formatCurrency(totalExpenses)}</p>
+            </div>
           </div>
         </div>
       </Card>

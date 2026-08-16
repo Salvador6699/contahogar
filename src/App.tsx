@@ -31,6 +31,7 @@ import FavoritesPage from "./pages/FavoritesPage";
 import LoansPage from "./pages/LoansPage";
 import NotFound from "./pages/NotFound";
 import TeamsPage from "./pages/TeamsPage";
+import UpcomingPage from "./pages/UpcomingPage";
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -90,6 +91,7 @@ const App = () => {
                         <Route path="/ahorros" element={<SavingsPage />} />
                         <Route path="/prestamos" element={<LoansPage />} />
                         <Route path="/favorites" element={<FavoritesPage />} />
+                        <Route path="/proximos" element={<UpcomingPage />} />
                       </Route>
                     </Route>
 

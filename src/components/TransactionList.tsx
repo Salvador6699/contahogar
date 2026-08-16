@@ -109,21 +109,19 @@ const TransactionList = ({ transactions, onEdit, onDelete }: TransactionListProp
             <div className="space-y-2">
               {paginatedTransactions.map((transaction) => {
                 const isIncome = transaction.type === 'income';
-                let bgClass = isIncome ? 'bg-income-light' : 'bg-expense-light';
-                let borderClass = isIncome ? 'border-income/20' : 'border-expense/20';
-                const colorClass = isIncome ? 'text-income' : 'text-expense';
+                let borderLeftClass = isIncome ? 'border-l-income' : 'border-l-expense';
+                const colorClass = isIncome ? 'text-income' : 'text-foreground';
 
                 if (transaction.linkedLoanId) {
-                  bgClass = 'bg-purple-50 dark:bg-purple-900/10';
-                  borderClass = 'border-purple-200 dark:border-purple-800/50';
+                  borderLeftClass = 'border-l-purple-500';
                 }
 
                 return (
                   <Card
                     key={transaction.id}
-                    className={`p-4 ${bgClass} border-2 ${borderClass} hover:shadow-md transition-all`}
+                    className={`p-3 sm:p-4 bg-white dark:bg-card border border-border/40 border-l-[4px] ${borderLeftClass} shadow-sm hover:shadow-md hover:-translate-y-0.5 transition-all duration-300 rounded-2xl group`}
                   >
-                    <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 min-w-0">
+                    <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 min-w-0">
                       <div className="flex-1 min-w-0">
                         <div className="flex items-center gap-2 mb-0.5">
                           <p className="font-bold text-foreground capitalize">
@@ -166,27 +164,27 @@ const TransactionList = ({ transactions, onEdit, onDelete }: TransactionListProp
                         </div>
                       </div>
                       <div className="flex items-center justify-between w-full sm:w-auto gap-4 mt-3 sm:mt-0 pt-3 sm:pt-0 border-t sm:border-t-0 border-border/10">
-                        <p className={`text-xl font-bold ${colorClass} whitespace-nowrap`}>
+                        <p className={`text-lg sm:text-xl font-bold tabular-nums tracking-tighter ${colorClass} whitespace-nowrap`}>
                           {isIncome ? '+' : '-'}{formatCurrency(transaction.amount)}
                         </p>
-                        <div className="flex gap-2">
+                        <div className="flex gap-1 opacity-100 sm:opacity-0 sm:group-hover:opacity-100 transition-opacity">
                           <Button
                             variant="ghost"
                             size="icon"
                             onClick={() => onEdit(transaction)}
-                            className="h-10 w-10 hover:bg-background/50"
+                            className="h-8 w-8 hover:bg-muted"
                             aria-label="Editar transacción"
                           >
-                            <Pencil className="h-5 w-5" />
+                            <Pencil className="h-4 w-4 text-muted-foreground" />
                           </Button>
                           <Button
                             variant="ghost"
                             size="icon"
                             onClick={() => setDeleteId(transaction.id)}
-                            className="h-10 w-10 hover:bg-destructive/10 hover:text-destructive"
+                            className="h-8 w-8 hover:bg-destructive/10 hover:text-destructive"
                             aria-label="Eliminar transacción"
                           >
-                            <Trash2 className="h-5 w-5" />
+                            <Trash2 className="h-4 w-4 text-muted-foreground hover:text-destructive" />
                           </Button>
                         </div>
                       </div>

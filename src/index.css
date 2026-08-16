@@ -40,9 +40,9 @@ All colors MUST be HSL.
     --income-foreground: 0 0% 100%;
     --income-light: 142 76% 95%;
 
-    --expense: 24 95% 53%;
+    --expense: 350 75% 55%;
     --expense-foreground: 0 0% 100%;
-    --expense-light: 24 95% 97%;
+    --expense-light: 350 75% 97%;
 
     --balance-positive: 142 76% 36%;
     --balance-negative: 0 84.2% 60.2%;
@@ -93,9 +93,9 @@ All colors MUST be HSL.
     --income-foreground: 0 0% 100%;
     --income-light: 142 76% 15%;
 
-    --expense: 24 95% 53%;
+    --expense: 350 75% 55%;
     --expense-foreground: 0 0% 100%;
-    --expense-light: 24 95% 15%;
+    --expense-light: 350 75% 15%;
 
     --balance-positive: 142 76% 45%;
     --balance-negative: 0 84.2% 60.2%;
