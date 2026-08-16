@@ -30,8 +30,20 @@ export const addTransaction = async (transaction: Omit<Transaction, "id">): Prom
 };
 
 export const updateTransaction = async (transaction: Partial<Transaction> & { id: string }): Promise<void> => {
-  const { error } = await supabase.from('transactions').update(transaction).eq('id', transaction.id);
-  if (error) throw new Error(error.message);
+  const { user_profiles, ...updateData } = transaction as any;
+  if (transaction.id.startsWith('rec_') || transaction.id.startsWith('loan_')) {
+    const { data: { user } } = await supabase.auth.getUser();
+    const upsertData = {
+      team_id: getTeamId(),
+      user_id: user?.id,
+      ...updateData,
+    };
+    const { error } = await supabase.from('transactions').upsert([upsertData]);
+    if (error) throw new Error(error.message);
+  } else {
+    const { error } = await supabase.from('transactions').update(updateData).eq('id', transaction.id);
+    if (error) throw new Error(error.message);
+  }
 };
 
 export const deleteTransaction = async (id: string): Promise<void> => {

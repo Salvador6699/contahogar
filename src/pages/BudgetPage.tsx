@@ -3,7 +3,8 @@ import { useSearchParams } from 'react-router-dom';
 import { loadData, saveData } from '@/lib/storage';
 import { Budget, Category, Transaction, Account } from '@/types/finance';
 import { formatCurrency, calculateTotalBalance } from '@/lib/calculations';
-import { format } from 'date-fns';
+import { format, parseISO, addMonths, subMonths } from 'date-fns';
+import { es } from 'date-fns/locale';
 import { v4 as uuidv4 } from 'uuid';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -25,7 +26,7 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { useMonthFilter } from "@/hooks/useMonthFilter";
-import { parseISO, subMonths, addMonths } from "date-fns";
+
 
 import { useAccounts } from '@/hooks/useAccounts';
 import { useTransactions } from '@/hooks/useTransactions';
@@ -116,7 +117,7 @@ const BudgetPage = () => {
         setAddAmounts(prev => ({ ...prev, [cat]: '' }));
     };
 
-    const handleAutoAssignFutureExpenses = () => {
+    const handleAutoAssignFutureExpenses = (silent = false) => {
         setLocalAssignments(prev => {
             const next = { ...prev };
             let assignedCount = 0;
@@ -126,8 +127,15 @@ const BudgetPage = () => {
                 t.type === 'expense' && 
                 t.date.startsWith(activeMonth) &&
                 t.category !== 'Transferencia' &&
-                (!t.isPending || !t.isIgnored)
+                !t.isIgnored
             );
+
+            // Limpiar sobres automáticos anteriores para recalcular desde cero
+            Object.keys(next).forEach(cat => {
+                if (next[cat].isAuto) {
+                    delete next[cat];
+                }
+            });
 
             // Agrupar por categoría
             const spentByCategory: Record<string, number> = {};
@@ -143,14 +151,20 @@ const BudgetPage = () => {
                 }
             });
 
-            if (assignedCount > 0) {
+            if (assignedCount === 0) return prev; // Evita re-renderizados innecesarios
+
+            if (!silent) {
                 toast.success(`${assignedCount} gastos futuros autoasignados`);
-            } else {
-                toast.info('No hay gastos futuros nuevos que autoasignar');
             }
             return next;
         });
     };
+
+    // Auto-asignar silenciosamente al cargar transacciones o cambiar de mes
+    useEffect(() => {
+        handleAutoAssignFutureExpenses(true);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [activeMonth, data.transactions]);
 
     const handleClearAll = async () => {
         const result = await Swal.fire({
@@ -275,13 +289,13 @@ const BudgetPage = () => {
 
     const gastosMesActual = useMemo(() => {
         return Number(data.transactions
-            .filter(t => t.type === 'expense' && t.category !== 'Transferencia' && t.date.startsWith(activeMonth) && (!t.isPending || !t.isIgnored))
+            .filter(t => t.type === 'expense' && t.category !== 'Transferencia' && t.date.startsWith(activeMonth) && !t.isIgnored)
             .reduce((sum, t) => sum + t.amount, 0).toFixed(2));
     }, [data.transactions, activeMonth]);
 
     const ingresosDelMes = useMemo(() => {
         return Number(data.transactions
-            .filter(t => t.type === 'income' && t.category !== 'Transferencia' && t.date.startsWith(activeMonth) && (!t.isPending || !t.isIgnored))
+            .filter(t => t.type === 'income' && t.category !== 'Transferencia' && t.date.startsWith(activeMonth) && !t.isIgnored)
             .reduce((sum, t) => sum + t.amount, 0).toFixed(2));
     }, [data.transactions, activeMonth]);
 
@@ -323,21 +337,45 @@ const BudgetPage = () => {
         return a.localeCompare(b);
     };
 
-    const manualCategories = Object.keys(localAssignments)
-        .filter(cat => !localAssignments[cat].isAuto)
-        .sort(sortBudgets);
+    const getSortPercentage = (cat: string) => {
+        const amount = localAssignments[cat]?.amount || 0;
+        const gastado = getGastado(cat);
+        return amount > 0 ? (gastado / amount) * 100 : (gastado > 0 ? 100 : 0);
+    };
 
-    const autoCategories = Object.keys(localAssignments)
-        .filter(cat => localAssignments[cat].isAuto)
-        .sort(sortBudgets);
+    const allCategories = Object.keys(localAssignments);
+    const sinSobre = allCategories.filter(cat => localAssignments[cat].isAuto).sort(sortBudgets);
+    const manuales = allCategories.filter(cat => !localAssignments[cat].isAuto);
+    
+    const saludables = manuales.filter(cat => getSortPercentage(cat) < 80).sort(sortBudgets);
+    const vacios = manuales.filter(cat => getSortPercentage(cat) === 100).sort(sortBudgets);
+    const enPeligro = manuales.filter(cat => {
+        const perc = getSortPercentage(cat);
+        return perc >= 80 && perc !== 100;
+    }).sort(sortBudgets);
 
-    const sumManualBudgets = Number(manualCategories.reduce((sum, cat) => sum + localAssignments[cat].amount, 0).toFixed(2));
-    const sumAutoBudgets = Number(autoCategories.reduce((sum, cat) => sum + localAssignments[cat].amount, 0).toFixed(2));
+    const nextMonthStr = useMemo(() => format(addMonths(parseISO(activeMonth + "-01"), 1), "yyyy-MM"), [activeMonth]);
+
+    const nextMonthBudgetsTotal = useMemo(() => {
+        // Encontrar gastos previstos del próximo mes que NO estén ignorados
+        const nextMonthExpenses = data.transactions.filter(t => 
+            t.type === 'expense' && 
+            t.date.startsWith(nextMonthStr) &&
+            t.category !== 'Transferencia' &&
+            !t.isIgnored
+        );
+
+        const sum = nextMonthExpenses.reduce((acc, t) => acc + t.amount, 0);
+        return Number(sum.toFixed(2));
+    }, [data.transactions, nextMonthStr]);
+
+    const sumManualBudgets = Number(manuales.reduce((sum, cat) => sum + localAssignments[cat].amount, 0).toFixed(2));
+    const sumAutoBudgets = Number(sinSobre.reduce((sum, cat) => sum + localAssignments[cat].amount, 0).toFixed(2));
     
     const disponibleParaAsignar = useMemo(() => {
         const baseCapital = calculateTotalBalance(data.accounts, data.transactions, true, currentMonthKey);
         const baseGastos = Number(data.transactions
-            .filter(t => t.type === 'expense' && t.category !== 'Transferencia' && t.date.startsWith(currentMonthKey) && (!t.isPending || !t.isIgnored))
+            .filter(t => t.type === 'expense' && t.category !== 'Transferencia' && t.date.startsWith(currentMonthKey) && !t.isIgnored)
             .reduce((sum, t) => sum + t.amount, 0).toFixed(2));
         const baseBudgets = currentMonthKey === activeMonth
             ? sumManualBudgets + sumAutoBudgets
@@ -353,7 +391,7 @@ const BudgetPage = () => {
         while (m <= end) {
             const mStr = format(m, 'yyyy-MM');
             const monthIngresos = Number(data.transactions
-                .filter(t => t.type === 'income' && t.category !== 'Transferencia' && t.date.startsWith(mStr) && (!t.isPending || !t.isIgnored))
+                .filter(t => t.type === 'income' && t.category !== 'Transferencia' && t.date.startsWith(mStr) && !t.isIgnored)
                 .reduce((sum, t) => sum + t.amount, 0).toFixed(2));
             
             let monthBudgets = 0;
@@ -369,13 +407,26 @@ const BudgetPage = () => {
             m = addMonths(m, 1);
         }
 
+        // Resguardar el capital necesario para el próximo mes
+        noAsignada -= nextMonthBudgetsTotal;
+
         return Number(noAsignada.toFixed(2));
-    }, [activeMonth, currentMonthKey, sumManualBudgets, sumAutoBudgets, data]);
+    }, [activeMonth, currentMonthKey, sumManualBudgets, sumAutoBudgets, data, nextMonthBudgetsTotal]);
+
+    const [expandedRow, setExpandedRow] = useState<string | null>(null);
+
+    const toggleRow = (cat: string) => {
+        setExpandedRow(prev => prev === cat ? null : cat);
+    };
+
+
 
     const disponibleBasadoEnIngresos = Number((ingresosDelMes - sumManualBudgets - sumAutoBudgets).toFixed(2));
 
-    const filteredManualCategories = manualCategories.filter(cat => cat.toLowerCase().includes(searchQuery.toLowerCase()));
-    const filteredAutoCategories = autoCategories.filter(cat => cat.toLowerCase().includes(searchQuery.toLowerCase()));
+    const filteredEnPeligro = enPeligro.filter(cat => cat.toLowerCase().includes(searchQuery.toLowerCase()));
+    const filteredSaludables = saludables.filter(cat => cat.toLowerCase().includes(searchQuery.toLowerCase()));
+    const filteredVacios = vacios.filter(cat => cat.toLowerCase().includes(searchQuery.toLowerCase()));
+    const filteredSinSobre = sinSobre.filter(cat => cat.toLowerCase().includes(searchQuery.toLowerCase()));
 
     const handlePrevMonth = () => {
         const current = parseISO(activeMonth + "-01");
@@ -396,6 +447,81 @@ const BudgetPage = () => {
     if (isAccLoading || isTxLoading || isCatLoading || isBudLoading) {
         return <div className="p-8 text-center text-muted-foreground animate-pulse">Cargando datos...</div>;
     }
+
+    const renderRow = (cat: string, type: 'peligro' | 'saludable' | 'sin_sobre' | 'vacio') => {
+        const amount = Number((localAssignments[cat].amount || 0).toFixed(2));
+        const gastado = Number(getGastado(cat).toFixed(2));
+        const resto = Number((amount - gastado).toFixed(2));
+        const percentage = amount > 0 ? (gastado / amount) * 100 : gastado > 0 ? 100 : 0;
+        const isExpanded = expandedRow === cat;
+        
+        let colorClass = "bg-muted-foreground";
+        if (type === 'peligro') colorClass = "bg-destructive";
+        else if (type === 'saludable') colorClass = "bg-income";
+        else if (type === 'vacio') colorClass = "bg-muted-foreground/60";
+
+        return (
+            <div key={cat} className="snap-start scroll-mt-[340px] md:scroll-mt-[260px] bg-card rounded-3xl border border-border/50 shadow-sm overflow-hidden transition-all">
+                {/* COMPACT ROW */}
+                <div 
+                    className="p-4 flex items-center justify-between cursor-pointer hover:bg-muted/30 transition-colors"
+                    onClick={() => toggleRow(cat)}
+                >
+                    <div className="flex-1 min-w-0 pr-4">
+                        <div className="flex items-center justify-between mb-1">
+                            <h3 className="font-bold text-base capitalize truncate pr-4 text-foreground/90">{cat}</h3>
+                            <span className={cn("font-black text-lg", resto > 0 ? "text-income" : resto < 0 ? "text-destructive" : "text-foreground")}>
+                                {formatCurrency(resto)}
+                            </span>
+                        </div>
+                        {/* Thin Progress Bar */}
+                        <div className="h-1.5 w-full bg-muted rounded-full overflow-hidden mt-2">
+                            <div 
+                                className={cn("h-full rounded-full transition-all duration-500", colorClass)} 
+                                style={{ width: `${Math.min(percentage, 100)}%` }} 
+                            />
+                        </div>
+                    </div>
+                </div>
+
+                {/* EXPANDED DETAILS */}
+                {isExpanded && (
+                    <div className="p-4 pt-2 border-t border-border/30 bg-muted/5 animate-in slide-in-from-top-2">
+                        <div className="flex justify-between text-[10px] font-bold uppercase tracking-widest text-muted-foreground mb-4 bg-background/50 p-2 rounded-xl border border-border/40">
+                            <div className="flex flex-col"><span>Presupuesto</span> <span className="text-foreground text-xs">{formatCurrency(amount)}</span></div>
+                            <div className="flex flex-col text-right"><span>Gastado</span> <span className="text-foreground text-xs">{formatCurrency(gastado)}</span></div>
+                        </div>
+                        
+                        {activeRole === 'admin' && (
+                            <div className="flex flex-wrap sm:flex-nowrap items-center gap-2">
+                                <div className="relative flex-1 min-w-[120px] group">
+                                    <Input 
+                                        type="number" 
+                                        step="0.01" 
+                                        placeholder="0.00" 
+                                        value={addAmounts[cat] || ''}
+                                        onChange={(e) => setAddAmounts(prev => ({ ...prev, [cat]: e.target.value }))}
+                                        onKeyDown={(e) => { if (e.key === 'Enter') handleAddAmount(cat, false); }}
+                                        className="h-12 pl-4 pr-8 text-base font-bold bg-background border-border/60 focus-visible:ring-primary/30 rounded-2xl shadow-inner"
+                                    />
+                                    <span className="absolute right-4 top-1/2 -translate-y-1/2 text-muted-foreground font-bold select-none pointer-events-none">€</span>
+                                </div>
+                                <Button onClick={() => handleAddAmount(cat, false)} variant="secondary" size="icon" className="h-12 w-12 shrink-0 rounded-2xl font-bold bg-income/10 text-income hover:bg-income hover:text-white transition-colors shadow-sm">
+                                    <Plus className="w-5 h-5" />
+                                </Button>
+                                <Button onClick={() => handleAddAmount(cat, true)} variant="secondary" size="icon" className="h-12 w-12 shrink-0 rounded-2xl font-bold bg-destructive/10 text-destructive hover:bg-destructive hover:text-white transition-colors shadow-sm">
+                                    <Minus className="w-5 h-5" />
+                                </Button>
+                                <Button onClick={() => handleRemoveCategory(cat)} variant="ghost" size="icon" className="h-12 w-12 shrink-0 rounded-2xl text-destructive/60 hover:text-destructive hover:bg-destructive/10 sm:ml-2 transition-colors">
+                                    <Trash2 className="w-5 h-5" />
+                                </Button>
+                            </div>
+                        )}
+                    </div>
+                )}
+            </div>
+        );
+    };
 
     return (
         <div className="w-full">
@@ -493,7 +619,7 @@ const BudgetPage = () => {
                                     Copiar mes
                                 </Button>
                                 <Button 
-                                    onClick={handleAutoAssignFutureExpenses}
+                                    onClick={() => handleAutoAssignFutureExpenses(false)}
                                     variant="secondary"
                                     className="bg-primary/10 hover:bg-primary/20 text-primary border border-primary/20 font-bold shadow-sm transition-all text-[11px] sm:text-sm h-9 sm:h-10 px-2 sm:px-4"
                                 >
@@ -508,104 +634,47 @@ const BudgetPage = () => {
                                     <Trash2 className="w-3 h-3 sm:w-4 sm:h-4 mr-1 sm:mr-2" />
                                     Limpiar
                                 </Button>
-                                <Button 
-                                    onClick={handleSave} 
-                                    className="font-bold shadow-md hover:shadow-lg transition-all col-span-2 sm:col-span-1 h-10 sm:h-10 mt-2 sm:mt-0"
-                                >
-                                    <Save className="w-4 h-4 mr-2" />
-                                    Guardar Cambios
-                                </Button>
                             </>
                         )}
                     </div>
                 </div>
 
                 <div className="sticky top-14 lg:top-20 z-30 bg-background/95 backdrop-blur-xl pt-2 pb-4 mb-8 border-b border-border/20 -mx-4 px-4 sm:mx-0 sm:px-0 shadow-sm">
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                        {/* TOTAL CAPITAL ROW */}
-                        <div className="bg-card rounded-2xl border border-border/50 shadow-sm p-5 flex flex-col justify-center">
-                            <div className="flex justify-between items-start gap-4">
-                                <div>
-                                    <div className="text-[11px] sm:text-xs font-bold uppercase tracking-widest text-muted-foreground mb-1">
-                                        SALDO PREVISTO (FIN DE MES)
-                                    </div>
-                                    <div className="font-black text-2xl sm:text-3xl text-foreground">
-                                        {formatCurrency(capitalDisponible)}
-                                    </div>
-                                </div>
-                                <div className="text-right border-l pl-4 border-border/40 flex-shrink-0">
-                                    <div className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground mb-1">
-                                        INGRESOS DEL MES
-                                    </div>
-                                    <div className="font-black text-lg sm:text-xl text-income/90">
-                                        {formatCurrency(ingresosDelMes)}
-                                    </div>
-                                </div>
-                            </div>
+                    <div className="flex flex-col items-center justify-center p-4">
+                        <div className="text-[11px] sm:text-xs font-bold uppercase tracking-widest text-muted-foreground mb-2">
+                            Disponible para Asignar
                         </div>
-
-                        {/* DISPONIBLE ROW */}
                         <div className={cn(
-                            "rounded-2xl border shadow-sm p-5 flex flex-col justify-center transition-colors",
-                            disponibleParaAsignar > 0 ? "bg-primary/5 border-primary/20" : 
-                            disponibleParaAsignar < 0 ? "bg-destructive/5 border-destructive/20" : 
-                            "bg-muted/10 border-border/50"
+                            "font-black text-4xl sm:text-5xl transition-colors tracking-tight",
+                            disponibleParaAsignar > 0 ? "text-primary" : 
+                            disponibleParaAsignar < 0 ? "text-destructive" : 
+                            "text-foreground"
                         )}>
-                            <div className="flex justify-between items-start gap-4">
-                                <div>
-                                    <div className={cn(
-                                        "text-[11px] sm:text-xs font-bold uppercase tracking-widest mb-1",
-                                        disponibleParaAsignar > 0 ? "text-primary/70" : 
-                                        disponibleParaAsignar < 0 ? "text-destructive/70" : 
-                                        "text-muted-foreground"
-                                    )}>
-                                        NO ASIGNADA (GLOBAL)
-                                    </div>
-                                    <div className={cn(
-                                        "font-black text-2xl sm:text-3xl",
-                                        disponibleParaAsignar > 0 ? "text-primary" : 
-                                        disponibleParaAsignar < 0 ? "text-destructive" : 
-                                        "text-muted-foreground"
-                                    )}>
-                                        {formatCurrency(disponibleParaAsignar)}
-                                    </div>
-                                </div>
-                                <div className="text-right border-l pl-4 border-border/40 flex-shrink-0">
-                                    <div className={cn(
-                                        "text-[10px] font-bold uppercase tracking-wider mb-1",
-                                        disponibleBasadoEnIngresos > 0 ? "text-income/70" : 
-                                        disponibleBasadoEnIngresos < 0 ? "text-destructive/70" : 
-                                        "text-muted-foreground/70"
-                                    )}>
-                                        REMANENTE (MES)
-                                    </div>
-                                    <div className={cn(
-                                        "font-black text-lg sm:text-xl",
-                                        disponibleBasadoEnIngresos > 0 ? "text-income/90" : 
-                                        disponibleBasadoEnIngresos < 0 ? "text-destructive/90" : 
-                                        "text-muted-foreground/80"
-                                    )}>
-                                        {formatCurrency(disponibleBasadoEnIngresos)}
-                                    </div>
-                                </div>
-                            </div>
+                            {formatCurrency(disponibleParaAsignar)}
+                        </div>
+                        
+                        {/* Indicadores secundarios pequeños */}
+                        <div className="flex items-center gap-3 sm:gap-4 mt-4 text-[10px] sm:text-xs font-bold text-muted-foreground/80 uppercase tracking-wider bg-muted/20 px-4 py-2 rounded-full border border-border/40">
+                            <span>Ingresos: <span className="text-income/90">{formatCurrency(ingresosDelMes)}</span></span>
+                            <span className="opacity-40">•</span>
+                            <span>Saldo Previsto: <span className="text-foreground/80">{formatCurrency(capitalDisponible)}</span></span>
                         </div>
                     </div>
 
-                    {/* SEARCH BAR (FIXED) */}
-                    <div className="mt-5">
-                        <div className="relative w-full max-w-md mx-auto sm:max-w-none sm:w-64 sm:ml-auto">
-                            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+                    {/* SEARCH BAR */}
+                    <div className="mt-6 px-2">
+                        <div className="relative w-full max-w-md mx-auto">
+                            <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
                             <Input 
-                                placeholder="Buscar categoría..." 
+                                placeholder="Buscar sobre..." 
                                 value={searchQuery}
                                 onChange={(e) => setSearchQuery(e.target.value)}
-                                className="pl-9 pr-9 h-10 bg-muted/20 border-border/50 font-medium"
+                                className="pl-11 pr-11 h-12 bg-muted/30 border-border/40 font-medium rounded-full shadow-inner focus-visible:ring-primary/20 transition-all"
                             />
                             {searchQuery && (
                                 <button 
                                     onClick={() => setSearchQuery('')}
-                                    className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground transition-colors p-1"
+                                    className="absolute right-4 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground transition-colors p-1"
                                     title="Borrar búsqueda"
                                 >
                                     <X className="w-4 h-4" />
@@ -615,215 +684,104 @@ const BudgetPage = () => {
                     </div>
                 </div>
 
-                {/* AUTO BUDGETS */}
-                {autoCategories.length > 0 && (
-                    <div className="pb-10">
-                        <h2 className="text-xl font-bold mb-4 flex items-center gap-2 text-muted-foreground">
-                            Gastos No Presupuestados (Autoasignados)
-                            <span className="bg-muted text-muted-foreground text-xs py-1 px-2 rounded-full">
-                                {filteredAutoCategories.length !== autoCategories.length 
-                                    ? `${filteredAutoCategories.length}/${autoCategories.length}` 
-                                    : autoCategories.length}
-                            </span>
-                        </h2>
-                        
-                        {filteredAutoCategories.length > 0 ? (
-                            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-5 gap-5 opacity-90">
-                                {filteredAutoCategories.map(cat => {
-                                    const amount = Number((localAssignments[cat].amount || 0).toFixed(2));
-                                    const gastado = Number(getGastado(cat).toFixed(2));
-                                    const resto = Number((amount - gastado).toFixed(2));
-                                    const percentage = amount > 0 ? (gastado / amount) * 100 : gastado > 0 ? 100 : 0;
-
-                                    return (
-                                        <div key={cat} className="snap-start scroll-mt-[340px] md:scroll-mt-[260px] bg-white dark:bg-card rounded-[24px] border border-border/40 shadow-sm overflow-hidden flex flex-col transition-all hover:shadow-md grayscale-[30%] group">
-                                            <div className="p-4 border-b border-border/30 flex justify-between items-center bg-muted/20">
-                                            <h3 className="font-bold text-[17px] capitalize text-muted-foreground truncate pr-2">{cat}</h3>
-                                            <button onClick={() => handleRemoveCategory(cat)} className="text-destructive/50 hover:text-destructive hover:bg-destructive/10 rounded-full p-1.5 transition-colors" title="Eliminar presupuesto">
-                                                <Trash2 className="w-4 h-4" />
-                                            </button>
-                                        </div>
-                                        
-                                        <div className="p-5 flex-1 flex flex-col gap-5">
-                                            {/* Progress Bar */}
-                                            <div className="space-y-2">
-                                                <div className="flex justify-between text-[11px] font-bold uppercase tracking-wider text-muted-foreground">
-                                                    <span>Progreso</span>
-                                                    <span className={resto > 0 ? "text-income" : resto < 0 ? "text-destructive" : "text-muted-foreground"}>{percentage.toFixed(0)}%</span>
-                                                </div>
-                                                <div className="h-2 w-full bg-muted rounded-full overflow-hidden">
-                                                    <div 
-                                                        className={cn("h-full rounded-full transition-all duration-500", resto > 0 ? "bg-income/70" : resto < 0 ? "bg-destructive/70" : "bg-muted-foreground/70")} 
-                                                        style={{ width: `${Math.min(percentage, 100)}%` }} 
-                                                    />
-                                                </div>
-                                            </div>
-
-                                            {/* Stats Grid */}
-                                            <div className="grid grid-cols-2 gap-3 mt-1">
-                                                <div className="bg-muted/10 p-3 rounded-xl border border-border/40 flex flex-col justify-center">
-                                                    <p className="text-[10px] uppercase tracking-wider font-bold text-muted-foreground mb-1">Presupuesto</p>
-                                                    <p className="font-black text-lg leading-none">{formatCurrency(amount)}</p>
-                                                </div>
-                                                <div className="bg-muted/10 p-3 rounded-xl border border-border/40 flex flex-col justify-center">
-                                                    <p className="text-[10px] uppercase tracking-wider font-bold text-muted-foreground mb-1">Gastado</p>
-                                                    <p className="font-black text-lg leading-none text-muted-foreground/80">{formatCurrency(gastado)}</p>
-                                                </div>
-                                            </div>
-
-                                            {/* Resto */}
-                                            <div className={cn(
-                                                "p-4 rounded-xl border flex justify-between items-center",
-                                                resto > 0 ? "bg-income/5 border-income/10 text-income/80" : 
-                                                resto < 0 ? "bg-destructive/5 border-destructive/10 text-destructive/80" : 
-                                                "bg-muted/20 border-border/30 text-muted-foreground"
-                                            )}>
-                                                <span className="text-xs font-bold uppercase tracking-widest opacity-80">Resto</span>
-                                                <span className="font-black text-2xl leading-none">{formatCurrency(resto)}</span>
-                                            </div>
-
-                                            {/* Add amount input */}
-                                            <div className="flex items-center gap-1.5 mt-auto pt-1">
-                                                <div className="relative flex-1 group">
-                                                    <Input 
-                                                        type="number" 
-                                                        step="0.01" 
-                                                        placeholder="Cantidad..." 
-                                                        value={addAmounts[cat] || ''}
-                                                        onChange={(e) => setAddAmounts(prev => ({ ...prev, [cat]: e.target.value }))}
-                                                        onKeyDown={(e) => { if (e.key === 'Enter') handleAddAmount(cat, false); }}
-                                                        className="h-10 pr-7 text-sm font-bold bg-muted/10 border-border/50 group-hover:border-primary/30 transition-colors"
-                                                    />
-                                                    <span className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground font-bold text-xs select-none pointer-events-none">€</span>
-                                                </div>
-                                                <Button onClick={() => handleAddAmount(cat, false)} variant="secondary" size="icon" className="h-10 w-10 shrink-0 font-bold hover:bg-income hover:text-white transition-colors" title="Sumar cantidad">
-                                                    <Plus className="w-5 h-5" />
-                                                </Button>
-                                                <Button onClick={() => handleAddAmount(cat, true)} variant="secondary" size="icon" className="h-10 w-10 shrink-0 font-bold hover:bg-destructive hover:text-white transition-colors" title="Restar cantidad">
-                                                    <Minus className="w-5 h-5" />
-                                                </Button>
-                                            </div>
-                                        </div>
-                                    </div>
-                                );
-                            })}
-                            </div>
-                        ) : (
-                            <div className="bg-muted/10 rounded-2xl border border-dashed border-border/50 p-8 text-center">
-                                <p className="text-muted-foreground text-sm uppercase tracking-wider font-bold">
-                                    No hay gastos autoasignados que coincidan
-                                </p>
-                            </div>
-                        )}
-                    </div>
-                )}
-                {/* CARDS BLOCK */}
+                {/* LISTS BLOCK */}
                 <div className="pb-10">
-                    {/* MANUAL BUDGETS */}
-                    <div className="mb-10">
-                        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-4">
-                            <h2 className="text-xl font-bold flex items-center gap-2">
-                                Presupuestos Manuales
-                                <span className="bg-primary/10 text-primary text-xs py-1 px-2 rounded-full">
-                                    {filteredManualCategories.length !== manualCategories.length 
-                                        ? `${filteredManualCategories.length}/${manualCategories.length}` 
-                                        : manualCategories.length}
-                                </span>
-                            </h2>
-                        </div>
-                        
-                        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-5 gap-5">
-                            {filteredManualCategories.map(cat => {
-                            const amount = Number((localAssignments[cat].amount || 0).toFixed(2));
-                            const gastado = Number(getGastado(cat).toFixed(2));
-                            const resto = Number((amount - gastado).toFixed(2));
-                            const percentage = amount > 0 ? (gastado / amount) * 100 : gastado > 0 ? 100 : 0;
-
-                            return (
-                                <div key={cat} className="snap-start scroll-mt-[340px] md:scroll-mt-[260px] bg-white dark:bg-card rounded-[24px] border border-border/40 shadow-sm overflow-hidden flex flex-col transition-all hover:shadow-md hover:border-primary/20 group">
-                                    <div className="p-4 border-b border-border/30 flex justify-between items-center bg-muted/10">
-                                        <h3 className="font-bold text-[17px] capitalize text-foreground truncate pr-2">{cat}</h3>
-                                        <button onClick={() => handleRemoveCategory(cat)} className="text-destructive/50 hover:text-destructive hover:bg-destructive/10 rounded-full p-1.5 transition-colors" title="Eliminar presupuesto">
-                                            <Trash2 className="w-4 h-4" />
-                                        </button>
-                                    </div>
-                                    
-                                    <div className="p-5 flex-1 flex flex-col gap-5">
-                                        {/* Progress Bar */}
-                                        <div className="space-y-2">
-                                            <div className="flex justify-between text-[11px] font-bold uppercase tracking-wider text-muted-foreground">
-                                                <span>Progreso</span>
-                                                <span className={resto > 0 ? "text-income" : resto < 0 ? "text-destructive" : "text-muted-foreground"}>{percentage.toFixed(0)}%</span>
-                                            </div>
-                                            <div className="h-2 w-full bg-muted rounded-full overflow-hidden">
-                                                <div 
-                                                    className={cn("h-full rounded-full transition-all duration-500", resto > 0 ? "bg-income" : resto < 0 ? "bg-destructive" : "bg-muted-foreground")} 
-                                                    style={{ width: `${Math.min(percentage, 100)}%` }} 
-                                                />
-                                            </div>
-                                        </div>
-
-                                        {/* Stats Grid */}
-                                        <div className="grid grid-cols-2 gap-3 mt-1">
-                                            <div className="bg-muted/20 p-3 rounded-xl border border-border/40 flex flex-col justify-center">
-                                                <p className="text-[10px] uppercase tracking-wider font-bold text-muted-foreground mb-1">Presupuesto</p>
-                                                <p className="font-black text-lg leading-none">{formatCurrency(amount)}</p>
-                                            </div>
-                                            <div className="bg-muted/20 p-3 rounded-xl border border-border/40 flex flex-col justify-center">
-                                                <p className="text-[10px] uppercase tracking-wider font-bold text-muted-foreground mb-1">Gastado</p>
-                                                <p className="font-black text-lg leading-none text-muted-foreground/80">{formatCurrency(gastado)}</p>
-                                            </div>
-                                        </div>
-
-                                        {/* Resto */}
-                                        <div className={cn(
-                                            "p-4 rounded-xl border-2 flex justify-between items-center",
-                                            resto > 0 ? "bg-income/5 border-income/20 text-income" : 
-                                            resto < 0 ? "bg-destructive/5 border-destructive/20 text-destructive" : 
-                                            "bg-muted/20 border-border/30 text-muted-foreground"
-                                        )}>
-                                            <span className="text-xs font-bold uppercase tracking-widest opacity-80">Resto</span>
-                                            <span className="font-black text-2xl leading-none">{formatCurrency(resto)}</span>
-                                        </div>
-
-                                        {/* Add amount input */}
-                                        <div className="flex items-center gap-1.5 mt-auto pt-1">
-                                            <div className="relative flex-1 group">
-                                                <Input 
-                                                    type="number" 
-                                                    step="0.01" 
-                                                    placeholder="Cantidad..." 
-                                                    value={addAmounts[cat] || ''}
-                                                    onChange={(e) => setAddAmounts(prev => ({ ...prev, [cat]: e.target.value }))}
-                                                    onKeyDown={(e) => { if (e.key === 'Enter') handleAddAmount(cat, false); }}
-                                                    className="h-10 pr-7 text-sm font-bold bg-muted/10 border-border/50 group-hover:border-primary/30 transition-colors"
-                                                />
-                                                <span className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground font-bold text-xs select-none pointer-events-none">€</span>
-                                            </div>
-                                            <Button onClick={() => handleAddAmount(cat, false)} variant="secondary" size="icon" className="h-10 w-10 shrink-0 font-bold hover:bg-income hover:text-white transition-colors" title="Sumar cantidad">
-                                                <Plus className="w-5 h-5" />
-                                            </Button>
-                                            <Button onClick={() => handleAddAmount(cat, true)} variant="secondary" size="icon" className="h-10 w-10 shrink-0 font-bold hover:bg-destructive hover:text-white transition-colors" title="Restar cantidad">
-                                                <Minus className="w-5 h-5" />
-                                            </Button>
-                                        </div>
-                                    </div>
+                    {/* Provisión Próximo Mes */}
+                    {isCurrentMonth && nextMonthBudgetsTotal > 0 && (
+                        <div className="mb-8">
+                            <div className="flex items-center gap-2 mb-4 px-2">
+                                <span className="w-3 h-3 rounded-full bg-blue-500 shadow-[0_0_8px_rgba(59,130,246,0.5)]" />
+                                <h2 className="text-lg font-bold text-foreground">Provisión Próximo Mes</h2>
+                            </div>
+                            <div className="bg-card/80 backdrop-blur-md rounded-3xl border border-blue-500/20 shadow-sm overflow-hidden p-5 flex items-center justify-between">
+                                <div className="flex flex-col gap-1">
+                                    <span className="font-bold text-base text-foreground/90 capitalize">
+                                        Reservado para {format(parseISO(nextMonthStr + "-01"), "MMMM", { locale: es })}
+                                    </span>
+                                    <span className="text-xs text-muted-foreground">Suma de los gastos previstos del próximo mes</span>
                                 </div>
-                            );
-                        })}
-                    </div>
-                    {filteredManualCategories.length === 0 && (
-                        <div className="bg-card rounded-2xl border border-dashed border-border p-12 text-center flex flex-col items-center justify-center">
-                            <PiggyBank className="w-12 h-12 text-muted-foreground/30 mb-3" />
+                                <span className="font-black text-xl text-blue-500">
+                                    {formatCurrency(nextMonthBudgetsTotal)}
+                                </span>
+                            </div>
+                        </div>
+                    )}
+
+                    {/* Listas de Sobres */}
+
+                    {/* Sobres en Peligro */}
+                    {filteredEnPeligro.length > 0 && (
+                        <div className="mb-8">
+                            <div className="flex items-center gap-2 mb-4 px-2">
+                                <span className="w-3 h-3 rounded-full bg-destructive shadow-[0_0_8px_rgba(239,68,68,0.5)]" />
+                                <h2 className="text-lg font-bold text-foreground">Sobres en Peligro</h2>
+                                <span className="bg-muted/50 text-muted-foreground text-xs py-0.5 px-2 rounded-full font-bold ml-auto border border-border/50">
+                                    {filteredEnPeligro.length}
+                                </span>
+                            </div>
+                            <div className="flex flex-col gap-3">
+                                {filteredEnPeligro.map(cat => renderRow(cat, 'peligro'))}
+                            </div>
+                        </div>
+                    )}
+
+                    {/* Sobres Saludables */}
+                    {filteredSaludables.length > 0 && (
+                        <div className="mb-8">
+                            <div className="flex items-center gap-2 mb-4 px-2">
+                                <span className="w-3 h-3 rounded-full bg-income shadow-[0_0_8px_rgba(34,197,94,0.4)]" />
+                                <h2 className="text-lg font-bold text-foreground">Sobres Saludables</h2>
+                                <span className="bg-muted/50 text-muted-foreground text-xs py-0.5 px-2 rounded-full font-bold ml-auto border border-border/50">
+                                    {filteredSaludables.length}
+                                </span>
+                            </div>
+                            <div className="flex flex-col gap-3">
+                                {filteredSaludables.map(cat => renderRow(cat, 'saludable'))}
+                            </div>
+                        </div>
+                    )}
+
+                    {/* Sobres Vacíos (Cumplidos) */}
+                    {filteredVacios.length > 0 && (
+                        <div className="mb-8">
+                            <div className="flex items-center gap-2 mb-4 px-2">
+                                <span className="w-3 h-3 rounded-full bg-muted-foreground/60 shadow-sm" />
+                                <h2 className="text-lg font-bold text-foreground">Sobres Cumplidos</h2>
+                                <span className="bg-muted/50 text-muted-foreground text-xs py-0.5 px-2 rounded-full font-bold ml-auto border border-border/50">
+                                    {filteredVacios.length}
+                                </span>
+                            </div>
+                            <div className="flex flex-col gap-3">
+                                {filteredVacios.map(cat => renderRow(cat, 'vacio'))}
+                            </div>
+                        </div>
+                    )}
+
+                    {/* Gastos Sin Sobre */}
+                    {filteredSinSobre.length > 0 && (
+                        <div className="mb-8">
+                            <div className="flex items-center gap-2 mb-4 px-2">
+                                <span className="w-3 h-3 rounded-full bg-muted-foreground/50" />
+                                <h2 className="text-lg font-bold text-foreground">Gastos Sin Sobre</h2>
+                                <span className="bg-muted/50 text-muted-foreground text-xs py-0.5 px-2 rounded-full font-bold ml-auto border border-border/50">
+                                    {filteredSinSobre.length}
+                                </span>
+                            </div>
+                            <div className="flex flex-col gap-3">
+                                {filteredSinSobre.map(cat => renderRow(cat, 'sin_sobre'))}
+                            </div>
+                        </div>
+                    )}
+
+                    {filteredEnPeligro.length === 0 && filteredSaludables.length === 0 && filteredVacios.length === 0 && filteredSinSobre.length === 0 && (
+                        <div className="bg-card/50 rounded-3xl border border-dashed border-border/60 p-12 text-center flex flex-col items-center justify-center mt-8">
+                            <PiggyBank className="w-16 h-16 text-muted-foreground/20 mb-4" />
                             <p className="text-muted-foreground text-sm uppercase tracking-wider font-bold">
-                                {searchQuery ? "No se encontraron categorías manuales" : "Añade presupuestos para este mes"}
+                                {searchQuery ? "No se encontraron sobres" : "Añade tu primer sobre para este mes"}
                             </p>
                         </div>
                     )}
                 </div>
-
-                </div>
-
 
                 <Dialog open={isAddModalOpen} onOpenChange={setIsAddModalOpen}>
                     <DialogContent className="sm:max-w-md">
@@ -872,6 +830,20 @@ const BudgetPage = () => {
                 </Dialog>
 
             </div>
+
+            {/* FLOATING ACTION BUTTON PARA GUARDAR */}
+            {activeRole === 'admin' && (
+                <div className="fixed bottom-24 right-4 sm:bottom-8 sm:right-8 z-[100] animate-in fade-in slide-in-from-bottom-5">
+                    <Button 
+                        onClick={handleSave} 
+                        size="lg"
+                        className="font-black shadow-[0_8px_30px_rgb(0,0,0,0.12)] hover:shadow-primary/50 transition-all h-14 rounded-full px-6 bg-primary text-primary-foreground hover:scale-105"
+                    >
+                        <Save className="w-5 h-5 mr-2" />
+                        Guardar Cambios
+                    </Button>
+                </div>
+            )}
         </div>
     );
 };
