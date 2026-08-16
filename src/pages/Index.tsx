@@ -341,16 +341,48 @@ const Index = () => {
     setIsTransactionModalOpen(true);
   };
 
-  const handleVoiceResult = (result: { amount: number; description: string }) => {
+  const handleVoiceResult = async (result: { type: 'income' | 'expense' | 'transfer', accountId: string, toAccountId?: string, amount: number; description: string }) => {
+    if (result.type === 'transfer') {
+      const date = new Date().toISOString().split("T")[0];
+      
+      // Gasto en la cuenta origen
+      await rqAddTransaction({
+        date,
+        amount: result.amount,
+        category: "Transferencia",
+        type: "expense",
+        accountId: result.accountId,
+        description: `A ${data.accounts.find(a => a.id === result.toAccountId)?.name}`
+      });
+      
+      // Ingreso en la cuenta destino
+      await rqAddTransaction({
+        date,
+        amount: result.amount,
+        category: "Transferencia",
+        type: "income",
+        accountId: result.toAccountId!,
+        description: `De ${data.accounts.find(a => a.id === result.accountId)?.name}`
+      });
+      
+      toast.success("Transferencia guardada");
+      return;
+    }
+
     const matchedCategory = findSimilarCategory(result.description, data.categories) || result.description;
     
-    sessionStorage.setItem("transactionDraft_expense", JSON.stringify({
+    sessionStorage.setItem(`transactionDraft_${result.type}`, JSON.stringify({
       amount: result.amount > 0 ? result.amount.toString() : "",
       category: matchedCategory,
       description: result.description,
+      accountId: result.accountId
     }));
     
-    openExpenseModal();
+    if (result.type === 'income') {
+      openIncomeModal();
+    } else {
+      openExpenseModal();
+    }
   };
 
   // Determine the month key for balance calculations
@@ -711,7 +743,7 @@ const Index = () => {
         )}
 
         {/* Voice Assistant */}
-        <VoiceButton onResult={handleVoiceResult} />
+        <VoiceButton accounts={data.accounts} onResult={handleVoiceResult} />
         
         {/* Mobile Navigation */}
       </div>

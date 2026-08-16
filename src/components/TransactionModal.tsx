@@ -146,33 +146,6 @@ const TransactionModal = ({
   }, [isFractionated, date, firstInstallmentDate, setupFeeDate]);
 
   useEffect(() => {
-    if (isOpen && !editingTransaction) {
-      const draft = sessionStorage.getItem(`transactionDraft_${type}`);
-      if (draft) {
-        try {
-          const parsed = JSON.parse(draft);
-          if (parsed.amount) setAmount(parsed.amount);
-          if (parsed.category) setCategory(parsed.category);
-          if (parsed.description) setDescription(parsed.description);
-        } catch (e) {
-          // ignore parse error
-        }
-      }
-    }
-  }, [isOpen, editingTransaction, type]);
-
-  useEffect(() => {
-    if (isOpen && !editingTransaction) {
-      if (amount || category || description) {
-        sessionStorage.setItem(
-          `transactionDraft_${type}`,
-          JSON.stringify({ amount, category, description }),
-        );
-      }
-    }
-  }, [amount, category, description, isOpen, editingTransaction, type]);
-
-  useEffect(() => {
     if (isOpen) {
       // Use accounts from the hook
       if (!isAccLoading) {
@@ -184,7 +157,24 @@ const TransactionModal = ({
         hookAccounts.length > 0 ? hookAccounts[0].id : "";
       const contextualDefault = defaultAccountId || firstAvailableAccount;
 
-      if (hookAccounts.length <= 1 || editingTransaction) {
+      // Extract draft first to know if we skip account selection
+      let draftAmount = "";
+      let draftCategory = "";
+      let draftDescription = "";
+      let draftAccountId = "";
+        
+      const draft = sessionStorage.getItem(`transactionDraft_${type}`);
+      if (draft) {
+        try {
+          const parsed = JSON.parse(draft);
+          if (parsed.amount) draftAmount = parsed.amount;
+          if (parsed.category) draftCategory = parsed.category;
+          if (parsed.description) draftDescription = parsed.description;
+          if (parsed.accountId) draftAccountId = parsed.accountId;
+        } catch (e) {}
+      }
+
+      if (hookAccounts.length <= 1 || editingTransaction || draftAccountId) {
         setStep("form");
       } else {
         setStep("account");
@@ -206,10 +196,11 @@ const TransactionModal = ({
         // New transaction - set today's date
         const today = new Date().toISOString().split("T")[0];
         setDate(today);
-        setAmount("");
-        setCategory("");
-        setDescription("");
-        setAccountId(contextualDefault);
+        
+        setAmount(draftAmount);
+        setCategory(draftCategory);
+        setDescription(draftDescription);
+        setAccountId(draftAccountId || contextualDefault);
         setIsPending(false);
         setCopyToNextMonth(false);
         setIsFractionated(false);
@@ -220,7 +211,7 @@ const TransactionModal = ({
         setSetupFeeDate("");
       }
     }
-  }, [isOpen, editingTransaction, defaultAccountId]);
+  }, [isOpen, editingTransaction, defaultAccountId, type]);
 
   useEffect(() => {
     const timeoutId = setTimeout(() => {
@@ -321,6 +312,11 @@ const TransactionModal = ({
     setTimeout(() => setIsSubmitting(false), 300);
   };
 
+  const handleClose = () => {
+    sessionStorage.removeItem(`transactionDraft_${type}`);
+    onClose();
+  };
+
   const selectSuggestion = (suggestion: string) => {
     setCategory(suggestion);
     setShowSuggestions(false);
@@ -356,7 +352,7 @@ const TransactionModal = ({
     }
     
     toast.success("Gasto dividido correctamente");
-    onClose(); // Cerramos el modal principal
+    handleClose(); // Cerramos el modal principal
   };
 
   const title = editingTransaction
@@ -372,7 +368,7 @@ const TransactionModal = ({
       : "bg-income hover:bg-income/90";
 
   return (
-    <ResponsiveDialog open={isOpen} onOpenChange={onClose}>
+    <ResponsiveDialog open={isOpen} onOpenChange={handleClose}>
       <ResponsiveDialogContent hideCloseButton={true} className="sm:max-w-[800px] w-full">
         {step === "account" ? (
           <div className="py-6 space-y-6">
@@ -753,7 +749,7 @@ const TransactionModal = ({
               <Button
                 type="button"
                 variant="outline"
-                onClick={onClose}
+                onClick={handleClose}
                 className="flex-1 h-14 text-base font-bold"
               >
                 Cancelar
