@@ -8,6 +8,7 @@ import {
   loadData,
   saveData,
   updateAlertSettings,
+  findSimilarCategory,
 } from "@/lib/storage";
 import {
   calculateBalance,
@@ -29,6 +30,7 @@ import TransactionModal from "@/components/TransactionModal";
 import TransactionList from "@/components/TransactionList";
 import AccountSelector from "@/components/AccountSelector";
 import QuickAmountModal from "@/components/QuickAmountModal";
+import { VoiceButton } from "@/components/VoiceButton";
 import { format, parseISO, addMonths, subMonths } from "date-fns";
 import {
   Wallet,
@@ -337,6 +339,18 @@ const Index = () => {
     setEditingTransaction(null);
     setTransactionType("income");
     setIsTransactionModalOpen(true);
+  };
+
+  const handleVoiceResult = (result: { amount: number; description: string }) => {
+    const matchedCategory = findSimilarCategory(result.description, data.categories) || result.description;
+    
+    sessionStorage.setItem("transactionDraft_expense", JSON.stringify({
+      amount: result.amount > 0 ? result.amount.toString() : "",
+      category: matchedCategory,
+      description: result.description,
+    }));
+    
+    openExpenseModal();
   };
 
   // Determine the month key for balance calculations
@@ -696,6 +710,9 @@ const Index = () => {
           />
         )}
 
+        {/* Voice Assistant */}
+        <VoiceButton onResult={handleVoiceResult} />
+        
         {/* Mobile Navigation */}
       </div>
     </>
