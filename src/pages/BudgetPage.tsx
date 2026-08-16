@@ -426,7 +426,7 @@ const BudgetPage = () => {
                 </DialogContent>
             </Dialog>
 
-            <div className="w-full max-w-full mx-auto px-4 lg:px-12 pt-2 sm:pt-8">
+            <div className="w-full max-w-5xl mx-auto px-4 lg:px-8 pt-4 sm:pt-8 transition-all duration-500 pb-32">
                 
                 <div className="flex items-center justify-between p-4 bg-white dark:bg-card rounded-2xl shadow-sm border border-border/50 mb-6 overflow-hidden">
                     <div className="flex items-center gap-2 mx-auto">
@@ -473,44 +473,44 @@ const BudgetPage = () => {
                         Presupuestos
                     </h1>
 
-                    <div className="flex flex-col sm:flex-row w-full sm:w-auto items-stretch sm:items-center gap-2 mt-2 sm:mt-0 z-10">
+                    <div className="grid grid-cols-2 sm:flex sm:flex-row w-full sm:w-auto items-stretch sm:items-center gap-2 mt-4 sm:mt-0 z-10">
                         {activeRole === 'admin' && (
                             <>
                                 <Button 
                                     onClick={() => setIsAddModalOpen(true)}
                                     variant="outline"
-                                    className="font-bold border-2"
+                                    className="font-bold border-2 text-[11px] sm:text-sm h-9 sm:h-10 px-2 sm:px-4"
                                 >
-                                    <PlusCircle className="w-4 h-4 mr-2" />
-                                    Añadir manual
+                                    <PlusCircle className="w-3 h-3 sm:w-4 sm:h-4 mr-1 sm:mr-2" />
+                                    Añadir
                                 </Button>
                                 <Button 
                                     onClick={handleCopyPreviousMonth}
                                     variant="secondary"
-                                    className="bg-primary/5 hover:bg-primary/15 text-primary border border-primary/20 hover:border-primary/40 font-bold shadow-sm transition-all"
+                                    className="bg-primary/5 hover:bg-primary/15 text-primary border border-primary/20 hover:border-primary/40 font-bold shadow-sm transition-all text-[11px] sm:text-sm h-9 sm:h-10 px-2 sm:px-4"
                                 >
-                                    <Copy className="w-4 h-4 mr-2" />
-                                    Copiar mes anterior
+                                    <Copy className="w-3 h-3 sm:w-4 sm:h-4 mr-1 sm:mr-2" />
+                                    Copiar mes
                                 </Button>
                                 <Button 
                                     onClick={handleAutoAssignFutureExpenses}
                                     variant="secondary"
-                                    className="bg-primary/10 hover:bg-primary/20 text-primary border border-primary/20 font-bold shadow-sm transition-all"
+                                    className="bg-primary/10 hover:bg-primary/20 text-primary border border-primary/20 font-bold shadow-sm transition-all text-[11px] sm:text-sm h-9 sm:h-10 px-2 sm:px-4"
                                 >
-                                    <PlusCircle className="w-4 h-4 mr-2" />
+                                    <PlusCircle className="w-3 h-3 sm:w-4 sm:h-4 mr-1 sm:mr-2" />
                                     Autoasignar
                                 </Button>
                                 <Button 
                                     onClick={handleClearAll}
                                     variant="destructive"
-                                    className="bg-destructive/10 hover:bg-destructive/20 text-destructive border border-destructive/20 font-bold shadow-sm transition-all"
+                                    className="bg-destructive/10 hover:bg-destructive/20 text-destructive border border-destructive/20 font-bold shadow-sm transition-all text-[11px] sm:text-sm h-9 sm:h-10 px-2 sm:px-4"
                                 >
-                                    <Trash2 className="w-4 h-4 mr-2" />
-                                    Limpiar todos
+                                    <Trash2 className="w-3 h-3 sm:w-4 sm:h-4 mr-1 sm:mr-2" />
+                                    Limpiar
                                 </Button>
                                 <Button 
                                     onClick={handleSave} 
-                                    className="font-bold shadow-md hover:shadow-lg transition-all"
+                                    className="font-bold shadow-md hover:shadow-lg transition-all col-span-2 sm:col-span-1 h-10 sm:h-10 mt-2 sm:mt-0"
                                 >
                                     <Save className="w-4 h-4 mr-2" />
                                     Guardar Cambios
@@ -636,7 +636,7 @@ const BudgetPage = () => {
                                     const percentage = amount > 0 ? (gastado / amount) * 100 : gastado > 0 ? 100 : 0;
 
                                     return (
-                                        <div key={cat} className="bg-card rounded-2xl border border-border/50 shadow-sm overflow-hidden flex flex-col transition-all hover:shadow-md grayscale-[30%]">
+                                        <div key={cat} className="bg-white dark:bg-card rounded-[24px] border border-border/40 shadow-sm overflow-hidden flex flex-col transition-all hover:shadow-md grayscale-[30%] group">
                                             <div className="p-4 border-b border-border/30 flex justify-between items-center bg-muted/20">
                                             <h3 className="font-bold text-[17px] capitalize text-muted-foreground truncate pr-2">{cat}</h3>
                                             <button onClick={() => handleRemoveCategory(cat)} className="text-destructive/50 hover:text-destructive hover:bg-destructive/10 rounded-full p-1.5 transition-colors" title="Eliminar presupuesto">
@@ -740,7 +740,7 @@ const BudgetPage = () => {
                             const percentage = amount > 0 ? (gastado / amount) * 100 : gastado > 0 ? 100 : 0;
 
                             return (
-                                <div key={cat} className="bg-card rounded-2xl border border-border/50 shadow-sm overflow-hidden flex flex-col transition-all hover:shadow-md hover:border-primary/20">
+                                <div key={cat} className="bg-white dark:bg-card rounded-[24px] border border-border/40 shadow-sm overflow-hidden flex flex-col transition-all hover:shadow-md hover:border-primary/20 group">
                                     <div className="p-4 border-b border-border/30 flex justify-between items-center bg-muted/10">
                                         <h3 className="font-bold text-[17px] capitalize text-foreground truncate pr-2">{cat}</h3>
                                         <button onClick={() => handleRemoveCategory(cat)} className="text-destructive/50 hover:text-destructive hover:bg-destructive/10 rounded-full p-1.5 transition-colors" title="Eliminar presupuesto">

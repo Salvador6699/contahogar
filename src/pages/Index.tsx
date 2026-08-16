@@ -542,15 +542,15 @@ const Index = () => {
                 </div>
               )}
 
-              {/* Top Expenses Widget */}
+              {/* Gastos por Categoría Widget */}
               {expenseCategories.length > 0 && (
                 <div className="bg-white dark:bg-card rounded-[32px] p-6 shadow-md hover:shadow-lg transition-all duration-300 border border-white/20 dark:border-white/5">
                    <div className="flex items-center gap-2 mb-4">
                      <BarChart3 className="w-5 h-5 text-muted-foreground" />
-                     <h3 className="text-sm font-bold uppercase tracking-widest text-muted-foreground">Top Gastos</h3>
+                     <h3 className="text-sm font-bold uppercase tracking-widest text-muted-foreground">Gastos por Categoría</h3>
                    </div>
                    <CategoryBreakdown
-                      categories={expenseCategories.slice(0, 3)}
+                      categories={expenseCategories}
                       type="expense"
                       isPending={false}
                       categoryCatalog={data.categories}
@@ -561,7 +561,6 @@ const Index = () => {
                       onEditTransaction={handleEditTransaction}
                       onDeleteTransaction={handleDeleteTransaction}
                     />
-                    <Button variant="ghost" className="w-full mt-2 text-xs font-bold" onClick={() => navigate('/presupuestos')}>Ver desglose completo</Button>
                 </div>
               )}
             </div>

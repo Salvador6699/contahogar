@@ -124,8 +124,10 @@ const UpcomingPage = () => {
 
       <div className="space-y-8">
         {pendingExpenseCategories.length > 0 && (
-          <div className="space-y-4">
-            <h2 className="text-lg font-bold text-destructive flex items-center gap-2">Gastos Pendientes</h2>
+          <div className="bg-white dark:bg-card rounded-[32px] p-5 sm:p-8 shadow-sm border border-border/40">
+            <div className="flex items-center gap-2 mb-6">
+              <h2 className="text-sm font-black uppercase tracking-widest text-expense flex items-center gap-2">Gastos Pendientes</h2>
+            </div>
             <CategoryBreakdown
               categories={pendingExpenseCategories}
               type="expense"
@@ -142,8 +144,10 @@ const UpcomingPage = () => {
         )}
 
         {pendingIncomeCategories.length > 0 && (
-          <div className="space-y-4 mt-8">
-            <h2 className="text-lg font-bold text-income flex items-center gap-2">Ingresos Pendientes</h2>
+          <div className="bg-white dark:bg-card rounded-[32px] p-5 sm:p-8 shadow-sm border border-border/40 mt-8">
+            <div className="flex items-center gap-2 mb-6">
+              <h2 className="text-sm font-black uppercase tracking-widest text-income flex items-center gap-2">Ingresos Pendientes</h2>
+            </div>
             <CategoryBreakdown
               categories={pendingIncomeCategories}
               type="income"

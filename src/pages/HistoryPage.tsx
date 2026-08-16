@@ -151,7 +151,7 @@ const HistoryPage = () => {
         },
         expenses: {
             label: 'Gastos',
-            color: 'hsl(25, 95%, 53%)',
+            color: 'hsl(350, 75%, 55%)',
         },
     };
 
@@ -161,7 +161,7 @@ const HistoryPage = () => {
 
     return (
         <div className="w-full">
-            <div className="w-full max-w-6xl mx-auto px-4 lg:px-12 py-4 sm:py-6">
+            <div className="w-full max-w-5xl mx-auto px-4 lg:px-8 py-6 sm:py-8 transition-all duration-500 pb-32">
                 {monthlyData.length === 0 ? (
                     <div className="text-center py-20">
                         <Calendar className="w-12 h-12 mx-auto text-muted-foreground mb-4" />
@@ -170,8 +170,8 @@ const HistoryPage = () => {
                 ) : (
                     <div className="space-y-8">
                         {/* Chart */}
-                        <Card className="p-4 sm:p-6 overflow-hidden">
-                            <h2 className="text-lg font-semibold mb-6">Comparativa Mensual</h2>
+                        <div className="bg-white dark:bg-card rounded-[32px] p-5 sm:p-8 shadow-sm border border-border/40 overflow-hidden">
+                            <h2 className="text-xl font-bold mb-6 flex items-center gap-2">Comparativa Mensual</h2>
                             <ChartContainer config={chartConfig} className="h-[250px] sm:h-[300px] w-full">
                                 <ResponsiveContainer width="100%" height="100%">
                                     <BarChart data={[...monthlyData].reverse()} margin={{ top: 10, right: 10, left: -10, bottom: 0 }}>
@@ -211,7 +211,7 @@ const HistoryPage = () => {
                                         <Bar
                                             dataKey="expenses"
                                             name="Gastos"
-                                            fill="hsl(25, 95%, 53%)"
+                                            fill="hsl(350, 75%, 55%)"
                                             radius={[4, 4, 0, 0]}
                                             isAnimationActive={false}
                                             animationDuration={0}
@@ -221,7 +221,7 @@ const HistoryPage = () => {
                                     </BarChart>
                                 </ResponsiveContainer>
                             </ChartContainer>
-                        </Card>
+                        </div>
 
                         {/* List */}
                         <div className="space-y-3">
@@ -230,10 +230,10 @@ const HistoryPage = () => {
                                 <button
                                     key={data.monthKey}
                                     onClick={() => handleMonthClick(data.monthKey)}
-                                    className="w-full text-left transition-transform active:scale-[0.98]"
+                                    className="w-full text-left transition-all active:scale-[0.98]"
                                 >
-                                    <Card className="hover:bg-accent/50 transition-colors border-none shadow-sm">
-                                        <CardContent className="p-4 sm:p-5">
+                                    <div className="bg-white dark:bg-card rounded-[24px] border border-border/40 shadow-sm hover:shadow-md transition-all group">
+                                        <div className="p-4 sm:p-5">
                                             <div className="flex justify-between items-center gap-4">
                                                 <div className="flex items-center gap-3">
                                                     <div className="p-2 bg-primary/5 rounded-full">
@@ -252,8 +252,8 @@ const HistoryPage = () => {
                                                     </div>
                                                 </div>
                                             </div>
-                                        </CardContent>
-                                    </Card>
+                                        </div>
+                                    </div>
                                 </button>
                             ))}
                         </div>
