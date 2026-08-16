@@ -120,6 +120,7 @@ All colors MUST be HSL.
   html {
     overflow-x: clip;
     width: 100%;
+    scroll-snap-type: y mandatory;
   }
 
   #root {

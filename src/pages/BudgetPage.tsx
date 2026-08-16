@@ -426,7 +426,7 @@ const BudgetPage = () => {
                 </DialogContent>
             </Dialog>
 
-            <div className="w-full max-w-5xl mx-auto px-4 lg:px-8 pt-4 sm:pt-8 transition-all duration-500 pb-32">
+            <div className="w-full max-w-5xl mx-auto px-4 lg:px-8 pt-4 sm:pt-8 transition-all duration-500 pb-32 snap-start scroll-mt-14">
                 
                 <div className="flex items-center justify-between p-4 bg-white dark:bg-card rounded-2xl shadow-sm border border-border/50 mb-6 overflow-hidden">
                     <div className="flex items-center gap-2 mx-auto">
@@ -636,7 +636,7 @@ const BudgetPage = () => {
                                     const percentage = amount > 0 ? (gastado / amount) * 100 : gastado > 0 ? 100 : 0;
 
                                     return (
-                                        <div key={cat} className="bg-white dark:bg-card rounded-[24px] border border-border/40 shadow-sm overflow-hidden flex flex-col transition-all hover:shadow-md grayscale-[30%] group">
+                                        <div key={cat} className="snap-start scroll-mt-[340px] md:scroll-mt-[260px] bg-white dark:bg-card rounded-[24px] border border-border/40 shadow-sm overflow-hidden flex flex-col transition-all hover:shadow-md grayscale-[30%] group">
                                             <div className="p-4 border-b border-border/30 flex justify-between items-center bg-muted/20">
                                             <h3 className="font-bold text-[17px] capitalize text-muted-foreground truncate pr-2">{cat}</h3>
                                             <button onClick={() => handleRemoveCategory(cat)} className="text-destructive/50 hover:text-destructive hover:bg-destructive/10 rounded-full p-1.5 transition-colors" title="Eliminar presupuesto">
@@ -740,7 +740,7 @@ const BudgetPage = () => {
                             const percentage = amount > 0 ? (gastado / amount) * 100 : gastado > 0 ? 100 : 0;
 
                             return (
-                                <div key={cat} className="bg-white dark:bg-card rounded-[24px] border border-border/40 shadow-sm overflow-hidden flex flex-col transition-all hover:shadow-md hover:border-primary/20 group">
+                                <div key={cat} className="snap-start scroll-mt-[340px] md:scroll-mt-[260px] bg-white dark:bg-card rounded-[24px] border border-border/40 shadow-sm overflow-hidden flex flex-col transition-all hover:shadow-md hover:border-primary/20 group">
                                     <div className="p-4 border-b border-border/30 flex justify-between items-center bg-muted/10">
                                         <h3 className="font-bold text-[17px] capitalize text-foreground truncate pr-2">{cat}</h3>
                                         <button onClick={() => handleRemoveCategory(cat)} className="text-destructive/50 hover:text-destructive hover:bg-destructive/10 rounded-full p-1.5 transition-colors" title="Eliminar presupuesto">
