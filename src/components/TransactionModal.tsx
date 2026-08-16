@@ -43,6 +43,9 @@ import { Textarea } from "@/components/ui/textarea";
 import { Switch } from "@/components/ui/switch";
 import { appToast as toast } from "@/lib/swal";
 import { useAccounts } from "@/hooks/useAccounts";
+import { useTransactions } from "@/hooks/useTransactions";
+import SplitTransactionModal from "./SplitTransactionModal";
+import { SplitSquareHorizontal } from "lucide-react";
 
 export interface FractionationData {
   isFractionated: boolean;
@@ -93,6 +96,10 @@ const TransactionModal = ({
   const [showAllCategories, setShowAllCategories] = useState(false);
   const [suggestions, setSuggestions] = useState<string[]>([]);
   const [showSuggestions, setShowSuggestions] = useState(false);
+  
+  // Split logic
+  const [isSplitModalOpen, setIsSplitModalOpen] = useState(false);
+  const { updateTransaction: rqUpdateTransaction, addTransaction: rqAddTransaction } = useTransactions();
   const [isFractionated, setIsFractionated] = useState(false);
   const [installments, setInstallments] = useState("3");
   const [installmentAmount, setInstallmentAmount] = useState("");
@@ -324,6 +331,34 @@ const TransactionModal = ({
     setTimeout(() => setShowSuggestions(false), 150);
   };
 
+  const handleConfirmSplit = async (splits: Array<{ amount: number; category: string; description: string }>) => {
+    if (!editingTransaction) return;
+    
+    const baseAmount = editingTransaction.amount - splits.reduce((sum, s) => sum + s.amount, 0);
+    
+    // 1. Actualizar el importe de la transacción original
+    await rqUpdateTransaction({
+      ...editingTransaction,
+      amount: baseAmount
+    });
+    
+    // 2. Crear las nuevas sub-transacciones divididas
+    for (const split of splits) {
+      await rqAddTransaction({
+        date: editingTransaction.date,
+        accountId: editingTransaction.accountId,
+        type: editingTransaction.type,
+        isPending: editingTransaction.isPending,
+        amount: split.amount,
+        category: split.category,
+        description: split.description
+      });
+    }
+    
+    toast.success("Gasto dividido correctamente");
+    onClose(); // Cerramos el modal principal
+  };
+
   const title = editingTransaction
     ? type === "expense"
       ? "Editar Gasto"
@@ -435,10 +470,22 @@ const TransactionModal = ({
                   <div className="space-y-2">
                     <Label
                       htmlFor="amount"
-                      className="flex items-center gap-2 text-lg font-bold"
+                      className="flex items-center justify-between text-lg font-bold"
                     >
-                      <DollarSign className="w-5 h-5 text-primary" />
-                      Importe
+                      <span className="flex items-center gap-2">
+                        <DollarSign className="w-5 h-5 text-primary" />
+                        Importe
+                      </span>
+                      {editingTransaction && (
+                        <button
+                          type="button"
+                          onClick={() => setIsSplitModalOpen(true)}
+                          className="text-sm font-medium text-primary hover:underline flex items-center gap-1 bg-primary/10 px-2 py-1 rounded-md transition-all active:scale-95"
+                        >
+                          <SplitSquareHorizontal className="w-4 h-4" />
+                          Dividir gasto
+                        </button>
+                      )}
                     </Label>
                     <Input
                       id="amount"
@@ -722,6 +769,14 @@ const TransactionModal = ({
           </form>
         )}
       </ResponsiveDialogContent>
+
+      <SplitTransactionModal
+        isOpen={isSplitModalOpen}
+        onClose={() => setIsSplitModalOpen(false)}
+        originalTransaction={editingTransaction}
+        categories={categories}
+        onConfirmSplit={handleConfirmSplit}
+      />
     </ResponsiveDialog>
   );
 };
