@@ -639,13 +639,13 @@ const BudgetPage = () => {
                     </div>
                 </div>
 
-                <div className="sticky top-14 lg:top-20 z-30 bg-background/95 backdrop-blur-xl pt-2 pb-4 mb-8 border-b border-border/20 -mx-4 px-4 sm:mx-0 sm:px-0 shadow-sm">
-                    <div className="flex flex-col items-center justify-center p-4">
-                        <div className="text-[11px] sm:text-xs font-bold uppercase tracking-widest text-muted-foreground mb-2">
+                <div className="sticky top-14 lg:top-20 z-30 bg-background/95 backdrop-blur-xl pt-2 pb-4 [@media(max-height:550px)]:pb-2 mb-8 [@media(max-height:550px)]:mb-2 border-b border-border/20 -mx-4 px-4 sm:mx-0 sm:px-0 shadow-sm transition-all duration-300">
+                    <div className="flex flex-col items-center justify-center p-4 [@media(max-height:550px)]:py-1">
+                        <div className="text-[11px] sm:text-xs [@media(max-height:550px)]:text-[9px] font-bold uppercase tracking-widest text-muted-foreground mb-2 [@media(max-height:550px)]:mb-0 transition-all duration-300">
                             Disponible para Asignar
                         </div>
                         <div className={cn(
-                            "font-black text-4xl sm:text-5xl transition-colors tracking-tight",
+                            "font-black text-4xl sm:text-5xl [@media(max-height:550px)]:text-2xl transition-all duration-300 tracking-tight",
                             disponibleParaAsignar > 0 ? "text-primary" : 
                             disponibleParaAsignar < 0 ? "text-destructive" : 
                             "text-foreground"
@@ -654,7 +654,7 @@ const BudgetPage = () => {
                         </div>
                         
                         {/* Indicadores secundarios pequeños */}
-                        <div className="flex items-center gap-3 sm:gap-4 mt-4 text-[10px] sm:text-xs font-bold text-muted-foreground/80 uppercase tracking-wider bg-muted/20 px-4 py-2 rounded-full border border-border/40">
+                        <div className="flex items-center gap-3 sm:gap-4 mt-4 [@media(max-height:550px)]:mt-1 text-[10px] sm:text-xs [@media(max-height:550px)]:text-[9px] font-bold text-muted-foreground/80 uppercase tracking-wider bg-muted/20 px-4 py-2 [@media(max-height:550px)]:py-1 rounded-full border border-border/40 transition-all duration-300">
                             <span>Ingresos: <span className="text-income/90">{formatCurrency(ingresosDelMes)}</span></span>
                             <span className="opacity-40">•</span>
                             <span>Saldo Previsto: <span className="text-foreground/80">{formatCurrency(capitalDisponible)}</span></span>
@@ -662,14 +662,14 @@ const BudgetPage = () => {
                     </div>
 
                     {/* SEARCH BAR */}
-                    <div className="mt-6 px-2">
+                    <div className="mt-6 [@media(max-height:550px)]:mt-1 px-2 transition-all duration-300">
                         <div className="relative w-full max-w-md mx-auto">
                             <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
                             <Input 
                                 placeholder="Buscar sobre..." 
                                 value={searchQuery}
                                 onChange={(e) => setSearchQuery(e.target.value)}
-                                className="pl-11 pr-11 h-12 bg-muted/30 border-border/40 font-medium rounded-full shadow-inner focus-visible:ring-primary/20 transition-all"
+                                className="pl-11 pr-11 h-12 [@media(max-height:550px)]:h-8 [@media(max-height:550px)]:text-xs bg-muted/30 border-border/40 font-medium rounded-full shadow-inner focus-visible:ring-primary/20 transition-all duration-300"
                             />
                             {searchQuery && (
                                 <button 
@@ -677,7 +677,7 @@ const BudgetPage = () => {
                                     className="absolute right-4 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground transition-colors p-1"
                                     title="Borrar búsqueda"
                                 >
-                                    <X className="w-4 h-4" />
+                                    <X className="w-4 h-4 [@media(max-height:550px)]:w-3 [@media(max-height:550px)]:h-3" />
                                 </button>
                             )}
                         </div>
@@ -833,13 +833,13 @@ const BudgetPage = () => {
 
             {/* FLOATING ACTION BUTTON PARA GUARDAR */}
             {activeRole === 'admin' && (
-                <div className="fixed bottom-24 right-4 sm:bottom-8 sm:right-8 z-[100] animate-in fade-in slide-in-from-bottom-5">
+                <div className="fixed bottom-24 [@media(max-height:550px)]:bottom-[80px] right-4 sm:bottom-8 sm:right-8 z-[100] animate-in fade-in slide-in-from-bottom-5">
                     <Button 
                         onClick={handleSave} 
                         size="lg"
-                        className="font-black shadow-[0_8px_30px_rgb(0,0,0,0.12)] hover:shadow-primary/50 transition-all h-14 rounded-full px-6 bg-primary text-primary-foreground hover:scale-105"
+                        className="font-black shadow-[0_8px_30px_rgb(0,0,0,0.12)] hover:shadow-primary/50 transition-all h-14 [@media(max-height:550px)]:h-10 [@media(max-height:550px)]:px-4 [@media(max-height:550px)]:text-xs rounded-full px-6 bg-primary text-primary-foreground hover:scale-105"
                     >
-                        <Save className="w-5 h-5 mr-2" />
+                        <Save className="w-5 h-5 [@media(max-height:550px)]:w-4 [@media(max-height:550px)]:h-4 mr-2 [@media(max-height:550px)]:mr-1" />
                         Guardar Cambios
                     </Button>
                 </div>
