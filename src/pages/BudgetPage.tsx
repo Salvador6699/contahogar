@@ -423,13 +423,12 @@ const BudgetPage = () => {
             setTimeout(() => {
                 const el = document.getElementById(`row-${cat}`);
                 if (el) {
-                    const isSmallScreen = window.innerHeight <= 550;
                     el.scrollIntoView({ 
                         behavior: 'smooth', 
-                        block: isSmallScreen ? 'center' : 'start' 
+                        block: 'start' 
                     });
                 }
-            }, 100);
+            }, 300);
         }
     };
 
@@ -475,7 +474,7 @@ const BudgetPage = () => {
         else if (type === 'vacio') colorClass = "bg-muted-foreground/60";
 
         return (
-            <div key={cat} id={`row-${cat}`} className="scroll-mt-[340px] md:scroll-mt-[260px] [@media(max-height:550px)]:scroll-mt-4 bg-card rounded-3xl border border-border/50 shadow-sm overflow-hidden transition-all">
+            <div key={cat} id={`row-${cat}`} className="scroll-mt-[340px] md:scroll-mt-[260px] [@media(max-height:550px)]:scroll-mt-[90px] bg-card rounded-3xl border border-border/50 shadow-sm overflow-hidden transition-all">
                 {/* COMPACT ROW */}
                 <div 
                     className="p-4 flex items-center justify-between cursor-pointer hover:bg-muted/30 transition-colors"
@@ -516,12 +515,7 @@ const BudgetPage = () => {
                                         value={addAmounts[cat] || ''}
                                         onChange={(e) => setAddAmounts(prev => ({ ...prev, [cat]: e.target.value }))}
                                         onKeyDown={(e) => { if (e.key === 'Enter') handleAddAmount(cat, false); }}
-                                        onFocus={() => {
-                                            setTimeout(() => {
-                                                const el = document.getElementById(`row-${cat}`);
-                                                if (el) el.scrollIntoView({ behavior: 'smooth', block: 'center' });
-                                            }, 300); // Dar tiempo a que el teclado termine de subir
-                                        }}
+                                        autoFocus
                                         className="h-12 pl-4 pr-8 text-base font-bold bg-background border-border/60 focus-visible:ring-primary/30 rounded-2xl shadow-inner"
                                     />
                                     <span className="absolute right-4 top-1/2 -translate-y-1/2 text-muted-foreground font-bold select-none pointer-events-none">€</span>
@@ -572,7 +566,15 @@ const BudgetPage = () => {
                 </DialogContent>
             </Dialog>
 
-            <div className="w-full max-w-5xl mx-auto px-4 lg:px-8 pt-4 sm:pt-8 transition-all duration-500 pb-32 scroll-mt-14">
+            <div 
+                className="w-full max-w-5xl mx-auto px-4 lg:px-8 pt-4 sm:pt-8 transition-all duration-500 pb-32 scroll-mt-14"
+                onTouchMove={() => {
+                    const active = document.activeElement as HTMLElement;
+                    if (active && active.tagName === 'INPUT') {
+                        active.blur();
+                    }
+                }}
+            >
                 
                 <div className="flex items-center justify-between p-4 bg-white dark:bg-card rounded-2xl shadow-sm border border-border/50 mb-6 overflow-hidden">
                     <div className="flex items-center gap-2 mx-auto">
