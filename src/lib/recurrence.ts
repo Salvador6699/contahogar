@@ -107,11 +107,12 @@ export const syncRecurringTransactionsToSupabase = async (): Promise<void> => {
         if (!existingTx.isPending || existingTx.linkedLoanId) {
           // leave untouched
         } else {
+          const { user_profiles, ...cleanExistingTx } = existingTx as any;
           const matchingLoan = findMatchingFractionLoan(txId, dateStr);
           if (matchingLoan) {
             // Mark as fractionated retroactively (e.g. old backup without linkedLoanId)
             transactionsToUpsert.push({
-              ...existingTx,
+              ...cleanExistingTx,
               amount: 0,
               isPending: false,
               isIgnored: true,
@@ -120,7 +121,7 @@ export const syncRecurringTransactionsToSupabase = async (): Promise<void> => {
             });
           } else {
             transactionsToUpsert.push({
-              ...existingTx,
+              ...cleanExistingTx,
               amount: rule.amount,
               category: rule.category,
               accountId: rule.accountId,
@@ -145,8 +146,9 @@ export const syncRecurringTransactionsToSupabase = async (): Promise<void> => {
             description: rule.name + ' (Fraccionado)',
             isPending: false,
             isIgnored: true,
-            linkedLoanId: matchingLoan.id
-          });
+            linkedLoanId: matchingLoan.id,
+            team_id: (rule as any).team_id
+          } as any);
         } else {
           transactionsToUpsert.push({
             id: txId,
@@ -157,7 +159,8 @@ export const syncRecurringTransactionsToSupabase = async (): Promise<void> => {
             type: rule.type,
             description: rule.name,
             isPending: true,
-          });
+            team_id: (rule as any).team_id
+          } as any);
         }
       }
 
@@ -201,7 +204,10 @@ export const syncRecurringTransactionsToSupabase = async (): Promise<void> => {
   if (transactionsToUpsert.length > 0) {
     for (let i = 0; i < transactionsToUpsert.length; i += 100) {
       const chunk = transactionsToUpsert.slice(i, i + 100);
-      await supabase.from('transactions').upsert(chunk);
+      const { error } = await supabase.from('transactions').upsert(chunk);
+      if (error) {
+        console.error("Error upserting recurring transactions:", error);
+      }
     }
   }
 };
