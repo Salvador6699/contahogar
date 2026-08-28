@@ -344,9 +344,15 @@ const BudgetPage = () => {
     };
 
     const getSortPercentage = (cat: string) => {
-        const amount = localAssignments[cat]?.amount || 0;
-        const gastado = getGastado(cat);
-        return amount > 0 ? (gastado / amount) * 100 : (gastado > 0 ? 100 : 0);
+        const amount = Number((localAssignments[cat]?.amount || 0).toFixed(2));
+        const gastado = Number(getGastado(cat).toFixed(2));
+        const resto = Number((amount - gastado).toFixed(2));
+        
+        if (amount === 0 && gastado === 0) return 0;
+        if (resto === 0 && amount > 0) return 100;
+        if (resto < 0) return 200;
+        
+        return amount > 0 ? (gastado / amount) * 100 : 0;
     };
 
     const allCategories = Object.keys(localAssignments);
