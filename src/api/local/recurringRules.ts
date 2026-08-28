@@ -17,7 +17,7 @@ export const getRecurringRules = async (): Promise<RecurringExpenseRule[]> => {
 
 export const addRecurringRule = async (rule: Omit<RecurringExpenseRule, "id">): Promise<RecurringExpenseRule> => {
   const newRule = {
-    id: uuidv4(), team_id: getTeamId(),
+    id: crypto.randomUUID(), team_id: getTeamId(),
     ...rule
   };
   const { data, error } = await supabase.from('recurring_rules').insert([newRule]).select().single();

@@ -1,5 +1,5 @@
 import React from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate } from '@tanstack/react-router';
 import { useTeam } from '@/contexts/TeamContext';
 import { useAuth } from '@/contexts/AuthContext';
 import { Users, LogOut, ChevronRight, UserPlus } from 'lucide-react';

@@ -17,7 +17,7 @@ export const getCategories = async (): Promise<Category[]> => {
 
 export const addCategory = async (name: string): Promise<void> => {
   const newCategory = {
-    id: uuidv4(), team_id: getTeamId(),
+    id: crypto.randomUUID(), team_id: getTeamId(),
     name: name.trim(),
     icon: "Tag",
     color: "#94a3b8"

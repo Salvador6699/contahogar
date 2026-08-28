@@ -6,7 +6,7 @@ import CategoryBreakdown from "@/components/CategoryBreakdown";
 import TransactionModal from "@/components/TransactionModal";
 import { Calendar, ArrowLeft } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { useNavigate } from "react-router-dom";
+import { useNavigate } from '@tanstack/react-router';
 import { appToast as toast } from "@/lib/swal";
 import { useAccounts } from "@/hooks/useAccounts";
 import { useTransactions } from "@/hooks/useTransactions";

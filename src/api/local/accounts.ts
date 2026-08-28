@@ -23,7 +23,7 @@ export const addAccount = async (data: {
   excludeFromTotals?: boolean;
 }): Promise<Account> => {
   const newAccount = {
-    id: uuidv4(), team_id: getTeamId(),
+    id: crypto.randomUUID(), team_id: getTeamId(),
     ...data
   };
   const { data: result, error } = await supabase.from('accounts').insert([newAccount]).select().single();

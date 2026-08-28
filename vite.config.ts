@@ -1,76 +1,68 @@
-import { defineConfig } from "vite";
-import react from "@vitejs/plugin-react-swc";
-import path from "path";
+import { defineConfig } from 'vite'
+import react from '@vitejs/plugin-react'
+import tailwindcss from '@tailwindcss/vite'
+import { TanStackRouterVite } from '@tanstack/router-plugin/vite'
+import path from 'path'
+import { VitePWA } from 'vite-plugin-pwa'
 
-import { VitePWA } from 'vite-plugin-pwa';
-
-// https://vitejs.dev/config/
-export default defineConfig(({ mode }) => ({
-  server: {
-    host: "::",
-    port: 8080,
-  },
+export default defineConfig({
   plugins: [
-    react(), 
+    TanStackRouterVite({ target: 'react', autoCodeSplitting: true }),
+    react(),
+    tailwindcss(),
     VitePWA({
-      selfDestroying: true,
       registerType: 'autoUpdate',
       includeAssets: ['favicon.ico', 'favicon.png', 'logo.png'],
       manifest: {
         name: 'ContaHogar',
         short_name: 'ContaHogar',
-        description: 'Gestor de finanzas personales y control de gastos',
-        theme_color: '#ffffff',
-        background_color: '#ffffff',
+        description: 'Gestor de finanzas personales y control de gastos del hogar',
+        theme_color: '#1e3a5f',
+        background_color: '#f4f6fa',
         display: 'standalone',
         icons: [
           {
             src: 'logo.png',
             sizes: '192x192',
-            type: 'image/png'
+            type: 'image/png',
           },
           {
             src: 'logo.png',
             sizes: '512x512',
             type: 'image/png',
-            purpose: 'any maskable'
-          }
+            purpose: 'any maskable',
+          },
         ],
         shortcuts: [
           {
-            name: "Nueva Transacción",
-            short_name: "Transacción",
-            description: "Ir a la pantalla principal",
-            url: "/",
-            icons: [{ src: "logo.png", sizes: "192x192" }]
+            name: 'Nueva Transacción',
+            short_name: 'Transacción',
+            description: 'Ir a la pantalla principal',
+            url: '/',
+            icons: [{ src: 'logo.png', sizes: '192x192' }],
           },
           {
-            name: "Ver Presupuestos",
-            short_name: "Presupuestos",
-            description: "Ir a la sección de presupuestos",
-            url: "/presupuestos",
-            icons: [{ src: "logo.png", sizes: "192x192" }]
-          }
-        ]
-      }
-    })
-  ].filter(Boolean),
+            name: 'Ver Presupuestos',
+            short_name: 'Presupuestos',
+            description: 'Ir a la sección de presupuestos',
+            url: '/presupuestos',
+            icons: [{ src: 'logo.png', sizes: '192x192' }],
+          },
+        ],
+      },
+    }),
+  ],
   resolve: {
     alias: {
-      "@": path.resolve(__dirname, "./src"),
+      '@': path.resolve(import.meta.dirname, './src'),
     },
+  },
+  server: {
+    host: '::',
+    port: 8080,
   },
   build: {
-    rollupOptions: {
-      output: {
-        manualChunks: {
-          'vendor-charts': ['recharts'],
-          'vendor-icons': ['lucide-react'],
-          'vendor-utils': ['date-fns'],
-          'vendor-react': ['react', 'react-dom', 'react-router-dom'],
-        },
-      },
-    },
     chunkSizeWarningLimit: 1000,
   },
-}));
+})
+

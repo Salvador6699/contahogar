@@ -1,6 +1,6 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 import { useState, useEffect, useMemo } from 'react';
-import { useNavigate, useLocation } from 'react-router-dom';
+import { useNavigate, useLocation } from '@tanstack/react-router';
 import { 
   Home, 
   History, 
@@ -28,7 +28,8 @@ import {
   ChevronDown,
   CheckCircle2,
   LogOut,
-  MoreHorizontal
+  MoreHorizontal,
+  Sparkles
 } from 'lucide-react';
 import * as Icons from 'lucide-react';
 import { cn, withKeyboardClose } from '@/lib/utils';
@@ -82,6 +83,7 @@ const MobileNav = () => {
 
     const allDrawerNavItems: NavItem[] = [
         { icon: Home, label: 'Inicio', path: '/', exact: true },
+        { icon: Sparkles, label: 'Asistente IA', path: '/asistente' },
         { icon: Scale, label: 'Balance', path: '/comparativa' },
         { icon: ArrowLeftRight, label: 'Transf.', path: '/transferir' },
         { icon: SearchIcon, label: 'Buscar', path: '/buscar' },
@@ -173,7 +175,7 @@ const MobileNav = () => {
                                     </div>
                                     {teams.length > 1 && (
                                         <button 
-                                            onClick={() => { setIsMobileUserMenuOpen(false); navigate('/select-team'); }}
+                                            onClick={() => { setIsMobileUserMenuOpen(false); navigate({ to: '/select-team' } as any); }}
                                             className="flex items-center gap-2 px-3 py-2 rounded-xl text-sm font-bold hover:bg-muted transition-all text-left w-full"
                                         >
                                             <ArrowLeftRight className="w-4 h-4 text-muted-foreground" /> Cambiar Equipo
@@ -195,7 +197,7 @@ const MobileNav = () => {
             {/* DESKTOP TOP NAVIGATION (Hidden on mobile) */}
             <header className="hidden lg:flex fixed top-0 left-0 right-0 z-50 h-20 bg-background/95 backdrop-blur-xl border-b border-border/10 items-center justify-between px-8 transition-all duration-300">
                 {/* Logo */}
-                <div className="flex items-center gap-3 cursor-pointer" onClick={() => navigate('/')}>
+                <div className="flex items-center gap-3 cursor-pointer" onClick={() => navigate({ to: '/' } as any)}>
                     <img src="/logo.png" alt="ContaHogar" className="w-8 h-8 drop-shadow-md" />
                     <span className="font-outfit font-black text-xl tracking-tight bg-clip-text text-transparent bg-gradient-to-r from-primary to-primary/60">
                         ContaHogar
@@ -209,7 +211,7 @@ const MobileNav = () => {
                         return (
                             <button
                                 key={item.path}
-                                onClick={() => navigate(item.path)}
+                                onClick={() => navigate({ to: item.path } as any)}
                                 className={cn(
                                     "px-4 py-2.5 rounded-xl font-bold transition-all duration-300 flex items-center gap-2 text-sm",
                                     active 
@@ -237,7 +239,7 @@ const MobileNav = () => {
                                     return (
                                         <button 
                                             key={item.path}
-                                            onClick={() => navigate(item.path)}
+                                            onClick={() => navigate({ to: item.path } as any)}
                                             className={cn(
                                                 "flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-bold transition-all text-left",
                                                 active 
@@ -279,14 +281,14 @@ const MobileNav = () => {
                                         </div>
                                         {teams.length > 1 && (
                                             <button 
-                                                onClick={() => { setIsDesktopUserMenuOpen(false); navigate('/select-team'); }}
+                                                onClick={() => { setIsDesktopUserMenuOpen(false); navigate({ to: '/select-team' } as any); }}
                                                 className="flex items-center gap-2 px-3 py-2 rounded-xl text-sm font-bold hover:bg-muted transition-all text-left w-full"
                                             >
                                                 <ArrowLeftRight className="w-4 h-4 text-muted-foreground" /> Cambiar Equipo
                                             </button>
                                         )}
                                         <button 
-                                            onClick={() => { setIsDesktopUserMenuOpen(false); navigate('/equipos'); }}
+                                            onClick={() => { setIsDesktopUserMenuOpen(false); navigate({ to: '/equipos' } as any); }}
                                             className="flex items-center gap-2 px-3 py-2 rounded-xl text-sm font-bold text-muted-foreground hover:bg-muted transition-all text-left w-full"
                                         >
                                             <Users className="w-4 h-4" /> Administrar Equipos
@@ -315,7 +317,7 @@ const MobileNav = () => {
                                         return (
                                             <button 
                                                 key={fav.id}
-                                                onClick={() => navigate(`/?action=quick-expense&id=${fav.id}`)}
+                                                onClick={() => navigate({ to: '/' as any, search: { action: 'quick-expense', id: fav.id } as any })}
                                                 className="flex items-center gap-3 px-3 py-2 rounded-xl text-sm font-bold transition-all text-left group/item hover:bg-muted"
                                             >
                                                 <div className="p-1.5 rounded-lg bg-background group-hover/item:bg-background shadow-sm border border-border/50 text-white" style={{ backgroundColor: cat?.color || '#3b82f6' }}>
@@ -330,13 +332,13 @@ const MobileNav = () => {
                         </div>
                     )}
                     <button 
-                        onClick={() => navigate('/?action=add-income')} 
+                        onClick={() => navigate({ to: '/' as any, search: { action: 'add-income', } as any })} 
                         className="flex items-center gap-2 bg-income/10 hover:bg-income hover:text-white text-income px-5 py-2.5 rounded-xl font-bold transition-all duration-300 text-sm shadow-sm active:scale-95"
                     >
                         <ArrowUpCircle className="w-5 h-5 stroke-[2.5px]" /> Ingreso
                     </button>
                     <button 
-                        onClick={() => navigate('/?action=add-expense')} 
+                        onClick={() => navigate({ to: '/' as any, search: { action: 'add-expense', } as any })} 
                         className="flex items-center gap-2 bg-expense/10 hover:bg-expense hover:text-white text-expense px-5 py-2.5 rounded-xl font-bold transition-all duration-300 text-sm shadow-sm active:scale-95"
                     >
                         <ArrowDownCircle className="w-5 h-5 stroke-[2.5px]" /> Gasto
@@ -348,14 +350,14 @@ const MobileNav = () => {
             <Sheet>
                 <nav className="fixed bottom-0 left-0 right-0 z-50 h-[72px] bg-gradient-to-t from-background/95 via-background/85 to-transparent nav-blur-fade px-2 pb-safe lg:hidden transition-all duration-300 border-t border-border/10">
                     <div className="grid h-full grid-cols-5 max-w-lg mx-auto items-center">
-                        <button onClick={() => navigate('/')} className="flex flex-col items-center justify-center relative group h-full">
+                        <button onClick={() => navigate({ to: '/' } as any)} className="flex flex-col items-center justify-center relative group h-full">
                             <div className={cn("p-2 rounded-xl transition-all duration-500", isActive('/', true) ? "text-primary scale-110" : "text-muted-foreground/60 group-hover:text-primary")}>
                                 <Home className={cn("w-5 h-5", isActive('/', true) && "stroke-[2.5px]")} />
                             </div>
                             <span className={cn("text-[10px] font-bold mt-0.5", isActive('/', true) ? "text-primary" : "text-muted-foreground/50")}>Inicio</span>
                         </button>
                         
-                        <button onClick={() => navigate('/presupuestos')} className="flex flex-col items-center justify-center relative group h-full">
+                        <button onClick={() => navigate({ to: '/presupuestos' } as any)} className="flex flex-col items-center justify-center relative group h-full">
                             <div className={cn("p-2 rounded-xl transition-all duration-500", isActive('/presupuestos') ? "text-primary scale-110" : "text-muted-foreground/60 group-hover:text-primary")}>
                                 <PiggyBank className={cn("w-5 h-5", isActive('/presupuestos') && "stroke-[2.5px]")} />
                             </div>
@@ -382,14 +384,14 @@ const MobileNav = () => {
                                 </DrawerHeader>
                                 <div className="p-4 flex gap-4">
                                     <button 
-                                        onClick={() => { document.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape' })); navigate('/?action=add-expense'); }}
+                                        onClick={() => { document.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape' })); navigate({ to: '/' as any, search: { action: 'add-expense', } as any }); }}
                                         className="flex-1 bg-expense/10 hover:bg-expense/20 border-2 border-expense/20 rounded-2xl p-6 flex flex-col items-center gap-3 transition-colors active:scale-95"
                                     >
                                         <ArrowDownCircle className="w-12 h-12 text-expense stroke-[2px]" />
                                         <span className="font-bold text-expense text-lg">Gasto</span>
                                     </button>
                                     <button 
-                                        onClick={() => { document.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape' })); navigate('/?action=add-income'); }}
+                                        onClick={() => { document.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape' })); navigate({ to: '/' as any, search: { action: 'add-income', } as any }); }}
                                         className="flex-1 bg-income/10 hover:bg-income/20 border-2 border-income/20 rounded-2xl p-6 flex flex-col items-center gap-3 transition-colors active:scale-95"
                                     >
                                         <ArrowUpCircle className="w-12 h-12 text-income stroke-[2px]" />
@@ -411,7 +413,7 @@ const MobileNav = () => {
                                                     return (
                                                         <DrawerClose asChild key={fav.id}>
                                                             <button 
-                                                                onClick={() => navigate(`/?action=quick-expense&id=${fav.id}`)}
+                                                                onClick={() => navigate({ to: '/' as any, search: { action: 'quick-expense', id: fav.id } as any })}
                                                                 className="flex flex-col items-center gap-2 p-3 rounded-xl border border-border/50 hover:bg-muted/50 active:scale-95 transition-all"
                                                             >
                                                                 <div className="w-10 h-10 rounded-full flex items-center justify-center text-white" style={{ backgroundColor: cat?.color || '#3b82f6' }}>
@@ -429,7 +431,7 @@ const MobileNav = () => {
                             </DrawerContent>
                         </Drawer>
 
-                        <button onClick={() => navigate('/comparativa')} className="flex flex-col items-center justify-center relative group h-full">
+                        <button onClick={() => navigate({ to: '/comparativa' } as any)} className="flex flex-col items-center justify-center relative group h-full">
                             <div className={cn("p-2 rounded-xl transition-all duration-500", isActive('/comparativa') ? "text-primary scale-110" : "text-muted-foreground/60 group-hover:text-primary")}>
                                 <Scale className={cn("w-5 h-5", isActive('/comparativa') && "stroke-[2.5px]")} />
                             </div>
@@ -463,7 +465,7 @@ const MobileNav = () => {
                                 return (
                                     <SheetClose asChild key={item.path}>
                                         <button
-                                            onClick={() => navigate(item.path)}
+                                            onClick={() => navigate({ to: item.path } as any)}
                                             className={cn(
                                                 "flex flex-col items-center justify-center gap-2 p-4 rounded-2xl transition-all duration-300 font-bold group w-full text-center border",
                                                 active 

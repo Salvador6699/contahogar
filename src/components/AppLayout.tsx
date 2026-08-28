@@ -1,4 +1,4 @@
-import { Outlet, Navigate, useLocation } from 'react-router-dom';
+import { Outlet, Navigate, useLocation } from '@tanstack/react-router';
 import MobileNav from './MobileNav';
 import { useTeam } from '@/contexts/TeamContext';
 import { useTheme } from 'next-themes';

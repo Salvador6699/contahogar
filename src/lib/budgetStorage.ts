@@ -17,11 +17,11 @@ export const saveBudget = (budget: Omit<Budget, 'id'> | Budget): Budget => {
       updatedBudget = budget as Budget;
       data.budgets[index] = updatedBudget;
     } else {
-      updatedBudget = { ...budget, id: uuidv4() } as Budget;
+      updatedBudget = { ...budget, id: crypto.randomUUID() } as Budget;
       data.budgets.push(updatedBudget);
     }
   } else {
-    updatedBudget = { ...budget, id: uuidv4() } as Budget;
+    updatedBudget = { ...budget, id: crypto.randomUUID() } as Budget;
     data.budgets.push(updatedBudget);
   }
   

@@ -1,6 +1,6 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 import { useState, useMemo, useEffect } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate } from '@tanstack/react-router';
 import { format, parseISO, startOfMonth } from 'date-fns';
 import { es } from 'date-fns/locale';
 import { Calendar, History } from 'lucide-react';

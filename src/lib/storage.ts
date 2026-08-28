@@ -282,7 +282,7 @@ export const saveLocalSnapshot = (
   }, 0);
 
   // Use a more compatible ID generation for non-secure contexts (HTTP/Mobile IP)
-  const snapshotId = uuidv4();
+  const snapshotId = crypto.randomUUID();
 
   const newSnapshot: DataSnapshot = {
     id: snapshotId,
@@ -319,7 +319,7 @@ export const addAccount = (
 ): Account => {
   const data = loadData();
   const newAccount: Account = {
-    id: uuidv4(),
+    id: crypto.randomUUID(),
     name,
     initialBalance,
     linkedAccountId,
@@ -370,7 +370,7 @@ export const deleteAccount = (
 // Transaction Management
 export const addTransaction = (transaction: Omit<Transaction, "id">): void => {
   const data = loadData();
-  const newTransaction: Transaction = { ...transaction, id: uuidv4() };
+  const newTransaction: Transaction = { ...transaction, id: crypto.randomUUID() };
   data.transactions.push(newTransaction);
   saveData(data);
 };
@@ -428,7 +428,7 @@ export const addCategory = (categoryName: string): void => {
 
   if (!exists && categoryName.trim().length > 0) {
     const newCategory: Category = {
-      id: uuidv4(),
+      id: crypto.randomUUID(),
       name: categoryName.trim(),
       icon: "Tag",
       color: "#94a3b8",
@@ -524,7 +524,7 @@ export const addFavorite = (
   favorite: Omit<FavoriteExpense, "id">,
 ): FavoriteExpense => {
   const data = loadData();
-  const newFavorite: FavoriteExpense = { ...favorite, id: uuidv4() };
+  const newFavorite: FavoriteExpense = { ...favorite, id: crypto.randomUUID() };
   if (!data.favorites) data.favorites = [];
   data.favorites.push(newFavorite);
   saveData(data);
@@ -591,7 +591,7 @@ export const getCategorySuggestions = (
 // Savings Goal Management
 export const addSavingsGoal = (goal: Omit<SavingsGoal, "id">): SavingsGoal => {
   const data = loadData();
-  const newGoal: SavingsGoal = { ...goal, id: uuidv4() };
+  const newGoal: SavingsGoal = { ...goal, id: crypto.randomUUID() };
   if (!data.savingsGoals) data.savingsGoals = [];
   data.savingsGoals.push(newGoal);
   saveData(data);
@@ -628,7 +628,7 @@ export const loadRecurringRules = (): RecurringExpenseRule[] => {
 
 export const addRecurringRule = (rule: Omit<RecurringExpenseRule, "id">): RecurringExpenseRule => {
   const data = loadData();
-  const newRule: RecurringExpenseRule = { ...rule, id: uuidv4() };
+  const newRule: RecurringExpenseRule = { ...rule, id: crypto.randomUUID() };
   if (!data.recurringRules) data.recurringRules = [];
   data.recurringRules.push(newRule);
   saveData(data);
@@ -659,7 +659,7 @@ export const applyFractionatedTransaction = (
 ): void => {
   const data = loadData();
   
-  const loanId = uuidv4();
+  const loanId = crypto.randomUUID();
 
   if (editingId) {
     if (editingId.startsWith('rec_')) {
@@ -700,7 +700,7 @@ export const applyFractionatedTransaction = (
     const isSetupFeeFuture = new Date(fractionationData.setupFeeDate) > new Date();
     data.transactions.push({
       ...transaction,
-      id: uuidv4(),
+      id: crypto.randomUUID(),
       amount: setupFee,
       category: "Gastos Financieros",
       date: fractionationData.setupFeeDate,
@@ -719,7 +719,7 @@ export const applyFractionatedTransaction = (
 
     data.transactions.push({
       ...transaction,
-      id: uuidv4(),
+      id: crypto.randomUUID(),
       amount: installmentAmount,
       date: dateStr,
       isPending,
@@ -743,7 +743,7 @@ export const deleteLoan = (id: string): void => {
     if (!origId || !origId.startsWith('rec_')) {
       data.transactions.push({
         ...loanToDelete.originalTransactionData,
-        id: origId || uuidv4()
+        id: origId || crypto.randomUUID()
       });
     }
   }
@@ -802,7 +802,7 @@ export const applyLoanTransaction = (
   loanData: { name: string; amount: number; date: string; accountId: string; installments: number; installmentAmount: number; firstInstallmentDate: string; setupFee: number; setupFeeDate: string; description?: string; isStarted?: boolean; startingPaidAmount?: number },
 ): void => {
   const data = loadData();
-  const loanId = uuidv4();
+  const loanId = crypto.randomUUID();
   
   const { name, amount, installments, installmentAmount, firstInstallmentDate, setupFee, setupFeeDate, accountId, date, description, isStarted, startingPaidAmount } = loanData;
 
@@ -823,7 +823,7 @@ export const applyLoanTransaction = (
 
   if (!isStarted) {
     data.transactions.push({
-      id: uuidv4(),
+      id: crypto.randomUUID(),
       date,
       amount,
       category: "Ingresos",
@@ -838,7 +838,7 @@ export const applyLoanTransaction = (
   if (setupFee > 0) {
     const isSetupFeeFuture = new Date(setupFeeDate) > new Date();
     data.transactions.push({
-      id: uuidv4(),
+      id: crypto.randomUUID(),
       date: setupFeeDate,
       amount: setupFee,
       category: "Gastos Financieros",
@@ -856,7 +856,7 @@ export const applyLoanTransaction = (
     const dateStr = dt.toISOString().split("T")[0];
     
     data.transactions.push({
-      id: uuidv4(),
+      id: crypto.randomUUID(),
       amount: installmentAmount,
       date: dateStr,
       category: "Devolución Préstamo",
@@ -867,7 +867,7 @@ export const applyLoanTransaction = (
       linkedLoanId: loanId
     });
     if (!data.categories.some((c: any) => (typeof c === 'string' ? c : c.name) === "Devolución Préstamo")) {
-      data.categories.push({ id: uuidv4(), name: "Devolución Préstamo", icon: "Wallet", color: "#64748b" });
+      data.categories.push({ id: crypto.randomUUID(), name: "Devolución Préstamo", icon: "Wallet", color: "#64748b" });
     }
   }
   

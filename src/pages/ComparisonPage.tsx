@@ -1,5 +1,5 @@
 import { useState, useEffect, useMemo } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate } from '@tanstack/react-router';
 import { Scale, AlertCircle, CheckCircle, TrendingDown, TrendingUp, Plus, Minus, Trash2, Save, Building2, Banknote } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -79,7 +79,7 @@ const ComparisonPage = () => {
         const amount = parseFloat(newAmount);
         if (amount > 0 && newCategory.trim() && activeAccountId) {
             const adjustment: Adjustment = {
-                id: uuidv4(),
+                id: crypto.randomUUID(),
                 type,
                 amount,
                 category: newCategory.trim(),
@@ -110,7 +110,7 @@ const ComparisonPage = () => {
         Object.entries(adjustments).forEach(([accountId, accts]) => {
             accts.forEach(adj => {
                 allAdjustments.push({
-                    id: uuidv4(),
+                    id: crypto.randomUUID(),
                     date: today,
                     amount: adj.amount,
                     category: adj.category,

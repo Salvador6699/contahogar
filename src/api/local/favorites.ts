@@ -17,7 +17,7 @@ export const getFavorites = async (): Promise<FavoriteExpense[]> => {
 
 export const addFavorite = async (favorite: Omit<FavoriteExpense, "id">): Promise<FavoriteExpense> => {
   const newFavorite = {
-    id: uuidv4(), team_id: getTeamId(),
+    id: crypto.randomUUID(), team_id: getTeamId(),
     ...favorite
   };
   const { data, error } = await supabase.from('favorites').insert([newFavorite]).select().single();

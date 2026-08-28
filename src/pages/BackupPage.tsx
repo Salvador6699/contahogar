@@ -7,7 +7,8 @@ import { loadData, migrateData } from '@/lib/storage';
 import { exportTransactionsToCSV } from '@/lib/exportUtils';
 import { appToast as toast } from "@/lib/swal";
 import { swalSuccess, swalError, swalConfirm, swalLoading, swalClose } from '@/lib/swal';
-import { restoreToSupabase } from '@/lib/supabase';
+import { restoreToSupabase } from '@/lib/supabase-backup'
+
 import { useQueryClient } from '@tanstack/react-query';
 import { useSnapshots } from '@/hooks/useSnapshots';
 import { format, subDays, parseISO, isSameDay, startOfToday } from 'date-fns';

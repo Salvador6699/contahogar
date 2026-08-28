@@ -22,7 +22,7 @@ export const getTransactions = async (): Promise<Transaction[]> => {
 export const addTransaction = async (transaction: Omit<Transaction, "id">): Promise<void> => {
   const { data: { user } } = await supabase.auth.getUser();
   const newTransaction = {
-    id: uuidv4(), team_id: getTeamId(), user_id: user?.id,
+    id: crypto.randomUUID(), team_id: getTeamId(), user_id: user?.id,
     ...transaction
   };
   const { error } = await supabase.from('transactions').insert([newTransaction]);

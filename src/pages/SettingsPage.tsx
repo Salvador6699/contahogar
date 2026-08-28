@@ -1,6 +1,6 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 import { useState, useEffect, useRef } from "react";
-import { useSearchParams } from "react-router-dom";
+import { useSearchParams } from '@/hooks/useSearchParams';
 import { useTheme } from "next-themes";
 import {
   Sun,
