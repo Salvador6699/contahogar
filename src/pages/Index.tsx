@@ -500,7 +500,12 @@ const Index = () => {
     .filter(
       (t) => t.isPending && (!accountFilter || t.accountId === accountFilter),
     )
-    .sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
+    .sort((a, b) => {
+      const dateDiff = new Date(a.date).getTime() - new Date(b.date).getTime();
+      if (dateDiff !== 0) return dateDiff;
+      if (b.amount !== a.amount) return b.amount - a.amount;
+      return (a.description || "").localeCompare(b.description || "");
+    });
 
   const hasAnyData =
     expenseCategories.length > 0 ||
