@@ -1,6 +1,7 @@
 import { Loan, Transaction } from "@/types/finance";
 import { supabase } from "@/lib/supabase";
-import { v4 as uuidv4 } from "uuid";
+import { addMonths, parseISO, format } from "date-fns";
+
 
 const getTeamId = () => {
   const teamId = localStorage.getItem('contahogar_active_team_id');
@@ -17,7 +18,7 @@ export const getLoans = async (): Promise<Loan[]> => {
 
 export const addLoan = async (loan: Omit<Loan, "id">): Promise<Loan> => {
   const newLoan = {
-    id: uuidv4(), team_id: getTeamId(),
+    id: crypto.randomUUID(), team_id: getTeamId(),
     ...loan
   };
   const { data, error } = await supabase.from('loans').insert([newLoan]).select().single();
@@ -41,7 +42,7 @@ export const applyFractionatedTransaction = async (
   fractionationData: { isFractionated: boolean; installments: number; installmentAmount: number; firstInstallmentDate: string; setupFee: number; setupFeeDate: string; },
   editingId?: string
 ): Promise<void> => {
-  const loanId = uuidv4();
+  const loanId = crypto.randomUUID();
   
   if (editingId) {
     if (editingId.startsWith('rec_')) {
@@ -63,8 +64,9 @@ export const applyFractionatedTransaction = async (
   const { installments, installmentAmount, firstInstallmentDate, setupFee } = fractionationData;
   const originalTotal = transaction.amount;
 
-  const newLoan: Loan = {
+  const newLoan: any = {
     id: loanId,
+    team_id: getTeamId(),
     name: transaction.description || "Fraccionamiento",
     type: "fractionation",
     amount: originalTotal,
@@ -86,7 +88,7 @@ export const applyFractionatedTransaction = async (
     const isSetupFeeFuture = new Date(fractionationData.setupFeeDate) > new Date();
     transactionsToInsert.push({
       ...transaction,
-      id: uuidv4(), team_id: getTeamId(),
+      id: crypto.randomUUID(), team_id: getTeamId(),
       amount: setupFee,
       category: "Gastos Financieros",
       date: fractionationData.setupFeeDate,
@@ -97,15 +99,14 @@ export const applyFractionatedTransaction = async (
   }
 
   for (let i = 0; i < installments; i++) {
-    const dt = new Date(firstInstallmentDate);
-    dt.setMonth(dt.getMonth() + i);
-    const dateStr = dt.toISOString().split("T")[0];
+    const dt = addMonths(parseISO(firstInstallmentDate), i);
+    const dateStr = format(dt, "yyyy-MM-dd");
     
-    const isPending = i > 0 || transaction.isPending;
+    const isPending = i > 0 || !!transaction.isPending;
 
     transactionsToInsert.push({
       ...transaction,
-      id: uuidv4(), team_id: getTeamId(),
+      id: crypto.randomUUID(), team_id: getTeamId(),
       amount: installmentAmount,
       date: dateStr,
       isPending: isPending || false,
@@ -124,12 +125,13 @@ export const applyFractionatedTransaction = async (
 export const applyLoanTransaction = async (
   loanData: { name: string; amount: number; date: string; accountId: string; installments: number; installmentAmount: number; firstInstallmentDate: string; setupFee: number; setupFeeDate: string; description?: string; isStarted?: boolean; startingPaidAmount?: number },
 ): Promise<void> => {
-  const loanId = uuidv4();
+  const loanId = crypto.randomUUID();
   
   const { name, amount, installments, installmentAmount, firstInstallmentDate, setupFee, setupFeeDate, accountId, date, description, isStarted, startingPaidAmount } = loanData;
 
-  const newLoan: Loan = {
+  const newLoan: any = {
     id: loanId,
+    team_id: getTeamId(),
     name,
     type: "loan",
     amount,
@@ -150,7 +152,7 @@ export const applyLoanTransaction = async (
 
   if (!isStarted) {
     transactionsToInsert.push({
-      id: uuidv4(), team_id: getTeamId(),
+      id: crypto.randomUUID(), team_id: getTeamId(),
       date,
       amount,
       category: "Ingresos",
@@ -165,7 +167,7 @@ export const applyLoanTransaction = async (
   if (setupFee > 0) {
     const isSetupFeeFuture = new Date(setupFeeDate) > new Date();
     transactionsToInsert.push({
-      id: uuidv4(), team_id: getTeamId(),
+      id: crypto.randomUUID(), team_id: getTeamId(),
       date: setupFeeDate,
       amount: setupFee,
       category: "Gastos Financieros",
@@ -178,12 +180,11 @@ export const applyLoanTransaction = async (
   }
 
   for (let i = 0; i < installments; i++) {
-    const dt = new Date(firstInstallmentDate);
-    dt.setMonth(dt.getMonth() + i);
-    const dateStr = dt.toISOString().split("T")[0];
+    const dt = addMonths(parseISO(firstInstallmentDate), i);
+    const dateStr = format(dt, "yyyy-MM-dd");
     
     transactionsToInsert.push({
-      id: uuidv4(), team_id: getTeamId(),
+      id: crypto.randomUUID(), team_id: getTeamId(),
       amount: installmentAmount,
       date: dateStr,
       category: "Devolución Préstamo",

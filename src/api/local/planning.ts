@@ -1,6 +1,6 @@
 import { Budget, SavingsGoal } from "@/types/finance";
 import { supabase } from "@/lib/supabase";
-import { v4 as uuidv4 } from "uuid";
+
 
 const getTeamId = () => {
   const teamId = localStorage.getItem('contahogar_active_team_id');
@@ -18,7 +18,7 @@ export const getBudgets = async (): Promise<Budget[]> => {
 
 export const saveBudgetsForMonth = async (month: string, budgets: Budget[]): Promise<void> => {
   // 1. Delete all budgets for the given month
-  const { error: deleteError } = await supabase.from('budgets').delete().eq('month', month);
+  const { error: deleteError } = await supabase.from('budgets').delete().eq('month', month).eq('team_id', getTeamId());
   if (deleteError) throw new Error(deleteError.message);
 
   // 2. Insert new budgets
@@ -38,7 +38,7 @@ export const getSavingsGoals = async (): Promise<SavingsGoal[]> => {
 
 export const addSavingsGoal = async (goal: Omit<SavingsGoal, "id">): Promise<SavingsGoal> => {
   const newGoal = {
-    id: uuidv4(), team_id: getTeamId(),
+    id: crypto.randomUUID(), team_id: getTeamId(),
     ...goal
   };
   const { data, error } = await supabase.from('savings_goals').insert([newGoal]).select().single();

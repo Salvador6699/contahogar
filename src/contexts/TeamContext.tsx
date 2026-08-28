@@ -1,6 +1,7 @@
 import React, { createContext, useContext, useEffect, useState } from 'react';
 import { supabase } from '@/lib/supabase';
 import { useAuth } from './AuthContext';
+import { syncRecurringTransactionsToSupabase } from '@/lib/recurrence';
 
 export type Team = {
   id: string;
@@ -77,9 +78,11 @@ export const TeamProvider = ({ children }: { children: React.ReactNode }) => {
         
         if (isValid) {
           // Keep current
+          syncRecurringTransactionsToSupabase().catch(console.error);
         } else if (fetchedTeams.length === 1) {
           // Auto select if only 1 team
           setActiveTeamId(fetchedTeams[0].team_id);
+          syncRecurringTransactionsToSupabase().catch(console.error);
         } else {
           // If > 1 team and no valid activeTeamId, clear it so they are forced to select
           setLocalActiveTeamId(null);
@@ -97,6 +100,7 @@ export const TeamProvider = ({ children }: { children: React.ReactNode }) => {
   const setActiveTeamId = (id: string) => {
     setLocalActiveTeamId(id);
     localStorage.setItem('contahogar_active_team_id', id);
+    syncRecurringTransactionsToSupabase().catch(console.error);
   };
 
   const computedActiveTeamId = activeTeamId || (teams.length === 1 ? teams[0].team_id : null);
