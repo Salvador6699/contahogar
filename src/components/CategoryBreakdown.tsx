@@ -474,7 +474,7 @@ const CategoryBreakdown = ({
                       className="h-8 w-8 text-muted-foreground hover:text-primary hover:bg-primary/10 shrink-0"
                       onClick={(e) => {
                         e.stopPropagation();
-                        navigate(`/presupuestos?category=${encodeURIComponent(category.category)}`);
+                        navigate({ to: '/presupuestos', search: { category: category.category } });
                       }}
                       title="Modificar sobre en presupuestos"
                     >
