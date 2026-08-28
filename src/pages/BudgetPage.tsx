@@ -1,11 +1,11 @@
 import { useState, useMemo, useEffect } from 'react';
-import { useSearchParams } from 'react-router-dom';
+import { useSearchParams } from '@/hooks/useSearchParams';
 import { loadData, saveData } from '@/lib/storage';
 import { Budget, Category, Transaction, Account } from '@/types/finance';
-import { formatCurrency, calculateTotalBalance } from '@/lib/calculations';
+import { formatCurrency, calculateTotalBalance, calculatePendingImpact } from '@/lib/calculations';
 import { format, parseISO, addMonths, subMonths } from 'date-fns';
 import { es } from 'date-fns/locale';
-import { v4 as uuidv4 } from 'uuid';
+
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { PiggyBank, PlusCircle, Save, Trash2, Plus, Minus, Search, X, ChevronLeft, ChevronRight, Copy } from 'lucide-react';
@@ -250,7 +250,7 @@ const BudgetPage = () => {
         
         Object.entries(localAssignments).forEach(([category, { amount }]) => {
             newBudgets.push({
-                id: uuidv4(),
+                id: crypto.randomUUID(),
                 category,
                 amount,
                 month: activeMonth,
@@ -283,8 +283,14 @@ const BudgetPage = () => {
     );
 
     const capitalDisponible = useMemo(() => {
-        const balanceActual = calculateTotalBalance(data.accounts, data.transactions, true, activeMonth);
-        return Number(balanceActual.toFixed(2));
+        const balanceActual = calculateTotalBalance(data.accounts, data.transactions, false, activeMonth);
+        let pendingImpact = 0;
+        data.accounts.forEach(acc => {
+            if (!acc.excludeFromTotals) {
+                pendingImpact += calculatePendingImpact(data.transactions, activeMonth, acc.id);
+            }
+        });
+        return Number((balanceActual + pendingImpact).toFixed(2));
     }, [data, activeMonth]);
 
     const gastosMesActual = useMemo(() => {
@@ -373,7 +379,14 @@ const BudgetPage = () => {
     const sumAutoBudgets = Number(sinSobre.reduce((sum, cat) => sum + localAssignments[cat].amount, 0).toFixed(2));
     
     const disponibleParaAsignar = useMemo(() => {
-        const baseCapital = calculateTotalBalance(data.accounts, data.transactions, true, currentMonthKey);
+        const realBalance = calculateTotalBalance(data.accounts, data.transactions, false, currentMonthKey);
+        let currentMonthPendingImpact = 0;
+        data.accounts.forEach(acc => {
+            if (!acc.excludeFromTotals) {
+                currentMonthPendingImpact += calculatePendingImpact(data.transactions, currentMonthKey, acc.id);
+            }
+        });
+        const baseCapital = realBalance + currentMonthPendingImpact;
         const baseGastos = Number(data.transactions
             .filter(t => t.type === 'expense' && t.category !== 'Transferencia' && t.date.startsWith(currentMonthKey) && !t.isIgnored)
             .reduce((sum, t) => sum + t.amount, 0).toFixed(2));

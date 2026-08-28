@@ -36,6 +36,27 @@ export const calculateBalance = (
   }, 0).toFixed(2));
 };
 
+/**
+ * Calculates the net impact of pending (non-ignored) transactions
+ * for a specific month and optionally a specific account.
+ * Incomes add, expenses subtract.
+ */
+export const calculatePendingImpact = (
+  transactions: Transaction[],
+  monthKey: string,
+  accountId?: string
+): number => {
+  return Number(transactions
+    .filter(t =>
+      t.isPending &&
+      !t.isIgnored &&
+      t.date.startsWith(monthKey) &&
+      (!accountId || t.accountId === accountId)
+    )
+    .reduce((sum, t) => t.type === 'income' ? sum + t.amount : sum - t.amount, 0)
+    .toFixed(2));
+};
+
 export const calculateAccountBalance = (
   account: Account,
   transactions: Transaction[],
@@ -112,7 +133,7 @@ export const calculateCategorySummaries = (
       let match = t.type === type;
       
       if (onlyPending) {
-        match = match && t.isPending;
+        match = match && !!t.isPending;
       } else {
         match = match && !t.isPending;
       }

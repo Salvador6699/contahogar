@@ -20,6 +20,7 @@ import {
   formatCurrency,
   calculatePastMonthsHistory,
   calculateSpendingPace,
+  calculatePendingImpact,
 } from "@/lib/calculations";
 import { useMonthFilter } from "@/hooks/useMonthFilter";
 import BalanceCard from "@/components/BalanceCard";
@@ -43,9 +44,10 @@ import {
   ArrowUpCircle,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { useNavigate, useSearchParams } from "react-router-dom";
+import { useNavigate } from '@tanstack/react-router';
+import { useSearchParams } from '@/hooks/useSearchParams';
 import { appToast as toast } from "@/lib/swal";
-import { v4 as uuidv4 } from "uuid";
+
 import { useQueryClient } from "@tanstack/react-query";
 import { DndContext, closestCenter, KeyboardSensor, PointerSensor, useSensor, useSensors, DragEndEvent } from '@dnd-kit/core';
 import { arrayMove, SortableContext, sortableKeyboardCoordinates, verticalListSortingStrategy } from '@dnd-kit/sortable';
@@ -203,7 +205,7 @@ const Index = () => {
     }
 
     if (paramsChanged) {
-      setSearchParams(newParams, { replace: true });
+      setSearchParams(newParams);
     }
   }, [searchParams, setSearchParams]);
 
@@ -286,7 +288,7 @@ const Index = () => {
       const parts = transaction.id.split("_");
       const ruleId = parts.length >= 2 ? parts[1] : null;
       toast.info("Este gasto futuro forma parte de una regla de gasto fijo automatizado. Te redirigimos para modificar la regla...");
-      navigate(`/ajustes?tab=gastos_fijos${ruleId ? `&editRuleId=${ruleId}` : ""}`);
+      navigate({ to: "/ajustes", search: { tab: "gastos_fijos", editRuleId: ruleId || undefined } });
       return;
     }
 
@@ -389,21 +391,24 @@ const Index = () => {
   const balanceMonthKey = selectedMonth || currentMonthKey;
 
   // Calculate balances for each account (filtered up to selected month)
-  const accountBalances = data.accounts.map((account) => ({
-    account,
-    balance: calculateAccountBalance(
+  const accountBalances = data.accounts.map((account) => {
+    const bal = calculateAccountBalance(
       account,
       data.transactions,
       false,
       balanceMonthKey,
-    ),
-    projectedBalance: calculateAccountBalance(
-      account,
+    );
+    const pendingImpact = calculatePendingImpact(
       data.transactions,
-      true,
       balanceMonthKey,
-    ),
-  }));
+      account.id,
+    );
+    return {
+      account,
+      balance: bal,
+      projectedBalance: Number((bal + pendingImpact).toFixed(2)),
+    };
+  });
 
   // Total balances
   const totalBalance = calculateTotalBalance(
@@ -412,12 +417,9 @@ const Index = () => {
     false,
     balanceMonthKey,
   );
-  const totalProjectedBalance = calculateTotalBalance(
-    data.accounts,
-    data.transactions,
-    true,
-    balanceMonthKey,
-  );
+  const totalProjectedBalance = accountBalances
+    .filter(ab => !ab.account.excludeFromTotals)
+    .reduce((sum, ab) => sum + ab.projectedBalance, 0);
 
   // Selected account balance
   let balance = totalBalance;
@@ -569,7 +571,7 @@ const Index = () => {
             accounts={data.accounts}
           />
           {pendingExpenseCategories.length > 3 && (
-            <Button variant="ghost" className="w-full mt-2 text-xs font-bold" onClick={() => navigate('/proximos')}>Ver todos ({pendingExpenseCategories.length})</Button>
+            <Button variant="ghost" className="w-full mt-2 text-xs font-bold" onClick={() => navigate({ to: '/proximos' })}>Ver todos ({pendingExpenseCategories.length})</Button>
           )}
         </div>
       </div>
@@ -600,7 +602,7 @@ const Index = () => {
       <div className="bg-white dark:bg-card rounded-3xl p-6 shadow-sm border border-border/50 w-full">
         <div className="flex items-center justify-between mb-6">
            <h3 className="text-lg font-bold">Últimos Movimientos</h3>
-           <Button variant="ghost" size="sm" onClick={() => navigate('/historial')} className="text-xs font-bold">Ver historial</Button>
+           <Button variant="ghost" size="sm" onClick={() => navigate({ to: '/historial' })} className="text-xs font-bold">Ver historial</Button>
         </div>
         
         <TransactionList
