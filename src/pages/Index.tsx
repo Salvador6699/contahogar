@@ -44,6 +44,7 @@ import {
   ArrowUpCircle,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { cn } from "@/lib/utils";
 import { useNavigate } from '@tanstack/react-router';
 import { useSearchParams } from '@/hooks/useSearchParams';
 import { appToast as toast } from "@/lib/swal";
@@ -93,6 +94,7 @@ const Index = () => {
   const [isQuickAmountModalOpen, setIsQuickAmountModalOpen] = useState(false);
   const [activeQuickFavorite, setActiveQuickFavorite] =
     useState<FavoriteExpense | null>(null);
+  const [upcomingFilter, setUpcomingFilter] = useState<'all' | 'expense' | 'income'>('all');
 
   const { favorites, deleteFavorite } = useFavorites();
   const { applyFractionatedTransaction } = useLoans();
@@ -283,11 +285,15 @@ const Index = () => {
   };
 
   const handleEditTransaction = (transaction: Transaction) => {
-    // Si es un gasto futuro (pendiente) proveniente de una regla de gasto fijo automatizado
+    // Si es un gasto/ingreso futuro (pendiente) proveniente de una regla de gasto fijo automatizado
     if (transaction.isPending && transaction.id.startsWith("rec_")) {
       const parts = transaction.id.split("_");
       const ruleId = parts.length >= 2 ? parts[1] : null;
-      toast.info("Este gasto futuro forma parte de una regla de gasto fijo automatizado. Te redirigimos para modificar la regla...");
+      toast.info(
+        transaction.type === "expense"
+          ? "Este gasto futuro forma parte de una regla de gasto fijo automatizado. Te redirigimos para modificar la regla..."
+          : "Este ingreso futuro forma parte de una regla automatizada. Te redirigimos para modificar la regla..."
+      );
       navigate({ to: "/ajustes", search: { tab: "gastos_fijos", editRuleId: ruleId || undefined } });
       return;
     }
@@ -321,7 +327,7 @@ const Index = () => {
       accountId: finalAccountId,
     });
 
-    toast.success("Gasto confirmado");
+    toast.success(transaction.type === "expense" ? "Gasto confirmado" : "Ingreso confirmado");
   };
 
   const handleToggleIgnoreTransaction = async (transaction: Transaction) => {
@@ -507,11 +513,38 @@ const Index = () => {
       return (a.description || "").localeCompare(b.description || "");
     });
 
+  const hasPendingExpenses = pendingExpenseCategories.length > 0;
+  const hasPendingIncomes = pendingIncomeCategories.length > 0;
+  const hasAnyPending = hasPendingExpenses || hasPendingIncomes;
+
+  const pendingExpenseTransactions = useMemo(
+    () => pendingTransactions.filter((t) => t.type === "expense"),
+    [pendingTransactions]
+  );
+  const pendingIncomeTransactions = useMemo(
+    () => pendingTransactions.filter((t) => t.type === "income"),
+    [pendingTransactions]
+  );
+
+  const activeUpcomingFilter = useMemo(() => {
+    if (hasPendingExpenses && hasPendingIncomes) {
+      return upcomingFilter;
+    }
+    if (hasPendingExpenses) return 'expense';
+    if (hasPendingIncomes) return 'income';
+    return 'all';
+  }, [hasPendingExpenses, hasPendingIncomes, upcomingFilter]);
+
+  const upcomingTitle = useMemo(() => {
+    if (hasPendingExpenses && hasPendingIncomes) return "Movimientos Futuros";
+    if (hasPendingIncomes) return "Próximos Cobros";
+    return "Próximos Pagos";
+  }, [hasPendingExpenses, hasPendingIncomes]);
+
   const hasAnyData =
     expenseCategories.length > 0 ||
     incomeCategories.length > 0 ||
-    pendingExpenseCategories.length > 0 ||
-    pendingIncomeCategories.length > 0;
+    hasAnyPending;
 
   // History and Pace for trends
   const baseDate = useMemo(
@@ -556,27 +589,116 @@ const Index = () => {
         />
       </div>
     ),
-    upcoming: pendingExpenseCategories.length > 0 ? (
+    upcoming: hasAnyPending ? (
       <div className="w-full">
         <div className="bg-white dark:bg-card rounded-[32px] p-6 shadow-md hover:shadow-lg transition-all duration-300 border border-white/20 dark:border-white/5">
-          <div className="flex items-center gap-2 mb-4">
-             <Calendar className="w-5 h-5 text-muted-foreground" />
-             <h3 className="text-sm font-bold uppercase tracking-widest text-muted-foreground">Próximos Pagos</h3>
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-6">
+            <div className="flex items-center gap-2">
+              <Calendar className="w-5 h-5 text-muted-foreground" />
+              <h3 className="text-sm font-bold uppercase tracking-widest text-muted-foreground">
+                {upcomingTitle}
+              </h3>
+            </div>
+            <div className="flex items-center gap-2 flex-wrap">
+              {hasPendingExpenses && hasPendingIncomes && (
+                <div className="flex p-1 bg-muted/60 dark:bg-muted/30 rounded-xl">
+                  <button
+                    type="button"
+                    onClick={() => setUpcomingFilter('all')}
+                    className={cn(
+                      "px-2.5 py-1 text-xs font-bold rounded-lg transition-all",
+                      activeUpcomingFilter === 'all'
+                        ? "bg-white dark:bg-card text-foreground shadow-sm"
+                        : "text-muted-foreground hover:text-foreground"
+                    )}
+                  >
+                    Todos ({pendingTransactions.length})
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setUpcomingFilter('expense')}
+                    className={cn(
+                      "px-2.5 py-1 text-xs font-bold rounded-lg transition-all flex items-center gap-1.5",
+                      activeUpcomingFilter === 'expense'
+                        ? "bg-white dark:bg-card text-expense shadow-sm"
+                        : "text-muted-foreground hover:text-foreground"
+                    )}
+                  >
+                    <span className="w-2 h-2 rounded-full bg-expense" />
+                    Gastos ({pendingExpenseTransactions.length})
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setUpcomingFilter('income')}
+                    className={cn(
+                      "px-2.5 py-1 text-xs font-bold rounded-lg transition-all flex items-center gap-1.5",
+                      activeUpcomingFilter === 'income'
+                        ? "bg-white dark:bg-card text-income shadow-sm"
+                        : "text-muted-foreground hover:text-foreground"
+                    )}
+                  >
+                    <span className="w-2 h-2 rounded-full bg-income" />
+                    Ingresos ({pendingIncomeTransactions.length})
+                  </button>
+                </div>
+              )}
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={() => navigate({ to: '/proximos' })}
+                className="text-xs font-bold text-muted-foreground hover:text-foreground"
+              >
+                Ver todos
+              </Button>
+            </div>
           </div>
-          <CategoryBreakdown
-            categories={pendingExpenseCategories.slice(0, 3)}
-            type="expense"
-            isPending={true}
-            transactions={pendingTransactions}
-            onEditTransaction={handleEditTransaction}
-            onDeleteTransaction={handleDeleteTransaction}
-            onConfirmTransaction={handleConfirmTransaction}
-            onToggleIgnoreTransaction={handleToggleIgnoreTransaction}
-            categoryCatalog={data.categories}
-            accounts={data.accounts}
-          />
-          {pendingExpenseCategories.length > 3 && (
-            <Button variant="ghost" className="w-full mt-2 text-xs font-bold" onClick={() => navigate({ to: '/proximos' })}>Ver todos ({pendingExpenseCategories.length})</Button>
+
+          <div className="space-y-6">
+            {(activeUpcomingFilter === 'all' || activeUpcomingFilter === 'expense') && hasPendingExpenses && (
+              <CategoryBreakdown
+                categories={pendingExpenseCategories}
+                type="expense"
+                isPending={true}
+                transactions={pendingTransactions}
+                onEditTransaction={handleEditTransaction}
+                onDeleteTransaction={handleDeleteTransaction}
+                onConfirmTransaction={handleConfirmTransaction}
+                onToggleIgnoreTransaction={handleToggleIgnoreTransaction}
+                categoryCatalog={data.categories}
+                accounts={data.accounts}
+                baseDate={baseDate}
+              />
+            )}
+
+            {activeUpcomingFilter === 'all' && hasPendingExpenses && hasPendingIncomes && (
+              <div className="border-t border-border/40" />
+            )}
+
+            {(activeUpcomingFilter === 'all' || activeUpcomingFilter === 'income') && hasPendingIncomes && (
+              <CategoryBreakdown
+                categories={pendingIncomeCategories}
+                type="income"
+                isPending={true}
+                transactions={pendingTransactions}
+                onEditTransaction={handleEditTransaction}
+                onDeleteTransaction={handleDeleteTransaction}
+                onConfirmTransaction={handleConfirmTransaction}
+                onToggleIgnoreTransaction={handleToggleIgnoreTransaction}
+                categoryCatalog={data.categories}
+                accounts={data.accounts}
+                baseDate={baseDate}
+              />
+            )}
+          </div>
+
+          {pendingTransactions.length > 3 && (
+            <Button
+              variant="ghost"
+              className="w-full mt-4 text-xs font-bold text-muted-foreground hover:text-foreground"
+              onClick={() => navigate({ to: '/proximos' })}
+            >
+              Ver todos en Próximos ({pendingTransactions.length})
+            </Button>
           )}
         </div>
       </div>

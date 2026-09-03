@@ -730,10 +730,12 @@ const TransactionModal = ({
                       <div className="space-y-0.5">
                         <Label className="flex items-center gap-2">
                           <Clock className="w-4 h-4 text-primary" />
-                          Gasto Pendiente (Futuro)
+                          {type === "expense" ? "Gasto Pendiente (Futuro)" : "Ingreso Pendiente (Futuro)"}
                         </Label>
                         <p className="text-xs text-muted-foreground">
-                          Márcalo si es un cobro futuro que aún no se ha pagado
+                          {type === "expense"
+                            ? "Márcalo si es un pago futuro que aún no se ha cobrado"
+                            : "Márcalo si es un ingreso previsto que aún no has recibido"}
                         </p>
                       </div>
                       <Switch
