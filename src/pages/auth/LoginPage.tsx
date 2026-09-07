@@ -13,7 +13,6 @@ const LoginPage = () => {
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
     setLoading(true);
-    localStorage.removeItem('contahogar_active_team_id');
     
     try {
       const { error } = await supabase.auth.signInWithPassword({
@@ -25,7 +24,7 @@ const LoginPage = () => {
         toast.error(error.message);
       } else {
         toast.success("¡Bienvenido de nuevo!");
-        navigate('/select-team');
+        navigate({ to: '/' } as any);
       }
     } catch (err: any) {
       toast.error(err.message || 'Error al iniciar sesión');

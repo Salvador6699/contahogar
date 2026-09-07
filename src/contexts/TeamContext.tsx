@@ -72,22 +72,20 @@ export const TeamProvider = ({ children }: { children: React.ReactNode }) => {
       const fetchedTeams = (data as any[]) || [];
       setTeams(fetchedTeams);
       
-      // Auto-select team only if there's exactly 1, or if they have a valid cached one
+      // Auto-select team: keep cached if valid, otherwise auto-select the first available team
       if (fetchedTeams.length > 0) {
         const isValid = fetchedTeams.some(t => t.team_id === activeTeamId);
         
         if (isValid) {
           // Keep current
           syncRecurringTransactionsToSupabase().catch(console.error);
-        } else if (fetchedTeams.length === 1) {
-          // Auto select if only 1 team
-          setActiveTeamId(fetchedTeams[0].team_id);
-          syncRecurringTransactionsToSupabase().catch(console.error);
         } else {
-          // If > 1 team and no valid activeTeamId, clear it so they are forced to select
-          setLocalActiveTeamId(null);
-          localStorage.removeItem('contahogar_active_team_id');
+          // Auto-select the first team so the user is not left without an active team
+          setActiveTeamId(fetchedTeams[0].team_id);
         }
+      } else {
+        setLocalActiveTeamId(null);
+        localStorage.removeItem('contahogar_active_team_id');
       }
     }
     setLoading(false);
@@ -103,7 +101,7 @@ export const TeamProvider = ({ children }: { children: React.ReactNode }) => {
     syncRecurringTransactionsToSupabase().catch(console.error);
   };
 
-  const computedActiveTeamId = activeTeamId || (teams.length === 1 ? teams[0].team_id : null);
+  const computedActiveTeamId = activeTeamId || (teams.length > 0 ? teams[0].team_id : null);
   const activeTeamMember = teams.find(t => t.team_id === computedActiveTeamId);
   const activeTeam = activeTeamMember?.teams || null;
   const activeRole = activeTeamMember?.role || null;
