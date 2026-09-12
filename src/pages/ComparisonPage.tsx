@@ -14,7 +14,6 @@ import { useTransactions } from '@/hooks/useTransactions';
 import { useCategories } from '@/hooks/useCategories';
 import { useScrollOnFocus } from '@/hooks/useScrollOnFocus';
 import { withKeyboardClose } from '@/lib/utils';
-import { v4 as uuidv4 } from 'uuid';
 
 interface Adjustment {
     id: string;
@@ -26,7 +25,7 @@ interface Adjustment {
 
 const ComparisonPage = () => {
     const navigate = useNavigate();
-    const scrollOnFocus = useScrollOnFocus(240);
+    const scrollOnFocus = useScrollOnFocus();
     const { accounts, isLoading: isAccLoading } = useAccounts();
     const { transactions, addTransaction: rqAddTransaction, isLoading: isTxLoading } = useTransactions();
     const { categories, isLoading: isCatLoading } = useCategories();
@@ -127,7 +126,7 @@ const ComparisonPage = () => {
                 await rqAddTransaction(adj);
             }
             toast.success('Ajustes guardados correctamente');
-            navigate('/');
+            navigate({ to: '/' } as any);
         }
     };
 
@@ -200,13 +199,14 @@ const ComparisonPage = () => {
                                 <div className="relative">
                                     <Input
                                         id="realBalance"
-                                        type="number"
-                                        step="0.01"
+                                        type="text"
+                                        inputMode="decimal"
                                         value={realBalance}
                                         onChange={(e) => setRealBalances(prev => ({ ...prev, [activeAccountId]: e.target.value }))}
                                         placeholder="0.00"
                                         className="text-lg py-6 pr-10"
                                         onFocus={scrollOnFocus}
+                                        enterKeyHint="done"
                                     />
                                     <span className="absolute right-4 top-1/2 -translate-y-1/2 text-muted-foreground font-bold text-lg">€</span>
                                 </div>
@@ -260,13 +260,13 @@ const ComparisonPage = () => {
                                 <div>
                                     <Label className="text-xs font-bold uppercase mb-1 block">Importe (€)</Label>
                                     <Input
-                                        type="number"
-                                        step="0.01"
-                                        min="0"
+                                        type="text"
+                                        inputMode="decimal"
                                         value={newAmount}
                                         onChange={(e) => setNewAmount(e.target.value)}
                                         placeholder="0.00"
                                         onFocus={scrollOnFocus}
+                                        enterKeyHint="next"
                                     />
                                 </div>
                                 <div className="relative">
@@ -375,7 +375,7 @@ const ComparisonPage = () => {
                     <div className="fixed bottom-20 left-0 w-full p-4 bg-background/80 backdrop-blur-md border-t sm:relative sm:bottom-auto sm:border-t-0 sm:bg-transparent sm:p-0 flex gap-4 z-40">
                         <Button
                             variant="outline"
-                            onClick={() => navigate('/')}
+                            onClick={() => navigate({ to: '/' } as any)}
                             className="flex-1 sm:hidden py-6"
                         >
                             Cancelar

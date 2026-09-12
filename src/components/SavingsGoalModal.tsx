@@ -39,7 +39,7 @@ const SavingsGoalModal = ({
   editingGoal,
   accounts
 }: SavingsGoalModalProps) => {
-  const scrollOnFocus = useScrollOnFocus(240);
+  const scrollOnFocus = useScrollOnFocus();
   
   const [name, setName] = useState('');
   const [targetAmount, setTargetAmount] = useState('');
@@ -121,6 +121,7 @@ const SavingsGoalModal = ({
                   placeholder="Ej: Viaje a Japón, Nuevo Coche..."
                   className="pl-12 h-14 rounded-2xl bg-muted/30 border-none text-base font-bold transition-all focus:bg-white dark:focus:bg-card focus:ring-2 ring-primary"
                   onFocus={scrollOnFocus}
+                  enterKeyHint="next"
                 />
               </div>
             </div>
@@ -133,11 +134,14 @@ const SavingsGoalModal = ({
                   <DollarSign className="w-4 h-4" />
                 </div>
                 <Input
-                  type="number"
+                  type="text"
+                  inputMode="decimal"
                   value={targetAmount}
                   onChange={(e) => setTargetAmount(e.target.value)}
                   placeholder="0.00"
                   className="pl-12 h-14 rounded-2xl bg-muted/30 border-none text-base font-bold focus:ring-2 ring-income"
+                  onFocus={scrollOnFocus}
+                  enterKeyHint="next"
                 />
               </div>
             </div>
@@ -166,6 +170,8 @@ const SavingsGoalModal = ({
                 onChange={(e) => setCategory(e.target.value)}
                 placeholder="Ej: Viajes, Fondo, Compras..."
                 className="h-14 rounded-2xl bg-muted/30 border-none text-base font-bold focus:ring-2 ring-primary"
+                onFocus={scrollOnFocus}
+                enterKeyHint="done"
               />
             </div>
           </div>

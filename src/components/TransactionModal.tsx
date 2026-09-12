@@ -645,40 +645,41 @@ const TransactionModal = ({
                             <div className="space-y-2">
                               <Label className="text-xs">Nº Cuotas</Label>
                               <Input
-                                type="number"
-                                min="2"
-                                step="1"
+                                type="text"
+                                inputMode="numeric"
+                                pattern="[0-9]*"
                                 value={installments}
                                 onChange={(e) => setInstallments(e.target.value)}
                                 className="h-10"
                                 required={isFractionated}
+                                enterKeyHint="next"
                               />
                             </div>
                             <div className="space-y-2">
                               <Label className="text-xs">Importe/Cuota real</Label>
                               <Input
-                                type="number"
-                                min="0.01"
-                                step="0.01"
+                                type="text"
+                                inputMode="decimal"
                                 value={installmentAmount}
                                 onChange={(e) => setInstallmentAmount(e.target.value)}
                                 className="h-10"
                                 placeholder="Ej: 148.00"
                                 required={isFractionated}
                                 onFocus={scrollOnFocus}
+                                enterKeyHint="next"
                               />
                             </div>
                             <div className="space-y-2">
                               <Label className="text-xs">Comisión apertura</Label>
                               <Input
-                                type="number"
-                                min="0"
-                                step="0.01"
+                                type="text"
+                                inputMode="decimal"
                                 value={setupFee}
                                 onChange={(e) => setSetupFee(e.target.value)}
                                 className="h-10"
                                 placeholder="Ej: 5.00"
                                 onFocus={scrollOnFocus}
+                                enterKeyHint="done"
                               />
                             </div>
                             <div className="space-y-2">

@@ -64,7 +64,10 @@ const SearchPage = () => {
       const parts = transaction.id.split("_");
       const ruleId = parts.length >= 2 ? parts[1] : null;
       toast.info("Este gasto futuro forma parte de una regla de gasto fijo automatizado. Te redirigimos para modificar la regla...");
-      navigate(`/ajustes?tab=gastos_fijos${ruleId ? `&editRuleId=${ruleId}` : ""}`);
+      navigate({
+        to: '/ajustes',
+        search: { tab: 'gastos_fijos', ...(ruleId ? { editRuleId: ruleId } : {}) },
+      } as any);
       return;
     }
 
@@ -242,14 +245,16 @@ const SearchPage = () => {
                 <Label className="text-xs font-black uppercase tracking-widest text-muted-foreground/60">Rango de Importe (€)</Label>
                 <div className="grid grid-cols-2 gap-2">
                   <Input
-                    type="number"
+                    type="text"
+                    inputMode="decimal"
                     placeholder="Min"
                     className="h-10 rounded-xl bg-background/50 text-xs"
                     value={criteria.minAmount || ''}
                     onChange={(e) => setCriteria(prev => ({ ...prev, minAmount: e.target.value ? parseFloat(e.target.value) : undefined }))}
                   />
                   <Input
-                    type="number"
+                    type="text"
+                    inputMode="decimal"
                     placeholder="Max"
                     className="h-10 rounded-xl bg-background/50 text-xs"
                     value={criteria.maxAmount || ''}

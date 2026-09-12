@@ -72,7 +72,7 @@ const HistoryPage = () => {
     }, [categories, transactions]);
 
     const handleMonthClick = (monthKey: string) => {
-        navigate(`/?month=${monthKey}`);
+        navigate({ to: '/', search: { month: monthKey } } as any);
     };
 
     const handleBarClick = (data: any) => {

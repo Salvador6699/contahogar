@@ -58,9 +58,11 @@ const LoginPage = () => {
                 type="email"
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
-                className="w-full bg-background border border-border rounded-xl py-3 pl-10 pr-4 focus:ring-2 focus:ring-primary/50 focus:border-primary transition-all outline-none text-foreground"
+                className="w-full bg-background border border-border rounded-xl py-3 pl-10 pr-4 text-base focus:ring-2 focus:ring-primary/50 focus:border-primary transition-all outline-none text-foreground"
                 placeholder="tu@email.com"
                 required
+                autoComplete="email"
+                enterKeyHint="next"
               />
             </div>
           </div>
@@ -73,9 +75,11 @@ const LoginPage = () => {
                 type="password"
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
-                className="w-full bg-background border border-border rounded-xl py-3 pl-10 pr-4 focus:ring-2 focus:ring-primary/50 focus:border-primary transition-all outline-none text-foreground"
+                className="w-full bg-background border border-border rounded-xl py-3 pl-10 pr-4 text-base focus:ring-2 focus:ring-primary/50 focus:border-primary transition-all outline-none text-foreground"
                 placeholder="••••••••"
                 required
+                autoComplete="current-password"
+                enterKeyHint="done"
               />
             </div>
           </div>

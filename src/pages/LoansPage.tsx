@@ -233,7 +233,7 @@ const LoanCard = ({ loan, activeRole, onDelete, onUpdateTx, onUpdateLoan }: { lo
             </div>
             <div className="space-y-1.5">
               <label className="text-xs font-medium text-muted-foreground">Cantidad ya pagada inicial (€)</label>
-              <Input type="number" step="0.01" value={editStartingPaid} onChange={e => setEditStartingPaid(e.target.value)} className="h-8 text-sm" />
+              <Input type="text" inputMode="decimal" value={editStartingPaid} onChange={e => setEditStartingPaid(e.target.value)} className="h-8 text-sm" enterKeyHint="done" />
             </div>
             <div className="flex justify-end gap-2 pt-2">
               <Button size="sm" variant="ghost" className="h-8 text-xs" onClick={() => setIsEditingLoan(false)}>Cancelar</Button>
@@ -319,11 +319,12 @@ const EditableTransactionRow = ({ tx, index, activeRole, onSave }: { tx: any, in
           className="h-8 text-xs px-2"
         />
         <Input 
-          type="number" 
-          step="0.01"
+          type="text" 
+          inputMode="decimal"
           value={amount} 
           onChange={(e) => setAmount(e.target.value)}
           className="h-8 text-xs px-2 w-24"
+          enterKeyHint="done"
         />
         <Button size="icon" variant="ghost" className="h-8 w-8 text-green-500 shrink-0" onClick={handleSave}>
           <Check className="w-4 h-4" />

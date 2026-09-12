@@ -182,14 +182,14 @@ const SplitTransactionModal = ({
                   <div className="space-y-1.5 w-24">
                     <Label className="text-xs">Importe</Label>
                     <Input
-                      type="number"
-                      step="0.01"
-                      min="0.01"
+                      type="text"
+                      inputMode="decimal"
                       value={split.amount}
                       onChange={(e) => handleSplitChange(index, 'amount', e.target.value)}
                       placeholder="0.00"
                       required
                       className="h-10 text-sm font-medium"
+                      enterKeyHint="next"
                     />
                   </div>
                 </div>
@@ -209,7 +209,7 @@ const SplitTransactionModal = ({
                   variant="ghost"
                   size="icon"
                   onClick={() => removeSplit(index)}
-                  className="absolute -top-2 -right-2 h-7 w-7 rounded-full bg-destructive/10 text-destructive hover:bg-destructive hover:text-white opacity-0 group-hover:opacity-100 transition-opacity shadow-sm"
+                  className="absolute -top-2 -right-2 h-8 w-8 rounded-full bg-destructive/10 text-destructive hover:bg-destructive hover:text-white transition-all shadow-sm"
                 >
                   <Trash2 className="w-3.5 h-3.5" />
                 </Button>

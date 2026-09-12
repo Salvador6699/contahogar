@@ -160,7 +160,7 @@ const FavoritesPage = () => {
           <Button 
             variant="ghost" 
             size="icon" 
-            onClick={() => navigate(-1)} 
+            onClick={() => window.history.back()} 
             className="rounded-full bg-background/50 hover:bg-background shadow-sm"
           >
             <ArrowLeft className="w-5 h-5" />
@@ -256,8 +256,7 @@ const FavoritesPage = () => {
                 <Label htmlFor="fav-amount" className="text-base font-semibold">Importe (€)</Label>
                 <Input
                   id="fav-amount"
-                  type="number"
-                  step="0.01"
+                  type="text"
                   value={amount}
                   onChange={(e) => setAmount(e.target.value)}
                   placeholder="0.00"

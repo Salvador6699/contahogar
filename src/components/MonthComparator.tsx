@@ -408,9 +408,9 @@ export const MonthComparator = ({
                             <div className="flex items-center gap-2">
                                 <span className="text-xs font-semibold text-muted-foreground whitespace-nowrap">Desde:</span>
                                 <Input
-                                    type="number"
-                                    min={1}
-                                    max={31}
+                                    type="text"
+                                    inputMode="numeric"
+                                    pattern="[0-9]*"
                                     value={startDay}
                                     onChange={(e) => setStartDay(Math.max(1, Math.min(31, parseInt(e.target.value) || 1)))}
                                     className="h-8 text-xs bg-background font-bold text-center"
@@ -419,9 +419,9 @@ export const MonthComparator = ({
                             <div className="flex items-center gap-2">
                                 <span className="text-xs font-semibold text-muted-foreground whitespace-nowrap">Hasta:</span>
                                 <Input
-                                    type="number"
-                                    min={1}
-                                    max={31}
+                                    type="text"
+                                    inputMode="numeric"
+                                    pattern="[0-9]*"
                                     value={endDay}
                                     onChange={(e) => setEndDay(Math.max(1, Math.min(31, parseInt(e.target.value) || 31)))}
                                     className="h-8 text-xs bg-background font-bold text-center"

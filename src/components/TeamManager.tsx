@@ -226,7 +226,7 @@ export const TeamManager = () => {
                   value={editedName} 
                   onChange={(e) => setEditedName(e.target.value)} 
                   className="h-8 max-w-[200px]"
-                  autoFocus
+                  enterKeyHint="done"
                 />
                 <Button size="icon" variant="ghost" className="h-8 w-8 text-green-600 hover:text-green-700 hover:bg-green-100" onClick={handleSaveName} disabled={loading}>
                   <Save size={16} />
@@ -274,7 +274,7 @@ export const TeamManager = () => {
                 <Button 
                   variant="secondary" 
                   className="w-full gap-2"
-                  onClick={() => navigate('/select-team')}
+                  onClick={() => navigate({ to: '/select-team' } as any)}
                 >
                   <ArrowRightLeft size={16} /> Cambiar Equipo
                 </Button>
@@ -374,7 +374,7 @@ export const TeamManager = () => {
                 </div>
                 <div className="flex items-center gap-2">
                   <select
-                    className="bg-muted text-xs p-1.5 rounded outline-none cursor-pointer"
+                    className="bg-muted text-base md:text-xs p-2 min-h-[44px] rounded outline-none cursor-pointer"
                     value={member.role}
                     onChange={(e) => handleChangeRole(member.user_id, e.target.value)}
                     disabled={member.user_id === user?.id && teamMembers.filter(m => m.role === 'admin').length === 1}

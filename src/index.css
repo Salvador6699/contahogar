@@ -162,6 +162,13 @@ All colors MUST be HSL.
     width: 100%;
     position: relative;
   }
+
+  /* Prevent iOS Safari auto-zoom on input focus — force 16px minimum */
+  @media (max-width: 767px) {
+    input, select, textarea {
+      font-size: 16px !important;
+    }
+  }
 }
 
 @layer components {

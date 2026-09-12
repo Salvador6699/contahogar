@@ -528,13 +528,13 @@ const BudgetPage = () => {
                             <div className="flex flex-wrap sm:flex-nowrap items-center gap-2">
                                 <div className="relative flex-1 min-w-[120px] group">
                                     <Input 
-                                        type="number" 
-                                        step="0.01" 
+                                        type="text" 
+                                        inputMode="decimal"
                                         placeholder="0.00" 
                                         value={addAmounts[cat] || ''}
                                         onChange={(e) => setAddAmounts(prev => ({ ...prev, [cat]: e.target.value }))}
                                         onKeyDown={(e) => { if (e.key === 'Enter') handleAddAmount(cat, false); }}
-                                        autoFocus
+                                        enterKeyHint="done"
                                         className="h-12 pl-4 pr-8 text-base font-bold bg-background border-border/60 focus-visible:ring-primary/30 rounded-2xl shadow-inner"
                                     />
                                     <span className="absolute right-4 top-1/2 -translate-y-1/2 text-muted-foreground font-bold select-none pointer-events-none">€</span>
@@ -575,10 +575,12 @@ const BudgetPage = () => {
                             </SelectContent>
                         </Select>
                         <Input 
-                            type="number" 
+                            type="text" 
+                            inputMode="decimal"
                             placeholder="Importe" 
                             value={newCategoryAmount}
                             onChange={(e) => setNewCategoryAmount(e.target.value)}
+                            enterKeyHint="done"
                         />
                         <Button onClick={handleConfirmAddCategory}>Guardar</Button>
                     </div>
@@ -849,13 +851,13 @@ const BudgetPage = () => {
                                 <label className="text-sm font-bold text-muted-foreground">Importe del Presupuesto (€)</label>
                                 <div className="relative w-full flex items-center justify-end">
                                     <Input 
-                                        type="number"
-                                        step="0.01"
+                                        type="text"
+                                        inputMode="decimal"
                                         value={newCategoryAmount}
                                         onChange={(e) => setNewCategoryAmount(e.target.value)}
                                         placeholder="0.00"
                                         className="h-12 text-right font-bold text-lg focus-visible:ring-1 pr-8"
-                                        autoFocus
+                                        enterKeyHint="done"
                                     />
                                     <span className="absolute right-3 text-muted-foreground font-bold select-none pointer-events-none">€</span>
                                 </div>

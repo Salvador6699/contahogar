@@ -155,10 +155,12 @@ export const AccountManager = () => {
                             <Label htmlFor="initial-balance">Saldo Inicial</Label>
                             <Input
                                 id="initial-balance"
-                                type="number"
+                                type="text"
+                                inputMode="decimal"
                                 value={initialBalance}
                                 onChange={(e) => setInitialBalance(e.target.value)}
                                 placeholder="0.00"
+                                enterKeyHint="done"
                             />
                         </div>
 

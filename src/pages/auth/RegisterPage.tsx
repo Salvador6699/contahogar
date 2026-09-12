@@ -31,7 +31,7 @@ const RegisterPage = () => {
         toast.error(error.message);
       } else {
         toast.success("¡Registro completado!");
-        navigate('/select-team');
+        navigate({ to: '/select-team' } as any);
       }
     } catch (err: any) {
       toast.error(err.message || 'Error al registrar usuario');
@@ -66,9 +66,11 @@ const RegisterPage = () => {
                 type="text"
                 value={fullName}
                 onChange={(e) => setFullName(e.target.value)}
-                className="w-full bg-background border border-border rounded-xl py-3 pl-10 pr-4 focus:ring-2 focus:ring-primary/50 focus:border-primary transition-all outline-none text-foreground"
+                className="w-full bg-background border border-border rounded-xl py-3 pl-10 pr-4 text-base focus:ring-2 focus:ring-primary/50 focus:border-primary transition-all outline-none text-foreground"
                 placeholder="Juan Pérez"
                 required
+                autoComplete="name"
+                enterKeyHint="next"
               />
             </div>
           </div>
@@ -81,9 +83,11 @@ const RegisterPage = () => {
                 type="email"
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
-                className="w-full bg-background border border-border rounded-xl py-3 pl-10 pr-4 focus:ring-2 focus:ring-primary/50 focus:border-primary transition-all outline-none text-foreground"
+                className="w-full bg-background border border-border rounded-xl py-3 pl-10 pr-4 text-base focus:ring-2 focus:ring-primary/50 focus:border-primary transition-all outline-none text-foreground"
                 placeholder="tu@email.com"
                 required
+                autoComplete="email"
+                enterKeyHint="next"
               />
             </div>
           </div>
@@ -96,10 +100,12 @@ const RegisterPage = () => {
                 type="password"
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
-                className="w-full bg-background border border-border rounded-xl py-3 pl-10 pr-4 focus:ring-2 focus:ring-primary/50 focus:border-primary transition-all outline-none text-foreground"
+                className="w-full bg-background border border-border rounded-xl py-3 pl-10 pr-4 text-base focus:ring-2 focus:ring-primary/50 focus:border-primary transition-all outline-none text-foreground"
                 placeholder="••••••••"
                 required
                 minLength={6}
+                autoComplete="new-password"
+                enterKeyHint="done"
               />
             </div>
           </div>

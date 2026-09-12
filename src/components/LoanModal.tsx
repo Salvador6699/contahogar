@@ -1,10 +1,25 @@
 import React, { useState, useEffect } from "react";
-import { X, Calendar, Wallet } from "lucide-react";
+import { Calendar, Wallet } from "lucide-react";
 import { Button } from "./ui/button";
 import { Input } from "./ui/input";
 import { Label } from "./ui/label";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "./ui/select";
+import { Switch } from "./ui/switch";
 import { Account } from "@/types/finance";
 import { appToast as toast } from "@/lib/swal";
+import { useScrollOnFocus } from "@/hooks/useScrollOnFocus";
+import {
+  ResponsiveDialog,
+  ResponsiveDialogContent,
+  ResponsiveDialogHeader,
+  ResponsiveDialogTitle,
+} from "@/components/ui/responsive-dialog";
 
 interface LoanModalProps {
   isOpen: boolean;
@@ -21,6 +36,7 @@ const LoanModal = ({
   accounts,
   defaultAccountId,
 }: LoanModalProps) => {
+  const scrollOnFocus = useScrollOnFocus();
   const [name, setName] = useState("");
   const [amount, setAmount] = useState("");
   const [accountId, setAccountId] = useState("");
@@ -100,17 +116,16 @@ const LoanModal = ({
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-background/80 backdrop-blur-sm animate-in fade-in duration-200">
-      <div className="bg-card w-full max-w-md rounded-2xl shadow-xl border border-border flex flex-col max-h-[90vh]">
-        <div className="flex items-center justify-between p-4 border-b border-border">
-          <h2 className="text-lg font-semibold">Registrar Nuevo Préstamo</h2>
-          <Button variant="ghost" size="icon" onClick={onClose}>
-            <X className="w-5 h-5" />
-          </Button>
-        </div>
+    <ResponsiveDialog open={isOpen} onOpenChange={onClose}>
+      <ResponsiveDialogContent hideCloseButton={true} className="sm:max-w-[500px] w-full">
+        <form onSubmit={handleSubmit} className="flex flex-col gap-5">
+          <ResponsiveDialogHeader>
+            <ResponsiveDialogTitle className="text-xl font-bold">
+              Registrar Nuevo Préstamo
+            </ResponsiveDialogTitle>
+          </ResponsiveDialogHeader>
 
-        <div className="p-4 overflow-y-auto">
-          <form id="loan-form" onSubmit={handleSubmit} className="space-y-4">
+          <div className="space-y-4">
             <div className="space-y-2">
               <Label>Concepto del Préstamo</Label>
               <Input
@@ -118,6 +133,9 @@ const LoanModal = ({
                 onChange={(e) => setName(e.target.value)}
                 placeholder="Ej: Coche, Reforma, etc."
                 required
+                className="h-12"
+                enterKeyHint="next"
+                onFocus={scrollOnFocus}
               />
             </div>
 
@@ -125,13 +143,15 @@ const LoanModal = ({
               <div className="space-y-2">
                 <Label>Cantidad Prestada</Label>
                 <Input
-                  type="number"
-                  step="0.01"
-                  min="0"
+                  type="text"
+                  inputMode="decimal"
                   value={amount}
                   onChange={(e) => setAmount(e.target.value)}
                   placeholder="Ej: 5000"
                   required
+                  className="h-12"
+                  enterKeyHint="next"
+                  onFocus={scrollOnFocus}
                 />
               </div>
               <div className="space-y-2">
@@ -142,33 +162,36 @@ const LoanModal = ({
                   onChange={(e) => setDate(e.target.value)}
                   disabled={isStarted}
                   required={!isStarted}
+                  className="h-12"
                 />
               </div>
             </div>
 
-            <div className="flex items-center space-x-2 bg-secondary/30 p-3 rounded-lg border border-border/50">
-              <input
-                type="checkbox"
-                id="isStarted"
+            <div className="flex items-center justify-between space-y-0 rounded-lg border p-4 border-border/50 bg-secondary/30">
+              <div className="space-y-0.5">
+                <Label className="text-sm cursor-pointer">
+                  Este préstamo ya está en curso
+                </Label>
+                <p className="text-xs text-muted-foreground">No inyectar ingreso</p>
+              </div>
+              <Switch
                 checked={isStarted}
-                onChange={(e) => setIsStarted(e.target.checked)}
-                className="w-4 h-4 rounded border-gray-300 text-primary focus:ring-primary"
+                onCheckedChange={setIsStarted}
               />
-              <Label htmlFor="isStarted" className="text-sm cursor-pointer">
-                Este préstamo ya está en curso (No inyectar ingreso)
-              </Label>
             </div>
 
             {isStarted && (
               <div className="space-y-2 bg-primary/5 p-4 rounded-lg border border-primary/20 animate-in fade-in zoom-in-95">
                 <Label>Cantidad ya pagada históricamente</Label>
                 <Input
-                  type="number"
-                  step="0.01"
-                  min="0"
+                  type="text"
+                  inputMode="decimal"
                   value={startingPaidAmount}
                   onChange={(e) => setStartingPaidAmount(e.target.value)}
                   placeholder="Ej: 1500"
+                  className="h-12"
+                  enterKeyHint="next"
+                  onFocus={scrollOnFocus}
                 />
                 <p className="text-xs text-muted-foreground">
                   Esta cantidad se sumará directamente a tu progreso sin crear transacciones pasadas duplicadas.
@@ -178,18 +201,18 @@ const LoanModal = ({
 
             <div className="space-y-2">
               <Label>Cuenta de Ingreso y Cobro</Label>
-              <select
-                className="flex h-10 w-full items-center justify-between rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
-                value={accountId}
-                onChange={(e) => setAccountId(e.target.value)}
-                required
-              >
-                {accounts.map((acc) => (
-                  <option key={acc.id} value={acc.id}>
-                    {acc.name}
-                  </option>
-                ))}
-              </select>
+              <Select value={accountId} onValueChange={setAccountId}>
+                <SelectTrigger className="h-12">
+                  <SelectValue placeholder="Selecciona cuenta" />
+                </SelectTrigger>
+                <SelectContent>
+                  {accounts.map((acc) => (
+                    <SelectItem key={acc.id} value={acc.id}>
+                      {acc.name}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
             </div>
 
             <div className="pt-4 border-t border-border space-y-4">
@@ -198,23 +221,28 @@ const LoanModal = ({
                 <div className="space-y-2">
                   <Label className="text-xs">Nº Cuotas</Label>
                   <Input
-                    type="number"
-                    min="2"
-                    step="1"
+                    type="text"
+                    inputMode="numeric"
+                    pattern="[0-9]*"
                     value={installments}
                     onChange={(e) => setInstallments(e.target.value)}
                     required
+                    className="h-12"
+                    enterKeyHint="next"
+                    onFocus={scrollOnFocus}
                   />
                 </div>
                 <div className="space-y-2">
                   <Label className="text-xs">Importe Cuota Real</Label>
                   <Input
-                    type="number"
-                    min="0"
-                    step="0.01"
+                    type="text"
+                    inputMode="decimal"
                     value={installmentAmount}
                     onChange={(e) => setInstallmentAmount(e.target.value)}
                     required
+                    className="h-12"
+                    enterKeyHint="next"
+                    onFocus={scrollOnFocus}
                   />
                 </div>
                 <div className="space-y-2">
@@ -224,17 +252,20 @@ const LoanModal = ({
                     value={firstInstallmentDate}
                     onChange={(e) => setFirstInstallmentDate(e.target.value)}
                     required
+                    className="h-12"
                   />
                 </div>
                 <div className="space-y-2">
                   <Label className="text-xs">Comisión Apertura</Label>
                   <Input
-                    type="number"
-                    min="0"
-                    step="0.01"
+                    type="text"
+                    inputMode="decimal"
                     value={setupFee}
                     onChange={(e) => setSetupFee(e.target.value)}
                     placeholder="Ej: 50"
+                    className="h-12"
+                    enterKeyHint="done"
+                    onFocus={scrollOnFocus}
                   />
                 </div>
                 {parseFloat(setupFee) > 0 && (
@@ -245,6 +276,7 @@ const LoanModal = ({
                       value={setupFeeDate}
                       onChange={(e) => setSetupFeeDate(e.target.value)}
                       required
+                      className="h-12"
                     />
                   </div>
                 )}
@@ -276,16 +308,27 @@ const LoanModal = ({
                 </div>
               )}
             </div>
-          </form>
-        </div>
+          </div>
 
-        <div className="p-4 border-t border-border mt-auto">
-          <Button type="submit" form="loan-form" className="w-full">
-            Crear Préstamo
-          </Button>
-        </div>
-      </div>
-    </div>
+          <div className="sticky bottom-[-1.5rem] z-20 -mb-6 -mx-6 px-6 pb-6 pt-4 bg-background border-t border-border/30 flex gap-3 mt-2 pb-safe">
+            <Button
+              type="button"
+              variant="outline"
+              onClick={onClose}
+              className="flex-1 h-14 text-base font-bold"
+            >
+              Cancelar
+            </Button>
+            <Button
+              type="submit"
+              className="flex-1 h-14 text-base font-bold text-white shadow-lg"
+            >
+              Crear Préstamo
+            </Button>
+          </div>
+        </form>
+      </ResponsiveDialogContent>
+    </ResponsiveDialog>
   );
 };
 

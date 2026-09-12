@@ -17,7 +17,6 @@ import { formatCurrency, calculateAccountBalance } from '@/lib/calculations';
 import { appToast as toast } from "@/lib/swal";
 import { useScrollOnFocus } from '@/hooks/useScrollOnFocus';
 import { withKeyboardClose } from '@/lib/utils';
-import { v4 as uuidv4 } from 'uuid';
 import { SmartPagination } from '@/components/SmartPagination';
 import { useAccounts } from '@/hooks/useAccounts';
 import { useTransactions } from '@/hooks/useTransactions';
@@ -26,7 +25,7 @@ const ITEMS_PER_PAGE = 5;
 
 const TransferPage = () => {
     const navigate = useNavigate();
-    const scrollOnFocus = useScrollOnFocus(120);
+    const scrollOnFocus = useScrollOnFocus();
     
     const { accounts, isLoading: accountsLoading } = useAccounts();
     const { transactions, addTransaction, deleteTransaction, isLoading: transactionsLoading } = useTransactions();
@@ -111,7 +110,7 @@ const TransferPage = () => {
             setAmount('');
             setEditingTransferId(null);
             toast.success(editingTransferId ? 'Transferencia actualizada' : 'Transferencia realizada con éxito');
-            navigate('/');
+            navigate({ to: '/' } as any);
         } catch (error) {
             toast.error('Error al realizar la transferencia');
         } finally {
@@ -248,15 +247,14 @@ const TransferPage = () => {
                                 <Label className="text-base font-semibold">Importe a transferir</Label>
                                 <div className="relative">
                                     <Input
-                                        type="number"
-                                        step="0.01"
-                                        min="0"
-                                        max={maxAmount}
+                                        type="text"
+                                        inputMode="decimal"
                                         value={amount}
                                         onChange={(e) => setAmount(e.target.value)}
                                         placeholder="0.00"
                                         className="text-2xl h-16 font-bold text-center pr-10"
                                         onFocus={scrollOnFocus}
+                                        enterKeyHint="done"
                                     />
                                     <span className="absolute right-4 top-1/2 -translate-y-1/2 text-xl font-bold text-muted-foreground">€</span>
                                 </div>

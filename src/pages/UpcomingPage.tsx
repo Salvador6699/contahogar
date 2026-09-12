@@ -67,7 +67,10 @@ const UpcomingPage = () => {
       const parts = transaction.id.split("_");
       const ruleId = parts.length >= 2 ? parts[1] : null;
       toast.info("Este gasto futuro forma parte de una regla. Te redirigimos para modificar la regla...");
-      navigate(`/ajustes?tab=gastos_fijos${ruleId ? `&editRuleId=${ruleId}` : ""}`);
+      navigate({
+        to: '/ajustes',
+        search: { tab: 'gastos_fijos', ...(ruleId ? { editRuleId: ruleId } : {}) },
+      } as any);
       return;
     }
     setEditingTransaction(transaction);
@@ -108,7 +111,7 @@ const UpcomingPage = () => {
   return (
     <div className="w-full max-w-4xl mx-auto px-4 lg:px-8 py-6 sm:py-8 transition-all duration-500 pb-32">
       <div className="flex items-center gap-4 mb-8">
-        <Button variant="ghost" size="icon" onClick={() => navigate("/")} className="h-10 w-10 rounded-full hover:bg-muted">
+        <Button variant="ghost" size="icon" onClick={() => navigate({ to: '/' } as any)} className="h-10 w-10 rounded-full hover:bg-muted">
           <ArrowLeft className="w-5 h-5" />
         </Button>
         <div className="flex items-center gap-3">

@@ -63,7 +63,7 @@ export const RecurringExpensesManager = () => {
         // Remove editRuleId from url to prevent re-opening modal on every load
         const newParams = new URLSearchParams(searchParams);
         newParams.delete("editRuleId");
-        setSearchParams(newParams, { replace: true });
+        setSearchParams(newParams);
       }
     }
   }, [searchParams, rules, setSearchParams]);
@@ -397,12 +397,13 @@ export const RecurringExpensesManager = () => {
               <Label>Importe (€)</Label>
               <div className="relative">
                 <Input
-                  type="number"
-                  step="0.01"
+                  type="text"
+                  inputMode="decimal"
                   value={amount}
                   onChange={(e) => setAmount(e.target.value)}
                   placeholder="0.00"
                   className="h-12 rounded-xl font-black text-lg pl-8"
+                  enterKeyHint="done"
                 />
                 <span className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground font-bold">€</span>
               </div>
@@ -443,11 +444,13 @@ export const RecurringExpensesManager = () => {
                 <div className="space-y-2 flex-1">
                   <Label>Cada</Label>
                   <Input
-                    type="number"
-                    min="1"
+                    type="text"
+                    inputMode="numeric"
+                    pattern="[0-9]*"
                     value={customInterval}
                     onChange={(e) => setCustomInterval(e.target.value)}
                     className="h-11 rounded-xl"
+                    enterKeyHint="done"
                   />
                 </div>
                 <div className="space-y-2 flex-1">
