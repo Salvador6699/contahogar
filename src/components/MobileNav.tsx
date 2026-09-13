@@ -33,6 +33,7 @@ import {
 } from 'lucide-react';
 import * as Icons from 'lucide-react';
 import { cn, withKeyboardClose } from '@/lib/utils';
+import { useVirtualKeyboard } from '@/hooks/useVirtualKeyboard';
 import {
   Sheet,
   SheetContent,
@@ -120,6 +121,7 @@ const MobileNav = () => {
 
     const [isMobileUserMenuOpen, setIsMobileUserMenuOpen] = useState(false);
     const [isDesktopUserMenuOpen, setIsDesktopUserMenuOpen] = useState(false);
+    const isKeyboardOpen = useVirtualKeyboard();
 
     useEffect(() => {
         const handleInteraction = () => {
@@ -348,7 +350,10 @@ const MobileNav = () => {
 
             {/* BARRA INFERIOR MODERNA (Mobile Only) */}
             <Sheet>
-                <nav className="fixed bottom-0 left-0 right-0 z-50 h-[72px] bg-gradient-to-t from-background/95 via-background/85 to-transparent nav-blur-fade px-2 pb-safe lg:hidden transition-all duration-300 border-t border-border/10">
+                <nav className={cn(
+                    "fixed bottom-0 left-0 right-0 z-50 h-[72px] bg-gradient-to-t from-background/95 via-background/85 to-transparent nav-blur-fade px-2 pb-safe lg:hidden transition-all duration-300 border-t border-border/10",
+                    isKeyboardOpen && "translate-y-full opacity-0 pointer-events-none"
+                )}>
                     <div className="grid h-full grid-cols-5 max-w-lg mx-auto items-center">
                         <button onClick={() => navigate({ to: '/' } as any)} className="flex flex-col items-center justify-center relative group h-full">
                             <div className={cn("p-2 rounded-xl transition-all duration-500", isActive('/', true) ? "text-primary scale-110" : "text-muted-foreground/60 group-hover:text-primary")}>
