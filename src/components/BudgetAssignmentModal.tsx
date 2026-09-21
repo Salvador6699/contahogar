@@ -9,7 +9,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { formatCurrency } from '@/lib/calculations';
 import { PiggyBank, Plus, Minus, Trash2, Check, Sparkles, AlertTriangle, CheckCircle2 } from 'lucide-react';
-import { cn } from '@/lib/utils';
+import { cn, parseAmount } from '@/lib/utils';
 
 interface BudgetAssignmentModalProps {
   isOpen: boolean;
@@ -45,12 +45,12 @@ export const BudgetAssignmentModal = ({
     }
   }, [isOpen, currentAmount]);
 
-  const parsedAmount = parseFloat(amountStr.replace(',', '.')) || 0;
+  const parsedAmount = parseAmount(amountStr);
   const resto = Number((parsedAmount - spent).toFixed(2));
 
   // Aplicar un cambio arbitrario (+53, -27, etc.)
   const handleApplyCustomDelta = (isSubtract: boolean) => {
-    const val = parseFloat(deltaInput.replace(',', '.'));
+    const val = parseAmount(deltaInput);
     if (isNaN(val) || val === 0) return;
     const delta = isSubtract ? -Math.abs(val) : Math.abs(val);
     const nextVal = Math.max(0, Number((parsedAmount + delta).toFixed(2)));
@@ -87,7 +87,7 @@ export const BudgetAssignmentModal = ({
     handleEvaluateExpression();
     setIsSaving(true);
     try {
-      const finalAmount = parseFloat(amountStr.replace(',', '.')) || 0;
+      const finalAmount = parseAmount(amountStr);
       await onSave(categoryName, finalAmount);
       onClose();
     } finally {
@@ -227,7 +227,7 @@ export const BudgetAssignmentModal = ({
               <Button
                 type="button"
                 onClick={() => handleApplyCustomDelta(true)}
-                disabled={!parseFloat(deltaInput.replace(',', '.'))}
+                disabled={!parseAmount(deltaInput)}
                 variant="secondary"
                 className="h-12 px-3.5 sm:px-4 rounded-xl font-bold bg-destructive/10 text-destructive hover:bg-destructive hover:text-white transition-colors border border-destructive/20 gap-1.5"
               >
@@ -237,7 +237,7 @@ export const BudgetAssignmentModal = ({
               <Button
                 type="button"
                 onClick={() => handleApplyCustomDelta(false)}
-                disabled={!parseFloat(deltaInput.replace(',', '.'))}
+                disabled={!parseAmount(deltaInput)}
                 variant="secondary"
                 className="h-12 px-3.5 sm:px-4 rounded-xl font-bold bg-income/10 text-income hover:bg-income hover:text-white transition-colors border border-income/20 gap-1.5"
               >

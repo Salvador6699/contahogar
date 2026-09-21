@@ -38,7 +38,7 @@ import {
   X,
 } from "lucide-react";
 import { useScrollOnFocus } from "@/hooks/useScrollOnFocus";
-import { withKeyboardClose } from "@/lib/utils";
+import { withKeyboardClose, parseAmount } from "@/lib/utils";
 import { Textarea } from "@/components/ui/textarea";
 import { Switch } from "@/components/ui/switch";
 import { appToast as toast } from "@/lib/swal";
@@ -241,7 +241,7 @@ const TransactionModal = ({
       return;
     }
 
-    const amountNum = parseFloat(amount);
+    const amountNum = parseAmount(amount);
     if (isNaN(amountNum) || amountNum <= 0) {
       return;
     }
@@ -249,8 +249,8 @@ const TransactionModal = ({
     let fractionData: FractionationData | undefined = undefined;
     if (isFractionated && type === "expense") {
       const instNum = parseInt(installments, 10);
-      const instAmountNum = parseFloat(installmentAmount);
-      const feeNum = parseFloat(setupFee || "0");
+      const instAmountNum = parseAmount(installmentAmount);
+      const feeNum = parseAmount(setupFee || "0");
       if (isNaN(instNum) || instNum < 2 || isNaN(instAmountNum) || instAmountNum <= 0 || !firstInstallmentDate) {
         toast.error("Por favor, revisa los datos del fraccionamiento.");
         setIsSubmitting(false);
@@ -692,7 +692,7 @@ const TransactionModal = ({
                                 required={isFractionated}
                               />
                             </div>
-                            {parseFloat(setupFee) > 0 && (
+                            {parseAmount(setupFee) > 0 && (
                               <div className="space-y-2 col-span-2">
                                 <Label className="text-xs">Fecha cobro comisión apertura</Label>
                                 <Input
@@ -700,7 +700,7 @@ const TransactionModal = ({
                                   value={setupFeeDate}
                                   onChange={(e) => setSetupFeeDate(e.target.value)}
                                   className="h-10"
-                                  required={parseFloat(setupFee) > 0}
+                                  required={parseAmount(setupFee) > 0}
                                   onFocus={scrollOnFocus}
                                 />
                               </div>
@@ -708,9 +708,9 @@ const TransactionModal = ({
                             {installments && installmentAmount && amount && (
                               <div className="col-span-2 mt-1 text-xs font-medium px-1">
                                 {(() => {
-                                  const feeValue = parseFloat(setupFee || "0") || 0;
-                                  const totalReal = parseInt(installments) * parseFloat(installmentAmount) + feeValue;
-                                  const original = parseFloat(amount);
+                                  const feeValue = parseAmount(setupFee || "0");
+                                  const totalReal = parseInt(installments) * parseAmount(installmentAmount) + feeValue;
+                                  const original = parseAmount(amount);
                                   if (!isNaN(totalReal) && !isNaN(original)) {
                                     return (
                                       <p className="text-muted-foreground">

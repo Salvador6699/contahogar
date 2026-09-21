@@ -10,7 +10,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { PiggyBank, PlusCircle, Trash2, Search, X, ChevronLeft, ChevronRight, Copy, Pencil } from 'lucide-react';
 import { appToast as toast } from "@/lib/swal";
-import { cn } from '@/lib/utils';
+import { cn, parseAmount } from '@/lib/utils';
 import Swal from 'sweetalert2';
 import {
   Select,
@@ -227,7 +227,7 @@ const BudgetPage = () => {
             return;
         }
         
-        const numValue = newCategoryAmount === '' ? 0 : parseFloat(newCategoryAmount);
+        const numValue = newCategoryAmount === '' ? 0 : parseAmount(newCategoryAmount);
         if (isNaN(numValue)) {
             toast.error("El importe no es válido.");
             return;

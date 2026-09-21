@@ -9,7 +9,7 @@ import { Trash2, Plus, Zap, AlertCircle, Image as ImageIcon, ArrowLeft } from 'l
 import * as Icons from 'lucide-react';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { appToast as toast } from "@/lib/swal";
-import { cn } from '@/lib/utils';
+import { cn, parseAmount } from '@/lib/utils';
 import { useAccounts } from '@/hooks/useAccounts';
 import { useCategories } from '@/hooks/useCategories';
 import { useFavorites } from '@/hooks/useFavorites';
@@ -117,14 +117,15 @@ const FavoritesPage = () => {
   };
 
   const handleSave = async () => {
-    if (!name || !amount || !category || !accountId) {
+    const amountNum = parseAmount(amount);
+    if (!name || amountNum <= 0 || !category || !accountId) {
       toast.error('Por favor, completa todos los campos obligatorios');
       return;
     }
 
     const favoriteData = {
       name,
-      amount: parseFloat(amount),
+      amount: amountNum,
       category,
       accountId,
       description,

@@ -12,7 +12,7 @@ import { Label } from '@/components/ui/label';
 import { TransactionType, Category, Account } from '@/types/finance';
 import { Zap, DollarSign, Tag, Building2, Check, X } from 'lucide-react';
 import * as Icons from 'lucide-react';
-import { cn, withKeyboardClose } from '@/lib/utils';
+import { cn, withKeyboardClose, parseAmount } from '@/lib/utils';
 
 interface QuickAmountModalProps {
   isOpen: boolean;
@@ -56,7 +56,7 @@ const QuickAmountModal = ({
 
   const handleSubmit = (e?: React.FormEvent) => {
     e?.preventDefault();
-    const amountNum = parseFloat(amount);
+    const amountNum = parseAmount(amount);
     if (!isNaN(amountNum) && amountNum > 0) {
       onSave(amountNum, selectedAccountId);
       onClose();
@@ -184,7 +184,7 @@ const QuickAmountModal = ({
                 </Button>
                 <Button
                   type="submit"
-                  disabled={!amount || parseFloat(amount) <= 0}
+                  disabled={!amount || parseAmount(amount) <= 0}
                   onPointerDown={(e) => {
                     e.preventDefault();
                     e.currentTarget.click();

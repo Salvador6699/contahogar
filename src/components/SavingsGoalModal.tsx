@@ -14,7 +14,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { useScrollOnFocus } from '@/hooks/useScrollOnFocus';
-import { withKeyboardClose } from '@/lib/utils';
+import { withKeyboardClose, parseAmount } from '@/lib/utils';
 import { SavingsGoal, Account } from '@/types/finance';
 import { 
   Dialog, 
@@ -68,11 +68,12 @@ const SavingsGoalModal = ({
   };
 
   const handleSave = () => {
-    if (!name.trim() || !targetAmount) return;
+    const target = parseAmount(targetAmount);
+    if (!name.trim() || target <= 0) return;
 
     const goalData = {
       name: name.trim(),
-      targetAmount: parseFloat(targetAmount),
+      targetAmount: target,
       currentAmount: 0,
       deadline: deadline || undefined,
       category: category.trim() || undefined,

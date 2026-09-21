@@ -1,5 +1,6 @@
 import { Transaction, CategorySummary, Account, AlertSettings } from '@/types/finance';
 import { format } from 'date-fns';
+export { parseAmount } from './utils';
 
 export const calculateBalance = (
   transactions: Transaction[], 

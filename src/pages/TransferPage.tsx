@@ -16,7 +16,7 @@ import { Transaction } from '@/types/finance';
 import { formatCurrency, calculateAccountBalance } from '@/lib/calculations';
 import { appToast as toast } from "@/lib/swal";
 import { useScrollOnFocus } from '@/hooks/useScrollOnFocus';
-import { withKeyboardClose } from '@/lib/utils';
+import { withKeyboardClose, parseAmount } from '@/lib/utils';
 import { SmartPagination } from '@/components/SmartPagination';
 import { useAccounts } from '@/hooks/useAccounts';
 import { useTransactions } from '@/hooks/useTransactions';
@@ -62,7 +62,7 @@ const TransferPage = () => {
     }, [transferTransactions]);
 
     const handleTransfer = async () => {
-        const amountNum = parseFloat(amount);
+        const amountNum = parseAmount(amount);
         if (isNaN(amountNum) || amountNum <= 0 || amountNum > maxAmount || !fromAccountId || !toAccountId) return;
 
         setIsSaving(true);
@@ -258,7 +258,7 @@ const TransferPage = () => {
                                     />
                                     <span className="absolute right-4 top-1/2 -translate-y-1/2 text-xl font-bold text-muted-foreground">€</span>
                                 </div>
-                                {amount && parseFloat(amount) > maxAmount && (
+                                {amount && parseAmount(amount) > maxAmount && (
                                     <p className="text-xs text-destructive font-bold text-center">Saldo insuficiente en la cuenta de origen</p>
                                 )}
                             </div>
@@ -267,7 +267,7 @@ const TransferPage = () => {
                                 className={`w-full h-14 text-lg font-bold shadow-lg ${editingTransferId ? 'bg-orange-500 hover:bg-orange-600' : ''}`}
                                 onClick={() => withKeyboardClose(() => handleTransfer())}
                                 onPointerDown={() => withKeyboardClose(() => handleTransfer())}
-                                disabled={isSaving || !amount || parseFloat(amount) <= 0 || (parseFloat(amount) > maxAmount && !editingTransferId) || !fromAccountId || !toAccountId || fromAccountId === toAccountId}
+                                disabled={isSaving || !amount || parseAmount(amount) <= 0 || (parseAmount(amount) > maxAmount && !editingTransferId) || !fromAccountId || !toAccountId || fromAccountId === toAccountId}
                             >
                                 {isSaving ? 'Guardando...' : (editingTransferId ? 'Actualizar Transferencia' : 'Realizar Transferencia')}
                             </Button>

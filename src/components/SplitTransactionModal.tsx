@@ -9,7 +9,7 @@ import { Label } from "@/components/ui/label";
 import { Transaction, Category } from "@/types/finance";
 import { getCategorySuggestions, findSimilarCategory } from "@/lib/storage";
 import { SplitSquareHorizontal, Plus, Trash2, CheckCircle2 } from "lucide-react";
-import { cn, withKeyboardClose } from "@/lib/utils";
+import { cn, withKeyboardClose, parseAmount } from "@/lib/utils";
 import { appToast as toast } from "@/lib/swal";
 
 interface SplitTransactionModalProps {
@@ -68,7 +68,7 @@ const SplitTransactionModal = ({
   };
 
   const totalSplits = useMemo(() => {
-    return splits.reduce((sum, s) => sum + (parseFloat(s.amount) || 0), 0);
+    return splits.reduce((sum, s) => sum + parseAmount(s.amount), 0);
   }, [splits]);
 
   const baseAmount = useMemo(() => {
@@ -89,7 +89,7 @@ const SplitTransactionModal = ({
       return;
     }
 
-    const validSplits = splits.filter(s => parseFloat(s.amount) > 0 && s.category.trim() !== "");
+    const validSplits = splits.filter(s => parseAmount(s.amount) > 0 && s.category.trim() !== "");
     
     if (validSplits.length !== splits.length) {
       toast.error("Asegúrate de rellenar la cantidad y categoría de todas las divisiones.");
@@ -99,7 +99,7 @@ const SplitTransactionModal = ({
     setIsSubmitting(true);
     try {
       const finalSplits = validSplits.map(s => ({
-        amount: parseFloat(s.amount),
+        amount: parseAmount(s.amount),
         category: findSimilarCategory(s.category, categories) || s.category,
         description: s.description.trim()
       }));

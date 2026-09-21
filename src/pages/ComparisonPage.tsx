@@ -13,7 +13,7 @@ import { useAccounts } from '@/hooks/useAccounts';
 import { useTransactions } from '@/hooks/useTransactions';
 import { useCategories } from '@/hooks/useCategories';
 import { useScrollOnFocus } from '@/hooks/useScrollOnFocus';
-import { withKeyboardClose } from '@/lib/utils';
+import { withKeyboardClose, parseAmount } from '@/lib/utils';
 
 interface Adjustment {
     id: string;
@@ -75,7 +75,7 @@ const ComparisonPage = () => {
     const realBalance = realBalances[activeAccountId] || '';
 
     const addAdjustment = (type: 'income' | 'expense') => {
-        const amount = parseFloat(newAmount);
+        const amount = parseAmount(newAmount);
         if (amount > 0 && newCategory.trim() && activeAccountId) {
             const adjustment: Adjustment = {
                 id: crypto.randomUUID(),
@@ -135,7 +135,7 @@ const ComparisonPage = () => {
     }, 0);
 
     const adjustedBalance = currentBalance + totalAdjustments;
-    const realBalanceNum = parseFloat(realBalance) || 0;
+    const realBalanceNum = parseAmount(realBalance);
     const difference = realBalanceNum - adjustedBalance;
     const hasDifference = Math.abs(difference) > 0.01;
 
@@ -143,7 +143,7 @@ const ComparisonPage = () => {
     const allAccountBalances = accounts.map(account => {
         const adj = (adjustments[account.id] || []).reduce((s, a) => a.type === 'income' ? s + a.amount : s - a.amount, 0);
         const balance = calculateAccountBalance(account, transactions);
-        const real = parseFloat(realBalances[account.id] || '0') || 0;
+        const real = parseAmount(realBalances[account.id] || '0');
         return {
             accountId: account.id,
             isBalanced: realBalances[account.id] !== '' && Math.abs(real - (balance + adj)) < 0.01,
@@ -318,7 +318,7 @@ const ComparisonPage = () => {
                                     className="flex-1 bg-income hover:bg-income/90 gap-2"
                                     onClick={() => withKeyboardClose(() => addAdjustment('income'))}
                                     onPointerDown={() => withKeyboardClose(() => addAdjustment('income'))}
-                                    disabled={!newAmount || parseFloat(newAmount) <= 0 || !newCategory.trim()}
+                                    disabled={!newAmount || parseAmount(newAmount) <= 0 || !newCategory.trim()}
                                 >
                                     <Plus className="w-4 h-4" /> Ingreso
                                 </Button>
@@ -326,7 +326,7 @@ const ComparisonPage = () => {
                                     className="flex-1 bg-expense hover:bg-expense/90 gap-2"
                                     onClick={() => withKeyboardClose(() => addAdjustment('expense'))}
                                     onPointerDown={() => withKeyboardClose(() => addAdjustment('expense'))}
-                                    disabled={!newAmount || parseFloat(newAmount) <= 0 || !newCategory.trim()}
+                                    disabled={!newAmount || parseAmount(newAmount) <= 0 || !newCategory.trim()}
                                 >
                                     <Minus className="w-4 h-4" /> Gasto
                                 </Button>

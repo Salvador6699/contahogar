@@ -1,6 +1,7 @@
 import { useState, useMemo } from 'react';
 import { Landmark, Plus, Trash2, Calendar, AlertCircle, ChevronDown, ChevronUp, Edit2, Check, X as XIcon } from 'lucide-react';
 import { formatCurrency } from '@/lib/calculations';
+import { parseAmount } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
 import { Progress } from '@/components/ui/progress';
 import { Input } from '@/components/ui/input';
@@ -164,7 +165,7 @@ const LoanCard = ({ loan, activeRole, onDelete, onUpdateTx, onUpdateLoan }: { lo
   const handleSaveLoan = () => {
     onUpdateLoan(loan.id, {
       startDate: editStartDate,
-      startingPaidAmount: parseFloat(editStartingPaid) || 0
+      startingPaidAmount: parseAmount(editStartingPaid)
     });
     setIsEditingLoan(false);
   };
@@ -297,7 +298,7 @@ const EditableTransactionRow = ({ tx, index, activeRole, onSave }: { tx: any, in
   const [amount, setAmount] = useState(tx.amount.toString());
 
   const handleSave = () => {
-    const numAmount = parseFloat(amount);
+    const numAmount = parseAmount(amount);
     if (!isNaN(numAmount) && date) {
       onSave({ date, amount: numAmount });
       setIsEditing(false);

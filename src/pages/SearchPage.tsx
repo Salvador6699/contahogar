@@ -27,7 +27,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Label } from '@/components/ui/label';
-import { cn } from '@/lib/utils';
+import { cn, parseAmount } from '@/lib/utils';
 import { Badge } from '@/components/ui/badge';
 import { appToast as toast } from "@/lib/swal";
 
@@ -250,7 +250,7 @@ const SearchPage = () => {
                     placeholder="Min"
                     className="h-10 rounded-xl bg-background/50 text-xs"
                     value={criteria.minAmount || ''}
-                    onChange={(e) => setCriteria(prev => ({ ...prev, minAmount: e.target.value ? parseFloat(e.target.value) : undefined }))}
+                    onChange={(e) => setCriteria(prev => ({ ...prev, minAmount: e.target.value ? parseAmount(e.target.value) : undefined }))}
                   />
                   <Input
                     type="text"
@@ -258,7 +258,7 @@ const SearchPage = () => {
                     placeholder="Max"
                     className="h-10 rounded-xl bg-background/50 text-xs"
                     value={criteria.maxAmount || ''}
-                    onChange={(e) => setCriteria(prev => ({ ...prev, maxAmount: e.target.value ? parseFloat(e.target.value) : undefined }))}
+                    onChange={(e) => setCriteria(prev => ({ ...prev, maxAmount: e.target.value ? parseAmount(e.target.value) : undefined }))}
                   />
                 </div>
               </div>

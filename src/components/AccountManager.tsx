@@ -11,6 +11,7 @@ import { Label } from '@/components/ui/label';
 import { Plus, Pencil, Trash2, Wallet } from 'lucide-react';
 import { appToast as toast } from "@/lib/swal";
 import { formatCurrency } from '@/lib/calculations';
+import { parseAmount } from '@/lib/utils';
 import { Switch } from '@/components/ui/switch';
 
 const BANK_LOGOS = [
@@ -59,7 +60,7 @@ export const AccountManager = () => {
             return;
         }
         
-        const balance = parseFloat(initialBalance);
+        const balance = parseAmount(initialBalance);
         const finalLinkedId = linkedAccountId === 'none' ? undefined : linkedAccountId;
         const finalLogo = logo.trim() || undefined;
 

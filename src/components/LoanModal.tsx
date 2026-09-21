@@ -14,6 +14,7 @@ import { Switch } from "./ui/switch";
 import { Account } from "@/types/finance";
 import { appToast as toast } from "@/lib/swal";
 import { useScrollOnFocus } from "@/hooks/useScrollOnFocus";
+import { parseAmount } from "@/lib/utils";
 import {
   ResponsiveDialog,
   ResponsiveDialogContent,
@@ -80,10 +81,10 @@ const LoanModal = ({
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
 
-    const amountNum = parseFloat(amount);
+    const amountNum = parseAmount(amount);
     const instNum = parseInt(installments, 10);
-    const instAmountNum = parseFloat(installmentAmount);
-    const feeNum = parseFloat(setupFee || "0");
+    const instAmountNum = parseAmount(installmentAmount);
+    const feeNum = parseAmount(setupFee || "0");
 
     if (
       !name ||
@@ -111,7 +112,7 @@ const LoanModal = ({
       setupFee: isNaN(feeNum) ? 0 : feeNum,
       setupFeeDate: setupFeeDate || date,
       isStarted,
-      startingPaidAmount: isStarted ? parseFloat(startingPaidAmount || "0") : 0,
+      startingPaidAmount: isStarted ? parseAmount(startingPaidAmount || "0") : 0,
     });
   };
 
@@ -268,7 +269,7 @@ const LoanModal = ({
                     onFocus={scrollOnFocus}
                   />
                 </div>
-                {parseFloat(setupFee) > 0 && (
+                {parseAmount(setupFee) > 0 && (
                   <div className="space-y-2 col-span-2">
                     <Label className="text-xs">Fecha Cobro Comisión</Label>
                     <Input
@@ -285,11 +286,11 @@ const LoanModal = ({
               {installments && installmentAmount && amount && (
                 <div className="mt-2 p-3 bg-secondary/50 rounded-lg text-sm">
                   {(() => {
-                    const feeValue = parseFloat(setupFee || "0") || 0;
-                    const startingPaid = isStarted ? parseFloat(startingPaidAmount || "0") || 0 : 0;
+                    const feeValue = parseAmount(setupFee || "0");
+                    const startingPaid = isStarted ? parseAmount(startingPaidAmount || "0") : 0;
                     const totalReal =
-                      parseInt(installments) * parseFloat(installmentAmount) + feeValue + startingPaid;
-                    const original = parseFloat(amount);
+                      parseInt(installments) * parseAmount(installmentAmount) + feeValue + startingPaid;
+                    const original = parseAmount(amount);
                     if (!isNaN(totalReal) && !isNaN(original)) {
                       const extra = totalReal - original;
                       return (

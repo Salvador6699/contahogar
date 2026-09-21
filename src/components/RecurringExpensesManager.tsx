@@ -26,7 +26,7 @@ import {
 import { format } from "date-fns";
 import { es } from "date-fns/locale";
 import { Edit2, Trash2, Calendar, PlusCircle, Search, X, Repeat, CreditCard, Tag } from "lucide-react";
-import { cn } from "@/lib/utils";
+import { cn, parseAmount } from "@/lib/utils";
 import { appToast as toast } from "@/lib/swal";
 import { formatCurrency } from "@/lib/calculations";
 
@@ -121,7 +121,7 @@ export const RecurringExpensesManager = () => {
       return;
     }
 
-    const numAmount = parseFloat(amount);
+    const numAmount = parseAmount(amount);
     if (isNaN(numAmount) || numAmount <= 0) {
       toast.error("Introduce un importe válido.");
       return;

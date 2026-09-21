@@ -39,3 +39,51 @@ export function withKeyboardClose(action: () => void) {
     action();
   }
 }
+
+/**
+ * Parsea un monto numérico admitiendo tanto coma (',') como punto ('.') decimal.
+ * Soporta formatos:
+ * - '12.50' -> 12.5
+ * - '12,50' -> 12.5
+ * - '0,50' -> 0.5
+ * - ',50' -> 0.5
+ * - '.50' -> 0.5
+ * - '1.250,50' -> 1250.5
+ * - '1,250.50' -> 1250.5
+ */
+export function parseAmount(val: string | number | undefined | null): number {
+  if (val === undefined || val === null || val === '') return 0;
+  if (typeof val === 'number') return isNaN(val) ? 0 : val;
+
+  let str = val.toString().trim();
+  if (!str) return 0;
+
+  // Limpiar posibles duplicaciones consecutivas (ej: 12,,50 o 12..50)
+  str = str.replace(/,{2,}/g, ',').replace(/\.{2,}/g, '.');
+
+  // Si contiene tanto punto como coma, determinar cuál es el separador decimal
+  if (str.includes('.') && str.includes(',')) {
+    if (str.lastIndexOf(',') > str.lastIndexOf('.')) {
+      // Estilo europeo: 1.250,50 -> eliminar puntos de miles y cambiar coma por punto
+      str = str.replace(/\./g, '').replace(',', '.');
+    } else {
+      // Estilo anglosajón: 1,250.50 -> eliminar comas de miles
+      str = str.replace(/,/g, '');
+    }
+  } else if (str.includes(',')) {
+    // Solo contiene coma(s)
+    const parts = str.split(',');
+    if (parts.length > 2) {
+      if (parts[parts.length - 1].length <= 2) {
+        str = parts.slice(0, -1).join('') + '.' + parts[parts.length - 1];
+      } else {
+        str = parts.join('');
+      }
+    } else {
+      str = str.replace(',', '.');
+    }
+  }
+
+  const num = parseFloat(str);
+  return isNaN(num) ? 0 : num;
+}
