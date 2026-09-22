@@ -21,6 +21,7 @@ import { Route as AppBackupRouteImport } from './routes/_app.backup'
 import { Route as AppBuscarRouteImport } from './routes/_app.buscar'
 import { Route as AppComparativaRouteImport } from './routes/_app.comparativa'
 import { Route as AppEquiposRouteImport } from './routes/_app.equipos'
+import { Route as AppEvolucionRouteImport } from './routes/_app.evolucion'
 import { Route as AppFavoritesRouteImport } from './routes/_app.favorites'
 import { Route as AppHistorialRouteImport } from './routes/_app.historial'
 import { Route as AppPrestamosRouteImport } from './routes/_app.prestamos'
@@ -87,6 +88,11 @@ const AppEquiposRoute = AppEquiposRouteImport.update({
   path: '/equipos',
   getParentRoute: () => AppRoute,
 } as any)
+const AppEvolucionRoute = AppEvolucionRouteImport.update({
+  id: '/evolucion',
+  path: '/evolucion',
+  getParentRoute: () => AppRoute,
+} as any)
 const AppFavoritesRoute = AppFavoritesRouteImport.update({
   id: '/favorites',
   path: '/favorites',
@@ -130,6 +136,7 @@ export interface FileRoutesByFullPath {
   '/buscar': typeof AppBuscarRoute
   '/comparativa': typeof AppComparativaRoute
   '/equipos': typeof AppEquiposRoute
+  '/evolucion': typeof AppEvolucionRoute
   '/favorites': typeof AppFavoritesRoute
   '/historial': typeof AppHistorialRoute
   '/prestamos': typeof AppPrestamosRoute
@@ -148,6 +155,7 @@ export interface FileRoutesByTo {
   '/buscar': typeof AppBuscarRoute
   '/comparativa': typeof AppComparativaRoute
   '/equipos': typeof AppEquiposRoute
+  '/evolucion': typeof AppEvolucionRoute
   '/favorites': typeof AppFavoritesRoute
   '/historial': typeof AppHistorialRoute
   '/prestamos': typeof AppPrestamosRoute
@@ -169,6 +177,7 @@ export interface FileRoutesById {
   '/_app/buscar': typeof AppBuscarRoute
   '/_app/comparativa': typeof AppComparativaRoute
   '/_app/equipos': typeof AppEquiposRoute
+  '/_app/evolucion': typeof AppEvolucionRoute
   '/_app/favorites': typeof AppFavoritesRoute
   '/_app/historial': typeof AppHistorialRoute
   '/_app/prestamos': typeof AppPrestamosRoute
@@ -191,6 +200,7 @@ export interface FileRouteTypes {
     | '/buscar'
     | '/comparativa'
     | '/equipos'
+    | '/evolucion'
     | '/favorites'
     | '/historial'
     | '/prestamos'
@@ -209,6 +219,7 @@ export interface FileRouteTypes {
     | '/buscar'
     | '/comparativa'
     | '/equipos'
+    | '/evolucion'
     | '/favorites'
     | '/historial'
     | '/prestamos'
@@ -229,6 +240,7 @@ export interface FileRouteTypes {
     | '/_app/buscar'
     | '/_app/comparativa'
     | '/_app/equipos'
+    | '/_app/evolucion'
     | '/_app/favorites'
     | '/_app/historial'
     | '/_app/prestamos'
@@ -331,6 +343,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AppEquiposRouteImport
       parentRoute: typeof AppRoute
     }
+    '/_app/evolucion': {
+      id: '/_app/evolucion'
+      path: '/evolucion'
+      fullPath: '/evolucion'
+      preLoaderRoute: typeof AppEvolucionRouteImport
+      parentRoute: typeof AppRoute
+    }
     '/_app/favorites': {
       id: '/_app/favorites'
       path: '/favorites'
@@ -384,6 +403,7 @@ interface AppRouteChildren {
   AppBuscarRoute: typeof AppBuscarRoute
   AppComparativaRoute: typeof AppComparativaRoute
   AppEquiposRoute: typeof AppEquiposRoute
+  AppEvolucionRoute: typeof AppEvolucionRoute
   AppFavoritesRoute: typeof AppFavoritesRoute
   AppHistorialRoute: typeof AppHistorialRoute
   AppPrestamosRoute: typeof AppPrestamosRoute
@@ -401,6 +421,7 @@ const AppRouteChildren: AppRouteChildren = {
   AppBuscarRoute: AppBuscarRoute,
   AppComparativaRoute: AppComparativaRoute,
   AppEquiposRoute: AppEquiposRoute,
+  AppEvolucionRoute: AppEvolucionRoute,
   AppFavoritesRoute: AppFavoritesRoute,
   AppHistorialRoute: AppHistorialRoute,
   AppPrestamosRoute: AppPrestamosRoute,

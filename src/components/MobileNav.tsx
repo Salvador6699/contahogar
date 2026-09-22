@@ -1,14 +1,14 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
-import { useState, useEffect, useMemo } from 'react';
-import { useNavigate, useLocation } from '@tanstack/react-router';
-import { 
-  Home, 
-  History, 
-  Scale, 
-  BarChart3, 
-  ArrowLeftRight, 
-  Book, 
-  Wrench, 
+import { useState, useEffect, useMemo } from 'react'
+import { useNavigate, useLocation } from '@tanstack/react-router'
+import {
+  Home,
+  History,
+  Scale,
+  BarChart3,
+  ArrowLeftRight,
+  Book,
+  Wrench,
   Settings,
   Menu,
   PlusCircle,
@@ -29,19 +29,20 @@ import {
   CheckCircle2,
   LogOut,
   MoreHorizontal,
-  Sparkles
-} from 'lucide-react';
-import * as Icons from 'lucide-react';
-import { cn, withKeyboardClose } from '@/lib/utils';
-import { useVirtualKeyboard } from '@/hooks/useVirtualKeyboard';
+  Sparkles,
+  TrendingUp,
+} from 'lucide-react'
+import * as Icons from 'lucide-react'
+import { cn, withKeyboardClose } from '@/lib/utils'
+import { useVirtualKeyboard } from '@/hooks/useVirtualKeyboard'
 import {
   Sheet,
   SheetContent,
   SheetHeader,
   SheetTitle,
   SheetTrigger,
-  SheetClose
-} from '@/components/ui/sheet';
+  SheetClose,
+} from '@/components/ui/sheet'
 import {
   Drawer,
   DrawerContent,
@@ -49,449 +50,564 @@ import {
   DrawerTitle,
   DrawerTrigger,
   DrawerClose,
-} from '@/components/ui/drawer';
-import { Button } from '@/components/ui/button';
-import { useFavorites } from '@/hooks/useFavorites';
-import { useCategories } from '@/hooks/useCategories';
-import { calculateCategorySummaries } from '@/lib/calculations';
-import { FavoriteExpense, Category } from '@/types/finance';
-import { format } from 'date-fns';
-import { useTeam } from '@/contexts/TeamContext';
-import { useAuth } from '@/contexts/AuthContext';
+} from '@/components/ui/drawer'
+import { Button } from '@/components/ui/button'
+import { useFavorites } from '@/hooks/useFavorites'
+import { useCategories } from '@/hooks/useCategories'
+import { calculateCategorySummaries } from '@/lib/calculations'
+import { FavoriteExpense, Category } from '@/types/finance'
+import { format } from 'date-fns'
+import { useTeam } from '@/contexts/TeamContext'
+import { useAuth } from '@/contexts/AuthContext'
 
 const MobileNav = () => {
-    const navigate = useNavigate();
-    const location = useLocation();
+  const navigate = useNavigate()
+  const location = useLocation()
 
-    const { favorites } = useFavorites();
-    const { categories } = useCategories();
-    const { teams, activeTeam, setActiveTeamId } = useTeam();
-    const { user, signOut } = useAuth();
+  const { favorites } = useFavorites()
+  const { categories } = useCategories()
+  const { teams, activeTeam, setActiveTeamId } = useTeam()
+  const { user, signOut } = useAuth()
 
+  interface NavItem {
+    icon: any
+    label: string
+    path: string
+    exact?: boolean
+  }
 
-    interface NavItem {
-        icon: any;
-        label: string;
-        path: string;
-        exact?: boolean;
+  const bottomNavItems: NavItem[] = [
+    { icon: Home, label: 'Inicio', path: '/', exact: true },
+    { icon: PiggyBank, label: 'Presupuestos', path: '/presupuestos' },
+    { icon: Scale, label: 'Cuadrar', path: '/comparativa' },
+  ]
+
+  const allDrawerNavItems: NavItem[] = [
+    { icon: Home, label: 'Inicio', path: '/', exact: true },
+    { icon: Sparkles, label: 'Asistente IA', path: '/asistente' },
+    { icon: Scale, label: 'Balance', path: '/comparativa' },
+    { icon: ArrowLeftRight, label: 'Transf.', path: '/transferir' },
+    { icon: SearchIcon, label: 'Buscar', path: '/buscar' },
+    { icon: PiggyBank, label: 'Presupuestos', path: '/presupuestos' },
+    { icon: Target, label: 'Ahorros', path: '/ahorros' },
+    { icon: Landmark, label: 'Préstamos', path: '/prestamos' },
+    { icon: History, label: 'Historial', path: '/historial' },
+    { icon: TrendingUp, label: 'Evolución', path: '/evolucion' },
+    { icon: Zap, label: 'Botones Rápidos', path: '/favorites' },
+    { icon: Users, label: 'Equipos', path: '/equipos' },
+    { icon: Settings, label: 'Ajustes', path: '/ajustes' },
+    { icon: ShieldCheck, label: 'Seguridad', path: '/backup' },
+  ]
+
+  const isActive = (path: string, exact?: boolean) => {
+    if (exact) return location.pathname === path
+    return location.pathname.startsWith(path)
+  }
+
+  const getPageDetails = () => {
+    const item = allDrawerNavItems.find((nav) => isActive(nav.path, nav.exact))
+    if (item) return { title: item.label, icon: <item.icon className="w-5 h-5 text-primary" /> }
+
+    // Match specific paths that aren't in the drawer
+    if (location.pathname.includes('/transferir'))
+      return { title: 'Transferir', icon: <ArrowLeftRight className="w-5 h-5 text-primary" /> }
+
+    return { title: 'ContaHogar', icon: <img src="/logo.png" alt="Logo" className="w-5 h-5" /> }
+  }
+
+  const { title, icon } = getPageDetails()
+
+  const primaryNavPaths = ['/', '/presupuestos', '/comparativa', '/historial']
+  const primaryNavItems = allDrawerNavItems.filter((item) => primaryNavPaths.includes(item.path))
+  const secondaryNavItems = allDrawerNavItems.filter((item) => !primaryNavPaths.includes(item.path))
+
+  const [isMobileUserMenuOpen, setIsMobileUserMenuOpen] = useState(false)
+  const [isDesktopUserMenuOpen, setIsDesktopUserMenuOpen] = useState(false)
+  const isKeyboardOpen = useVirtualKeyboard()
+
+  useEffect(() => {
+    const handleInteraction = () => {
+      if (isMobileUserMenuOpen) setIsMobileUserMenuOpen(false)
+      if (isDesktopUserMenuOpen) setIsDesktopUserMenuOpen(false)
     }
 
-    const bottomNavItems: NavItem[] = [
-        { icon: Home, label: 'Inicio', path: '/', exact: true },
-        { icon: PiggyBank, label: 'Presupuestos', path: '/presupuestos' },
-        { icon: Scale, label: 'Cuadrar', path: '/comparativa' },
-    ];
+    if (isMobileUserMenuOpen || isDesktopUserMenuOpen) {
+      window.addEventListener('scroll', handleInteraction, { passive: true })
+      window.addEventListener('touchmove', handleInteraction, { passive: true })
+      // Cierre por click global (con setTimeout para evitar que cierre al abrir)
+      setTimeout(() => {
+        window.addEventListener('click', handleInteraction)
+      }, 10)
+    }
 
-    const allDrawerNavItems: NavItem[] = [
-        { icon: Home, label: 'Inicio', path: '/', exact: true },
-        { icon: Sparkles, label: 'Asistente IA', path: '/asistente' },
-        { icon: Scale, label: 'Balance', path: '/comparativa' },
-        { icon: ArrowLeftRight, label: 'Transf.', path: '/transferir' },
-        { icon: SearchIcon, label: 'Buscar', path: '/buscar' },
-        { icon: PiggyBank, label: 'Presupuestos', path: '/presupuestos' },
-        { icon: Target, label: 'Ahorros', path: '/ahorros' },
-        { icon: Landmark, label: 'Préstamos', path: '/prestamos' },
-        { icon: History, label: 'Historial', path: '/historial' },
-        { icon: Zap, label: 'Botones Rápidos', path: '/favorites' },
-        { icon: Users, label: 'Equipos', path: '/equipos' },
-        { icon: Settings, label: 'Ajustes', path: '/ajustes' },
-        { icon: ShieldCheck, label: 'Seguridad', path: '/backup' },
-    ];
+    return () => {
+      window.removeEventListener('scroll', handleInteraction)
+      window.removeEventListener('touchmove', handleInteraction)
+      window.removeEventListener('click', handleInteraction)
+    }
+  }, [isMobileUserMenuOpen, isDesktopUserMenuOpen])
 
-    const isActive = (path: string, exact?: boolean) => {
-        if (exact) return location.pathname === path;
-        return location.pathname.startsWith(path);
-    };
+  return (
+    <>
+      {/* MOBILE HEADER (Only visible on small screens) */}
+      <header className="fixed top-0 left-0 right-0 z-50 h-14 bg-gradient-to-b from-background/95 via-background/80 to-transparent nav-blur-fade flex lg:hidden items-center justify-between px-4 transition-all duration-300">
+        <div className="flex items-center gap-3">
+          {icon}
+          <h2 className="text-sm font-black tracking-[0.15em] text-foreground/80 uppercase">
+            {title}
+          </h2>
+        </div>
 
-    const getPageDetails = () => {
-        const item = allDrawerNavItems.find(nav => isActive(nav.path, nav.exact));
-        if (item) return { title: item.label, icon: <item.icon className="w-5 h-5 text-primary" /> };
-        
-        // Match specific paths that aren't in the drawer
-        if (location.pathname.includes('/transferir')) return { title: 'Transferir', icon: <ArrowLeftRight className="w-5 h-5 text-primary" /> };
-        
-        return { title: 'ContaHogar', icon: <img src="/logo.png" alt="Logo" className="w-5 h-5" /> };
-    };
+        {user && (
+          <div className="relative">
+            <button
+              onClick={() => setIsMobileUserMenuOpen(!isMobileUserMenuOpen)}
+              className="flex items-center gap-2 bg-muted/80 backdrop-blur-md px-3 py-1.5 rounded-full text-xs font-bold border border-border/50"
+            >
+              <Users className="w-3.5 h-3.5" />
+              <span className="max-w-[80px] truncate">
+                {user.user_metadata?.full_name?.split(' ')[0] || user.email?.split('@')[0]}
+              </span>
+              <ChevronDown className="w-3.5 h-3.5" />
+            </button>
 
-    const { title, icon } = getPageDetails();
-
-    const primaryNavPaths = ['/', '/presupuestos', '/comparativa', '/historial'];
-    const primaryNavItems = allDrawerNavItems.filter(item => primaryNavPaths.includes(item.path));
-    const secondaryNavItems = allDrawerNavItems.filter(item => !primaryNavPaths.includes(item.path));
-
-    const [isMobileUserMenuOpen, setIsMobileUserMenuOpen] = useState(false);
-    const [isDesktopUserMenuOpen, setIsDesktopUserMenuOpen] = useState(false);
-    const isKeyboardOpen = useVirtualKeyboard();
-
-    useEffect(() => {
-        const handleInteraction = () => {
-            if (isMobileUserMenuOpen) setIsMobileUserMenuOpen(false);
-            if (isDesktopUserMenuOpen) setIsDesktopUserMenuOpen(false);
-        };
-        
-        if (isMobileUserMenuOpen || isDesktopUserMenuOpen) {
-            window.addEventListener('scroll', handleInteraction, { passive: true });
-            window.addEventListener('touchmove', handleInteraction, { passive: true });
-            // Cierre por click global (con setTimeout para evitar que cierre al abrir)
-            setTimeout(() => {
-                window.addEventListener('click', handleInteraction);
-            }, 10);
-        }
-        
-        return () => {
-            window.removeEventListener('scroll', handleInteraction);
-            window.removeEventListener('touchmove', handleInteraction);
-            window.removeEventListener('click', handleInteraction);
-        };
-    }, [isMobileUserMenuOpen, isDesktopUserMenuOpen]);
-
-    return (
-        <>
-            {/* MOBILE HEADER (Only visible on small screens) */}
-            <header className="fixed top-0 left-0 right-0 z-50 h-14 bg-gradient-to-b from-background/95 via-background/80 to-transparent nav-blur-fade flex lg:hidden items-center justify-between px-4 transition-all duration-300">
-                <div className="flex items-center gap-3">
-                    {icon}
-                    <h2 className="text-sm font-black tracking-[0.15em] text-foreground/80 uppercase">
-                        {title}
-                    </h2>
-                </div>
-                
-                {user && (
-                    <div className="relative">
-                        <button 
-                            onClick={() => setIsMobileUserMenuOpen(!isMobileUserMenuOpen)}
-                            className="flex items-center gap-2 bg-muted/80 backdrop-blur-md px-3 py-1.5 rounded-full text-xs font-bold border border-border/50"
-                        >
-                            <Users className="w-3.5 h-3.5" />
-                            <span className="max-w-[80px] truncate">
-                                {user.user_metadata?.full_name?.split(' ')[0] || user.email?.split('@')[0]}
-                            </span>
-                            <ChevronDown className="w-3.5 h-3.5" />
-                        </button>
-                        
-                        {isMobileUserMenuOpen && (
-                            <>
-                                <div className="absolute top-full right-0 mt-2 w-52 bg-background/95 backdrop-blur-xl border border-border/50 rounded-2xl shadow-2xl p-2 z-50 grid gap-1 animate-in fade-in zoom-in-95">
-                                    <div className="px-3 py-2 text-[10px] uppercase tracking-widest text-muted-foreground border-b border-border/10 mb-1">
-                                        <div className="truncate font-bold text-foreground">Equipo: {activeTeam?.name}</div>
-                                    </div>
-                                    {teams.length > 1 && (
-                                        <button 
-                                            onClick={() => { setIsMobileUserMenuOpen(false); navigate({ to: '/select-team' } as any); }}
-                                            className="flex items-center gap-2 px-3 py-2 rounded-xl text-sm font-bold hover:bg-muted transition-all text-left w-full"
-                                        >
-                                            <ArrowLeftRight className="w-4 h-4 text-muted-foreground" /> Cambiar Equipo
-                                        </button>
-                                    )}
-                                    <button 
-                                        onClick={() => { setIsMobileUserMenuOpen(false); signOut(); }}
-                                        className="flex items-center gap-2 px-3 py-2 rounded-xl text-sm font-bold text-destructive hover:bg-destructive/10 transition-all text-left w-full"
-                                    >
-                                        <LogOut className="w-4 h-4" /> Cerrar Sesión
-                                    </button>
-                                </div>
-                            </>
-                        )}
+            {isMobileUserMenuOpen && (
+              <>
+                <div className="absolute top-full right-0 mt-2 w-52 bg-background/95 backdrop-blur-xl border border-border/50 rounded-2xl shadow-2xl p-2 z-50 grid gap-1 animate-in fade-in zoom-in-95">
+                  <div className="px-3 py-2 text-[10px] uppercase tracking-widest text-muted-foreground border-b border-border/10 mb-1">
+                    <div className="truncate font-bold text-foreground">
+                      Equipo: {activeTeam?.name}
                     </div>
+                  </div>
+                  {teams.length > 1 && (
+                    <button
+                      onClick={() => {
+                        setIsMobileUserMenuOpen(false)
+                        navigate({ to: '/select-team' } as any)
+                      }}
+                      className="flex items-center gap-2 px-3 py-2 rounded-xl text-sm font-bold hover:bg-muted transition-all text-left w-full"
+                    >
+                      <ArrowLeftRight className="w-4 h-4 text-muted-foreground" /> Cambiar Equipo
+                    </button>
+                  )}
+                  <button
+                    onClick={() => {
+                      setIsMobileUserMenuOpen(false)
+                      signOut()
+                    }}
+                    className="flex items-center gap-2 px-3 py-2 rounded-xl text-sm font-bold text-destructive hover:bg-destructive/10 transition-all text-left w-full"
+                  >
+                    <LogOut className="w-4 h-4" /> Cerrar Sesión
+                  </button>
+                </div>
+              </>
+            )}
+          </div>
+        )}
+      </header>
+
+      {/* DESKTOP TOP NAVIGATION (Hidden on mobile) */}
+      <header className="hidden lg:flex fixed top-0 left-0 right-0 z-50 h-20 bg-background/95 backdrop-blur-xl border-b border-border/10 items-center justify-between px-8 transition-all duration-300">
+        {/* Logo */}
+        <div
+          className="flex items-center gap-3 cursor-pointer"
+          onClick={() => navigate({ to: '/' } as any)}
+        >
+          <img src="/logo.png" alt="ContaHogar" className="w-8 h-8 drop-shadow-md" />
+          <span className="font-outfit font-black text-xl tracking-tight bg-clip-text text-transparent bg-gradient-to-r from-primary to-primary/60">
+            ContaHogar
+          </span>
+        </div>
+
+        {/* Main Navigation */}
+        <nav className="flex items-center gap-1.5">
+          {primaryNavItems.map((item) => {
+            const active = isActive(item.path, item.exact)
+            return (
+              <button
+                key={item.path}
+                onClick={() => navigate({ to: item.path } as any)}
+                className={cn(
+                  'px-4 py-2.5 rounded-xl font-bold transition-all duration-300 flex items-center gap-2 text-sm',
+                  active
+                    ? 'bg-primary text-primary-foreground shadow-md'
+                    : 'text-muted-foreground hover:bg-muted hover:text-foreground'
                 )}
-            </header>
+              >
+                <item.icon className="w-4 h-4" />
+                {item.label}
+              </button>
+            )
+          })}
 
-            {/* DESKTOP TOP NAVIGATION (Hidden on mobile) */}
-            <header className="hidden lg:flex fixed top-0 left-0 right-0 z-50 h-20 bg-background/95 backdrop-blur-xl border-b border-border/10 items-center justify-between px-8 transition-all duration-300">
-                {/* Logo */}
-                <div className="flex items-center gap-3 cursor-pointer" onClick={() => navigate({ to: '/' } as any)}>
-                    <img src="/logo.png" alt="ContaHogar" className="w-8 h-8 drop-shadow-md" />
-                    <span className="font-outfit font-black text-xl tracking-tight bg-clip-text text-transparent bg-gradient-to-r from-primary to-primary/60">
-                        ContaHogar
-                    </span>
-                </div>
+          {/* Desktop "Más" Dropdown */}
+          <div className="relative group/more">
+            <button className="px-4 py-2.5 rounded-xl font-bold transition-all duration-300 flex items-center gap-2 text-sm text-muted-foreground hover:bg-muted hover:text-foreground">
+              <MoreHorizontal className="w-4 h-4" />
+              Más
+              <ChevronDown className="w-3 h-3 opacity-50 group-hover/more:rotate-180 transition-transform" />
+            </button>
+            <div className="absolute top-full left-0 pt-2 w-56 z-50 opacity-0 translate-y-2 pointer-events-none group-hover/more:opacity-100 group-hover/more:translate-y-0 group-hover/more:pointer-events-auto transition-all duration-300">
+              <div className="bg-background/95 backdrop-blur-xl border border-border/50 rounded-2xl shadow-2xl p-2 grid gap-1">
+                {secondaryNavItems.map((item) => {
+                  const active = isActive(item.path, item.exact)
+                  return (
+                    <button
+                      key={item.path}
+                      onClick={() => navigate({ to: item.path } as any)}
+                      className={cn(
+                        'flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-bold transition-all text-left',
+                        active
+                          ? 'bg-primary/10 text-primary'
+                          : 'hover:bg-muted text-muted-foreground hover:text-foreground'
+                      )}
+                    >
+                      <item.icon className="w-4 h-4" />
+                      {item.label}
+                    </button>
+                  )
+                })}
+              </div>
+            </div>
+          </div>
+        </nav>
 
-                {/* Main Navigation */}
-                <nav className="flex items-center gap-1.5">
-                    {primaryNavItems.map((item) => {
-                        const active = isActive(item.path, item.exact);
-                        return (
-                            <button
-                                key={item.path}
-                                onClick={() => navigate({ to: item.path } as any)}
-                                className={cn(
-                                    "px-4 py-2.5 rounded-xl font-bold transition-all duration-300 flex items-center gap-2 text-sm",
-                                    active 
-                                        ? "bg-primary text-primary-foreground shadow-md" 
-                                        : "text-muted-foreground hover:bg-muted hover:text-foreground"
-                                )}
-                            >
-                                <item.icon className="w-4 h-4" />
-                                {item.label}
-                            </button>
-                        );
-                    })}
+        {/* Action Buttons */}
+        <div className="flex items-center gap-3">
+          {/* User Profile Desktop */}
+          {user && (
+            <div className="relative">
+              <button
+                onClick={() => setIsDesktopUserMenuOpen(!isDesktopUserMenuOpen)}
+                className="flex items-center gap-2 bg-muted/50 hover:bg-muted text-foreground px-4 py-2.5 rounded-xl font-bold transition-all duration-300 text-sm border border-border/50"
+              >
+                <Users className="w-4 h-4" />
+                <span className="max-w-[120px] truncate">
+                  {user.user_metadata?.full_name?.split(' ')[0] || user.email?.split('@')[0]}
+                </span>
+                <ChevronDown className="w-4 h-4 text-muted-foreground" />
+              </button>
 
-                    {/* Desktop "Más" Dropdown */}
-                    <div className="relative group/more">
-                        <button className="px-4 py-2.5 rounded-xl font-bold transition-all duration-300 flex items-center gap-2 text-sm text-muted-foreground hover:bg-muted hover:text-foreground">
-                            <MoreHorizontal className="w-4 h-4" />
-                            Más
-                            <ChevronDown className="w-3 h-3 opacity-50 group-hover/more:rotate-180 transition-transform" />
-                        </button>
-                        <div className="absolute top-full left-0 pt-2 w-56 z-50 opacity-0 translate-y-2 pointer-events-none group-hover/more:opacity-100 group-hover/more:translate-y-0 group-hover/more:pointer-events-auto transition-all duration-300">
-                            <div className="bg-background/95 backdrop-blur-xl border border-border/50 rounded-2xl shadow-2xl p-2 grid gap-1">
-                                {secondaryNavItems.map((item) => {
-                                    const active = isActive(item.path, item.exact);
-                                    return (
-                                        <button 
-                                            key={item.path}
-                                            onClick={() => navigate({ to: item.path } as any)}
-                                            className={cn(
-                                                "flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-bold transition-all text-left",
-                                                active 
-                                                    ? "bg-primary/10 text-primary" 
-                                                    : "hover:bg-muted text-muted-foreground hover:text-foreground"
-                                            )}
-                                        >
-                                            <item.icon className="w-4 h-4" />
-                                            {item.label}
-                                        </button>
-                                    );
-                                })}
-                            </div>
-                        </div>
+              {isDesktopUserMenuOpen && (
+                <>
+                  <div className="absolute top-full right-0 mt-2 w-64 bg-background/95 backdrop-blur-xl border border-border/50 rounded-2xl shadow-2xl p-2 z-50 grid gap-1 animate-in fade-in zoom-in-95">
+                    <div className="px-3 py-2 text-[10px] uppercase tracking-widest text-muted-foreground border-b border-border/10 mb-1">
+                      <div className="truncate font-bold text-foreground">
+                        Equipo: {activeTeam?.name}
+                      </div>
                     </div>
-                </nav>
+                    {teams.length > 1 && (
+                      <button
+                        onClick={() => {
+                          setIsDesktopUserMenuOpen(false)
+                          navigate({ to: '/select-team' } as any)
+                        }}
+                        className="flex items-center gap-2 px-3 py-2 rounded-xl text-sm font-bold hover:bg-muted transition-all text-left w-full"
+                      >
+                        <ArrowLeftRight className="w-4 h-4 text-muted-foreground" /> Cambiar Equipo
+                      </button>
+                    )}
+                    <button
+                      onClick={() => {
+                        setIsDesktopUserMenuOpen(false)
+                        navigate({ to: '/equipos' } as any)
+                      }}
+                      className="flex items-center gap-2 px-3 py-2 rounded-xl text-sm font-bold text-muted-foreground hover:bg-muted transition-all text-left w-full"
+                    >
+                      <Users className="w-4 h-4" /> Administrar Equipos
+                    </button>
+                    <button
+                      onClick={() => {
+                        setIsDesktopUserMenuOpen(false)
+                        signOut()
+                      }}
+                      className="flex items-center gap-2 px-3 py-2 rounded-xl text-sm font-bold text-destructive hover:bg-destructive/10 transition-all text-left w-full"
+                    >
+                      <LogOut className="w-4 h-4" /> Cerrar Sesión
+                    </button>
+                  </div>
+                </>
+              )}
+            </div>
+          )}
+          {favorites.length > 0 && (
+            <div className="relative group/quick">
+              <button className="flex items-center gap-2 bg-primary/10 hover:bg-primary/20 text-primary px-4 py-2.5 rounded-xl font-bold transition-all duration-300 text-sm shadow-sm">
+                <Zap className="w-5 h-5 stroke-[2.5px]" /> Rápidos
+              </button>
+              <div className="absolute top-full right-0 pt-2 w-64 z-50 opacity-0 translate-y-2 pointer-events-none group-hover/quick:opacity-100 group-hover/quick:translate-y-0 group-hover/quick:pointer-events-auto transition-all duration-300">
+                <div className="bg-background/95 backdrop-blur-xl border border-border/50 rounded-2xl shadow-2xl p-2 grid gap-1 max-h-[400px] overflow-y-auto custom-scrollbar">
+                  {favorites.map((fav) => {
+                    const cat = categories.find((c) => c.name === fav.category)
+                    const IconComponent =
+                      (Icons as any)[fav.icon || cat?.icon || 'Tag'] || Icons.Tag
+                    return (
+                      <button
+                        key={fav.id}
+                        onClick={() =>
+                          navigate({
+                            to: '/' as any,
+                            search: { action: 'quick-expense', id: fav.id } as any,
+                          })
+                        }
+                        className="flex items-center gap-3 px-3 py-2 rounded-xl text-sm font-bold transition-all text-left group/item hover:bg-muted"
+                      >
+                        <div
+                          className="p-1.5 rounded-lg bg-background group-hover/item:bg-background shadow-sm border border-border/50 text-white"
+                          style={{ backgroundColor: cat?.color || '#3b82f6' }}
+                        >
+                          <IconComponent className="w-4 h-4" />
+                        </div>
+                        <span className="truncate flex-1 text-muted-foreground group-hover/item:text-foreground">
+                          {fav.name}
+                        </span>
+                      </button>
+                    )
+                  })}
+                </div>
+              </div>
+            </div>
+          )}
+          <button
+            onClick={() => navigate({ to: '/' as any, search: { action: 'add-income' } as any })}
+            className="flex items-center gap-2 bg-income/10 hover:bg-income hover:text-white text-income px-5 py-2.5 rounded-xl font-bold transition-all duration-300 text-sm shadow-sm active:scale-95"
+          >
+            <ArrowUpCircle className="w-5 h-5 stroke-[2.5px]" /> Ingreso
+          </button>
+          <button
+            onClick={() => navigate({ to: '/' as any, search: { action: 'add-expense' } as any })}
+            className="flex items-center gap-2 bg-expense/10 hover:bg-expense hover:text-white text-expense px-5 py-2.5 rounded-xl font-bold transition-all duration-300 text-sm shadow-sm active:scale-95"
+          >
+            <ArrowDownCircle className="w-5 h-5 stroke-[2.5px]" /> Gasto
+          </button>
+        </div>
+      </header>
 
-                {/* Action Buttons */}
-                <div className="flex items-center gap-3">
-                    {/* User Profile Desktop */}
-                    {user && (
-                        <div className="relative">
-                            <button 
-                                onClick={() => setIsDesktopUserMenuOpen(!isDesktopUserMenuOpen)}
-                                className="flex items-center gap-2 bg-muted/50 hover:bg-muted text-foreground px-4 py-2.5 rounded-xl font-bold transition-all duration-300 text-sm border border-border/50"
-                            >
-                                <Users className="w-4 h-4" /> 
-                                <span className="max-w-[120px] truncate">
-                                    {user.user_metadata?.full_name?.split(' ')[0] || user.email?.split('@')[0]}
+      {/* BARRA INFERIOR MODERNA (Mobile Only) */}
+      <Sheet>
+        <nav
+          className={cn(
+            'fixed bottom-0 left-0 right-0 z-50 h-[72px] bg-gradient-to-t from-background/95 via-background/85 to-transparent nav-blur-fade px-2 pb-safe lg:hidden transition-all duration-300 border-t border-border/10',
+            isKeyboardOpen && 'translate-y-full opacity-0 pointer-events-none'
+          )}
+        >
+          <div className="grid h-full grid-cols-5 max-w-lg mx-auto items-center">
+            <button
+              onClick={() => navigate({ to: '/' } as any)}
+              className="flex flex-col items-center justify-center relative group h-full"
+            >
+              <div
+                className={cn(
+                  'p-2 rounded-xl transition-all duration-500',
+                  isActive('/', true)
+                    ? 'text-primary scale-110'
+                    : 'text-muted-foreground/60 group-hover:text-primary'
+                )}
+              >
+                <Home className={cn('w-5 h-5', isActive('/', true) && 'stroke-[2.5px]')} />
+              </div>
+              <span
+                className={cn(
+                  'text-[10px] font-bold mt-0.5',
+                  isActive('/', true) ? 'text-primary' : 'text-muted-foreground/50'
+                )}
+              >
+                Inicio
+              </span>
+            </button>
+
+            <button
+              onClick={() => navigate({ to: '/presupuestos' } as any)}
+              className="flex flex-col items-center justify-center relative group h-full"
+            >
+              <div
+                className={cn(
+                  'p-2 rounded-xl transition-all duration-500',
+                  isActive('/presupuestos')
+                    ? 'text-primary scale-110'
+                    : 'text-muted-foreground/60 group-hover:text-primary'
+                )}
+              >
+                <PiggyBank
+                  className={cn('w-5 h-5', isActive('/presupuestos') && 'stroke-[2.5px]')}
+                />
+              </div>
+              <span
+                className={cn(
+                  'text-[10px] font-bold mt-0.5',
+                  isActive('/presupuestos') ? 'text-primary' : 'text-muted-foreground/50'
+                )}
+              >
+                Presup.
+              </span>
+            </button>
+
+            {/* BOTÓN GIGANTE CENTRAL */}
+            <Drawer>
+              <DrawerTrigger asChild>
+                <div className="flex flex-col items-center justify-center h-full -mt-6">
+                  <button className="bg-primary text-primary-foreground rounded-full p-4 shadow-xl shadow-primary/30 active:scale-95 transition-transform">
+                    <Plus className="w-8 h-8 stroke-[3px]" />
+                  </button>
+                </div>
+              </DrawerTrigger>
+              <DrawerContent>
+                <DrawerHeader className="relative">
+                  <DrawerTitle className="text-center text-xl">¿Qué quieres añadir?</DrawerTitle>
+                  <DrawerClose asChild>
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      className="absolute right-4 top-4 h-8 w-8 rounded-full bg-muted/50 hover:bg-muted"
+                    >
+                      <X className="h-4 w-4" />
+                    </Button>
+                  </DrawerClose>
+                </DrawerHeader>
+                <div className="p-4 flex gap-4">
+                  <button
+                    onClick={() => {
+                      document.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape' }))
+                      navigate({ to: '/' as any, search: { action: 'add-expense' } as any })
+                    }}
+                    className="flex-1 bg-expense/10 hover:bg-expense/20 border-2 border-expense/20 rounded-2xl p-6 flex flex-col items-center gap-3 transition-colors active:scale-95"
+                  >
+                    <ArrowDownCircle className="w-12 h-12 text-expense stroke-[2px]" />
+                    <span className="font-bold text-expense text-lg">Gasto</span>
+                  </button>
+                  <button
+                    onClick={() => {
+                      document.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape' }))
+                      navigate({ to: '/' as any, search: { action: 'add-income' } as any })
+                    }}
+                    className="flex-1 bg-income/10 hover:bg-income/20 border-2 border-income/20 rounded-2xl p-6 flex flex-col items-center gap-3 transition-colors active:scale-95"
+                  >
+                    <ArrowUpCircle className="w-12 h-12 text-income stroke-[2px]" />
+                    <span className="font-bold text-income text-lg">Ingreso</span>
+                  </button>
+                </div>
+                <div className="px-4 pb-12 max-h-[40vh] overflow-y-auto custom-scrollbar">
+                  {favorites.length > 0 && (
+                    <>
+                      <div className="flex items-center justify-between mb-4 mt-2 border-t border-border/10 pt-4">
+                        <h4 className="text-sm font-bold text-muted-foreground flex items-center gap-2">
+                          <Zap className="w-4 h-4 text-primary" /> Gastos Rápidos
+                        </h4>
+                      </div>
+                      <div className="grid grid-cols-3 gap-3">
+                        {favorites.map((fav) => {
+                          const cat = categories.find((c) => c.name === fav.category)
+                          const IconComponent =
+                            (Icons as any)[fav.icon || cat?.icon || 'Tag'] || Icons.Tag
+                          return (
+                            <DrawerClose asChild key={fav.id}>
+                              <button
+                                onClick={() =>
+                                  navigate({
+                                    to: '/' as any,
+                                    search: { action: 'quick-expense', id: fav.id } as any,
+                                  })
+                                }
+                                className="flex flex-col items-center gap-2 p-3 rounded-xl border border-border/50 hover:bg-muted/50 active:scale-95 transition-all"
+                              >
+                                <div
+                                  className="w-10 h-10 rounded-full flex items-center justify-center text-white"
+                                  style={{ backgroundColor: cat?.color || '#3b82f6' }}
+                                >
+                                  <IconComponent className="w-5 h-5" />
+                                </div>
+                                <span className="text-[10px] font-bold text-center leading-tight">
+                                  {fav.name}
                                 </span>
-                                <ChevronDown className="w-4 h-4 text-muted-foreground" />
-                            </button>
-                            
-                            {isDesktopUserMenuOpen && (
-                                <>
-                                    <div className="absolute top-full right-0 mt-2 w-64 bg-background/95 backdrop-blur-xl border border-border/50 rounded-2xl shadow-2xl p-2 z-50 grid gap-1 animate-in fade-in zoom-in-95">
-                                        <div className="px-3 py-2 text-[10px] uppercase tracking-widest text-muted-foreground border-b border-border/10 mb-1">
-                                            <div className="truncate font-bold text-foreground">Equipo: {activeTeam?.name}</div>
-                                        </div>
-                                        {teams.length > 1 && (
-                                            <button 
-                                                onClick={() => { setIsDesktopUserMenuOpen(false); navigate({ to: '/select-team' } as any); }}
-                                                className="flex items-center gap-2 px-3 py-2 rounded-xl text-sm font-bold hover:bg-muted transition-all text-left w-full"
-                                            >
-                                                <ArrowLeftRight className="w-4 h-4 text-muted-foreground" /> Cambiar Equipo
-                                            </button>
-                                        )}
-                                        <button 
-                                            onClick={() => { setIsDesktopUserMenuOpen(false); navigate({ to: '/equipos' } as any); }}
-                                            className="flex items-center gap-2 px-3 py-2 rounded-xl text-sm font-bold text-muted-foreground hover:bg-muted transition-all text-left w-full"
-                                        >
-                                            <Users className="w-4 h-4" /> Administrar Equipos
-                                        </button>
-                                        <button 
-                                            onClick={() => { setIsDesktopUserMenuOpen(false); signOut(); }}
-                                            className="flex items-center gap-2 px-3 py-2 rounded-xl text-sm font-bold text-destructive hover:bg-destructive/10 transition-all text-left w-full"
-                                        >
-                                            <LogOut className="w-4 h-4" /> Cerrar Sesión
-                                        </button>
-                                    </div>
-                                </>
-                            )}
-                        </div>
-                    )}
-                    {favorites.length > 0 && (
-                        <div className="relative group/quick">
-                            <button className="flex items-center gap-2 bg-primary/10 hover:bg-primary/20 text-primary px-4 py-2.5 rounded-xl font-bold transition-all duration-300 text-sm shadow-sm">
-                                <Zap className="w-5 h-5 stroke-[2.5px]" /> Rápidos
-                            </button>
-                            <div className="absolute top-full right-0 pt-2 w-64 z-50 opacity-0 translate-y-2 pointer-events-none group-hover/quick:opacity-100 group-hover/quick:translate-y-0 group-hover/quick:pointer-events-auto transition-all duration-300">
-                                <div className="bg-background/95 backdrop-blur-xl border border-border/50 rounded-2xl shadow-2xl p-2 grid gap-1 max-h-[400px] overflow-y-auto custom-scrollbar">
-                                    {favorites.map(fav => {
-                                        const cat = categories.find(c => c.name === fav.category);
-                                        const IconComponent = (Icons as any)[fav.icon || cat?.icon || 'Tag'] || Icons.Tag;
-                                        return (
-                                            <button 
-                                                key={fav.id}
-                                                onClick={() => navigate({ to: '/' as any, search: { action: 'quick-expense', id: fav.id } as any })}
-                                                className="flex items-center gap-3 px-3 py-2 rounded-xl text-sm font-bold transition-all text-left group/item hover:bg-muted"
-                                            >
-                                                <div className="p-1.5 rounded-lg bg-background group-hover/item:bg-background shadow-sm border border-border/50 text-white" style={{ backgroundColor: cat?.color || '#3b82f6' }}>
-                                                    <IconComponent className="w-4 h-4" />
-                                                </div>
-                                                <span className="truncate flex-1 text-muted-foreground group-hover/item:text-foreground">{fav.name}</span>
-                                            </button>
-                                        );
-                                    })}
-                                </div>
-                            </div>
-                        </div>
-                    )}
-                    <button 
-                        onClick={() => navigate({ to: '/' as any, search: { action: 'add-income', } as any })} 
-                        className="flex items-center gap-2 bg-income/10 hover:bg-income hover:text-white text-income px-5 py-2.5 rounded-xl font-bold transition-all duration-300 text-sm shadow-sm active:scale-95"
-                    >
-                        <ArrowUpCircle className="w-5 h-5 stroke-[2.5px]" /> Ingreso
-                    </button>
-                    <button 
-                        onClick={() => navigate({ to: '/' as any, search: { action: 'add-expense', } as any })} 
-                        className="flex items-center gap-2 bg-expense/10 hover:bg-expense hover:text-white text-expense px-5 py-2.5 rounded-xl font-bold transition-all duration-300 text-sm shadow-sm active:scale-95"
-                    >
-                        <ArrowDownCircle className="w-5 h-5 stroke-[2.5px]" /> Gasto
-                    </button>
+                              </button>
+                            </DrawerClose>
+                          )
+                        })}
+                      </div>
+                    </>
+                  )}
                 </div>
-            </header>
+              </DrawerContent>
+            </Drawer>
 
-            {/* BARRA INFERIOR MODERNA (Mobile Only) */}
-            <Sheet>
-                <nav className={cn(
-                    "fixed bottom-0 left-0 right-0 z-50 h-[72px] bg-gradient-to-t from-background/95 via-background/85 to-transparent nav-blur-fade px-2 pb-safe lg:hidden transition-all duration-300 border-t border-border/10",
-                    isKeyboardOpen && "translate-y-full opacity-0 pointer-events-none"
-                )}>
-                    <div className="grid h-full grid-cols-5 max-w-lg mx-auto items-center">
-                        <button onClick={() => navigate({ to: '/' } as any)} className="flex flex-col items-center justify-center relative group h-full">
-                            <div className={cn("p-2 rounded-xl transition-all duration-500", isActive('/', true) ? "text-primary scale-110" : "text-muted-foreground/60 group-hover:text-primary")}>
-                                <Home className={cn("w-5 h-5", isActive('/', true) && "stroke-[2.5px]")} />
-                            </div>
-                            <span className={cn("text-[10px] font-bold mt-0.5", isActive('/', true) ? "text-primary" : "text-muted-foreground/50")}>Inicio</span>
-                        </button>
-                        
-                        <button onClick={() => navigate({ to: '/presupuestos' } as any)} className="flex flex-col items-center justify-center relative group h-full">
-                            <div className={cn("p-2 rounded-xl transition-all duration-500", isActive('/presupuestos') ? "text-primary scale-110" : "text-muted-foreground/60 group-hover:text-primary")}>
-                                <PiggyBank className={cn("w-5 h-5", isActive('/presupuestos') && "stroke-[2.5px]")} />
-                            </div>
-                            <span className={cn("text-[10px] font-bold mt-0.5", isActive('/presupuestos') ? "text-primary" : "text-muted-foreground/50")}>Presup.</span>
-                        </button>
+            <button
+              onClick={() => navigate({ to: '/comparativa' } as any)}
+              className="flex flex-col items-center justify-center relative group h-full"
+            >
+              <div
+                className={cn(
+                  'p-2 rounded-xl transition-all duration-500',
+                  isActive('/comparativa')
+                    ? 'text-primary scale-110'
+                    : 'text-muted-foreground/60 group-hover:text-primary'
+                )}
+              >
+                <Scale className={cn('w-5 h-5', isActive('/comparativa') && 'stroke-[2.5px]')} />
+              </div>
+              <span
+                className={cn(
+                  'text-[10px] font-bold mt-0.5',
+                  isActive('/comparativa') ? 'text-primary' : 'text-muted-foreground/50'
+                )}
+              >
+                Cuadrar
+              </span>
+            </button>
 
-                        {/* BOTÓN GIGANTE CENTRAL */}
-                        <Drawer>
-                            <DrawerTrigger asChild>
-                                <div className="flex flex-col items-center justify-center h-full -mt-6">
-                                    <button className="bg-primary text-primary-foreground rounded-full p-4 shadow-xl shadow-primary/30 active:scale-95 transition-transform">
-                                        <Plus className="w-8 h-8 stroke-[3px]" />
-                                    </button>
-                                </div>
-                            </DrawerTrigger>
-                            <DrawerContent>
-                                <DrawerHeader className="relative">
-                                    <DrawerTitle className="text-center text-xl">¿Qué quieres añadir?</DrawerTitle>
-                                    <DrawerClose asChild>
-                                        <Button variant="ghost" size="icon" className="absolute right-4 top-4 h-8 w-8 rounded-full bg-muted/50 hover:bg-muted">
-                                            <X className="h-4 w-4" />
-                                        </Button>
-                                    </DrawerClose>
-                                </DrawerHeader>
-                                <div className="p-4 flex gap-4">
-                                    <button 
-                                        onClick={() => { document.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape' })); navigate({ to: '/' as any, search: { action: 'add-expense', } as any }); }}
-                                        className="flex-1 bg-expense/10 hover:bg-expense/20 border-2 border-expense/20 rounded-2xl p-6 flex flex-col items-center gap-3 transition-colors active:scale-95"
-                                    >
-                                        <ArrowDownCircle className="w-12 h-12 text-expense stroke-[2px]" />
-                                        <span className="font-bold text-expense text-lg">Gasto</span>
-                                    </button>
-                                    <button 
-                                        onClick={() => { document.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape' })); navigate({ to: '/' as any, search: { action: 'add-income', } as any }); }}
-                                        className="flex-1 bg-income/10 hover:bg-income/20 border-2 border-income/20 rounded-2xl p-6 flex flex-col items-center gap-3 transition-colors active:scale-95"
-                                    >
-                                        <ArrowUpCircle className="w-12 h-12 text-income stroke-[2px]" />
-                                        <span className="font-bold text-income text-lg">Ingreso</span>
-                                    </button>
-                                </div>
-                                <div className="px-4 pb-12 max-h-[40vh] overflow-y-auto custom-scrollbar">
-                                    {favorites.length > 0 && (
-                                        <>
-                                            <div className="flex items-center justify-between mb-4 mt-2 border-t border-border/10 pt-4">
-                                                <h4 className="text-sm font-bold text-muted-foreground flex items-center gap-2">
-                                                    <Zap className="w-4 h-4 text-primary" /> Gastos Rápidos
-                                                </h4>
-                                            </div>
-                                            <div className="grid grid-cols-3 gap-3">
-                                                {favorites.map(fav => {
-                                                    const cat = categories.find(c => c.name === fav.category);
-                                                    const IconComponent = (Icons as any)[fav.icon || cat?.icon || 'Tag'] || Icons.Tag;
-                                                    return (
-                                                        <DrawerClose asChild key={fav.id}>
-                                                            <button 
-                                                                onClick={() => navigate({ to: '/' as any, search: { action: 'quick-expense', id: fav.id } as any })}
-                                                                className="flex flex-col items-center gap-2 p-3 rounded-xl border border-border/50 hover:bg-muted/50 active:scale-95 transition-all"
-                                                            >
-                                                                <div className="w-10 h-10 rounded-full flex items-center justify-center text-white" style={{ backgroundColor: cat?.color || '#3b82f6' }}>
-                                                                    <IconComponent className="w-5 h-5" />
-                                                                </div>
-                                                                <span className="text-[10px] font-bold text-center leading-tight">{fav.name}</span>
-                                                            </button>
-                                                        </DrawerClose>
-                                                    );
-                                                })}
-                                            </div>
-                                        </>
-                                    )}
-                                </div>
-                            </DrawerContent>
-                        </Drawer>
+            <SheetTrigger asChild>
+              <button className="flex flex-col items-center justify-center relative group h-full">
+                <div className="p-2 rounded-xl text-muted-foreground/60 group-hover:text-primary transition-all duration-500 relative">
+                  <Menu className="w-5 h-5" />
+                </div>
+                <span className="text-[10px] font-bold mt-0.5 text-muted-foreground/50">Menú</span>
+              </button>
+            </SheetTrigger>
+          </div>
+        </nav>
 
-                        <button onClick={() => navigate({ to: '/comparativa' } as any)} className="flex flex-col items-center justify-center relative group h-full">
-                            <div className={cn("p-2 rounded-xl transition-all duration-500", isActive('/comparativa') ? "text-primary scale-110" : "text-muted-foreground/60 group-hover:text-primary")}>
-                                <Scale className={cn("w-5 h-5", isActive('/comparativa') && "stroke-[2.5px]")} />
-                            </div>
-                            <span className={cn("text-[10px] font-bold mt-0.5", isActive('/comparativa') ? "text-primary" : "text-muted-foreground/50")}>Cuadrar</span>
-                        </button>
+        <SheetContent
+          side="bottom"
+          className="h-[85vh] rounded-t-3xl border-t border-border/20 bg-background/95 backdrop-blur-3xl p-0 flex flex-col lg:hidden"
+        >
+          <SheetHeader className="p-6 border-b border-border/10 shrink-0">
+            <SheetTitle className="text-2xl font-black flex items-center justify-center gap-3 tracking-tighter">
+              <div className="p-2 bg-primary/10 rounded-xl">
+                <Menu className="w-6 h-6 text-primary" />
+              </div>
+              <span className="bg-clip-text text-transparent bg-gradient-to-br from-foreground to-foreground/60">
+                Menú Principal
+              </span>
+            </SheetTitle>
+          </SheetHeader>
+          <div className="flex-1 overflow-y-auto py-4 px-4 custom-scrollbar flex flex-col">
+            <div className="grid grid-cols-2 gap-3 content-start">
+              {allDrawerNavItems.map((item) => {
+                const active = isActive(item.path, item.exact)
+                return (
+                  <SheetClose asChild key={item.path}>
+                    <button
+                      onClick={() => navigate({ to: item.path } as any)}
+                      className={cn(
+                        'flex flex-col items-center justify-center gap-2 p-4 rounded-2xl transition-all duration-300 font-bold group w-full text-center border',
+                        active
+                          ? 'bg-primary/10 text-primary border-primary/20 shadow-sm'
+                          : 'bg-card text-muted-foreground hover:bg-primary/5 hover:text-primary border-border/50 active:scale-95'
+                      )}
+                    >
+                      <div className="relative">
+                        <item.icon className={cn('w-6 h-6', active && 'stroke-[2.5px]')} />
+                      </div>
+                      <span className="text-xs uppercase tracking-[0.1em]">{item.label}</span>
+                    </button>
+                  </SheetClose>
+                )
+              })}
+            </div>
+          </div>
+        </SheetContent>
+      </Sheet>
+    </>
+  )
+}
 
-                        <SheetTrigger asChild>
-                            <button className="flex flex-col items-center justify-center relative group h-full">
-                                <div className="p-2 rounded-xl text-muted-foreground/60 group-hover:text-primary transition-all duration-500 relative">
-                                    <Menu className="w-5 h-5" />
-                                </div>
-                                <span className="text-[10px] font-bold mt-0.5 text-muted-foreground/50">Menú</span>
-                            </button>
-                        </SheetTrigger>
-                    </div>
-                </nav>
-
-                <SheetContent side="bottom" className="h-[85vh] rounded-t-3xl border-t border-border/20 bg-background/95 backdrop-blur-3xl p-0 flex flex-col lg:hidden">
-                    <SheetHeader className="p-6 border-b border-border/10 shrink-0">
-                        <SheetTitle className="text-2xl font-black flex items-center justify-center gap-3 tracking-tighter">
-                            <div className="p-2 bg-primary/10 rounded-xl">
-                                <Menu className="w-6 h-6 text-primary" />
-                            </div>
-                            <span className="bg-clip-text text-transparent bg-gradient-to-br from-foreground to-foreground/60">Menú Principal</span>
-                        </SheetTitle>
-                    </SheetHeader>
-                    <div className="flex-1 overflow-y-auto py-4 px-4 custom-scrollbar flex flex-col">
-                        <div className="grid grid-cols-2 gap-3 content-start">
-                            {allDrawerNavItems.map((item) => {
-                                const active = isActive(item.path, item.exact);
-                                return (
-                                    <SheetClose asChild key={item.path}>
-                                        <button
-                                            onClick={() => navigate({ to: item.path } as any)}
-                                            className={cn(
-                                                "flex flex-col items-center justify-center gap-2 p-4 rounded-2xl transition-all duration-300 font-bold group w-full text-center border",
-                                                active 
-                                                    ? "bg-primary/10 text-primary border-primary/20 shadow-sm" 
-                                                    : "bg-card text-muted-foreground hover:bg-primary/5 hover:text-primary border-border/50 active:scale-95"
-                                            )}
-                                        >
-                                            <div className="relative">
-                                                <item.icon className={cn("w-6 h-6", active && "stroke-[2.5px]")} />
-                                            </div>
-                                            <span className="text-xs uppercase tracking-[0.1em]">{item.label}</span>
-                                        </button>
-                                    </SheetClose>
-                                );
-                            })}
-                        </div>
-                    </div>
-                </SheetContent>
-            </Sheet>
-        </>
-    );
-};
-
-export default MobileNav;
+export default MobileNav
