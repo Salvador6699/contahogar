@@ -60,6 +60,7 @@ import { usePlanning } from "@/hooks/usePlanning";
 import { useLoans } from "@/hooks/useLoans";
 import { useFavorites } from "@/hooks/useFavorites";
 import { HomeDiagnosisWidget } from "@/components/HomeDiagnosisWidget";
+import { HomeBudgetWidget } from "@/components/HomeBudgetWidget";
 
 const Index = () => {
   const navigate = useNavigate();
@@ -818,11 +819,22 @@ const Index = () => {
               />
             </div>
 
-            {/* Smart Compact Alert Banner (Option B) */}
+            {/* Smart Compact Alert Banner: Diagnóstico y Ritmo vs Mes Anterior */}
             {isCurrentMonth && (
               <HomeDiagnosisWidget
                 transactions={data.transactions}
                 categories={data.categories}
+                accounts={data.accounts}
+                accountFilter={accountFilter}
+              />
+            )}
+
+            {/* Smart Compact Alert Banner: Cumplimiento de Presupuestos del Mes */}
+            {isCurrentMonth && (
+              <HomeBudgetWidget
+                transactions={data.transactions}
+                categories={data.categories}
+                budgets={data.budgets}
                 accounts={data.accounts}
                 accountFilter={accountFilter}
               />
