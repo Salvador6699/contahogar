@@ -29,7 +29,6 @@ import {
   CheckCircle2,
   LogOut,
   MoreHorizontal,
-  Sparkles,
   TrendingUp,
 } from 'lucide-react'
 import * as Icons from 'lucide-react'
@@ -84,7 +83,6 @@ const MobileNav = () => {
 
   const allDrawerNavItems: NavItem[] = [
     { icon: Home, label: 'Inicio', path: '/', exact: true },
-    { icon: Sparkles, label: 'Asistente IA', path: '/asistente' },
     { icon: Scale, label: 'Balance', path: '/comparativa' },
     { icon: ArrowLeftRight, label: 'Transf.', path: '/transferir' },
     { icon: SearchIcon, label: 'Buscar', path: '/buscar' },

@@ -1,5 +1,15 @@
 import { useState, useMemo, useEffect } from 'react'
-import { format, parseISO, startOfMonth, subMonths, eachMonthOfInterval } from 'date-fns'
+import {
+  format,
+  parseISO,
+  startOfMonth,
+  endOfMonth,
+  subMonths,
+  eachMonthOfInterval,
+  isSameMonth,
+  getDate,
+  getDaysInMonth,
+} from 'date-fns'
 import { es } from 'date-fns/locale'
 import {
   TrendingUp,
@@ -20,6 +30,9 @@ import {
   Receipt,
   ArrowDownCircle,
   ArrowUpCircle,
+  Clock,
+  Repeat,
+  SlidersHorizontal,
 } from 'lucide-react'
 import * as Icons from 'lucide-react'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
@@ -50,21 +63,14 @@ import { useAccounts } from '@/hooks/useAccounts'
 import { formatCurrency } from '@/lib/calculations'
 import { Transaction, Category, TransactionType } from '@/types/finance'
 import { cn } from '@/lib/utils'
+import {
+  EvolutionMonthDiagnosis,
+  MonthEvolutionData,
+  CategoryDiff,
+} from '@/components/EvolutionMonthDiagnosis'
 
 type TimeframeOption = '3m' | '6m' | '12m' | 'all'
 type ChartMode = 'area' | 'bar'
-
-interface MonthEvolutionData {
-  monthKey: string
-  monthLabel: string
-  fullMonthName: string
-  amount: number
-  prevAmount: number | null
-  percentageChange: number | null
-  absoluteChange: number | null
-  txCount: number
-  transactions: Transaction[]
-}
 
 export default function EvolutionPage() {
   const { transactions } = useTransactions()
@@ -72,11 +78,17 @@ export default function EvolutionPage() {
   const { accounts } = useAccounts()
 
   const [movementType, setMovementType] = useState<TransactionType>('expense')
+  const isExpense = movementType === 'expense'
   const [selectedCategory, setSelectedCategory] = useState<string>('')
   const [timeframe, setTimeframe] = useState<TimeframeOption>('6m')
   const [selectedAccountId, setSelectedAccountId] = useState<string>('all')
   const [chartMode, setChartMode] = useState<ChartMode>('area')
   const [expandedMonth, setExpandedMonth] = useState<string | null>(null)
+  const [monthTabs, setMonthTabs] = useState<Record<string, 'diagnosis' | 'transactions'>>({})
+
+  const getMonthTab = (monthKey: string) => monthTabs[monthKey] || 'diagnosis'
+  const setMonthTab = (monthKey: string, tab: 'diagnosis' | 'transactions') =>
+    setMonthTabs((prev) => ({ ...prev, [monthKey]: tab }))
 
   // Helper to check transfer category
   const isTransfer = (category: string) => {
@@ -88,10 +100,16 @@ export default function EvolutionPage() {
   }
 
   // Extract all valid transactions for current movementType (expense or income)
+  // Always includes pending transactions (unless explicitly ignored)
   const validTransactions = useMemo(() => {
-    return transactions.filter(
-      (t) => t.type === movementType && !t.isPending && !isTransfer(t.category)
-    )
+    return transactions.filter((t) => {
+      if (t.type !== movementType) return false
+      if (isTransfer(t.category)) return false
+      if (t.isPending) {
+        return !t.isIgnored
+      }
+      return true
+    })
   }, [transactions, movementType])
 
   // Available categories strictly separated by movementType (expense or income)
@@ -213,11 +231,6 @@ export default function EvolutionPage() {
     const now = new Date()
     const currentMonthDate = startOfMonth(now)
 
-    let monthsCount = 6
-    if (timeframe === '3m') monthsCount = 3
-    if (timeframe === '6m') monthsCount = 6
-    if (timeframe === '12m') monthsCount = 12
-
     let startDate: Date
     if (timeframe === 'all') {
       if (filtered.length > 0) {
@@ -229,6 +242,10 @@ export default function EvolutionPage() {
         startDate = subMonths(currentMonthDate, 5)
       }
     } else {
+      let monthsCount = 6
+      if (timeframe === '3m') monthsCount = 3
+      if (timeframe === '6m') monthsCount = 6
+      if (timeframe === '12m') monthsCount = 12
       startDate = subMonths(currentMonthDate, monthsCount - 1)
     }
 
@@ -241,53 +258,248 @@ export default function EvolutionPage() {
 
     const fullMonthsTimeline = allMonthsInterval.map((date) => {
       const monthKey = format(date, 'yyyy-MM')
-      const txs = monthTxMap.get(monthKey) || []
-      const amount = txs.reduce((sum, t) => sum + t.amount, 0)
+      const txs = (monthTxMap.get(monthKey) || []).sort((a, b) => b.date.localeCompare(a.date))
+      const realTxs = txs.filter((t) => !t.isPending)
+      const pendingTxs = txs.filter((t) => t.isPending)
+      const realAmount = realTxs.reduce((sum, t) => sum + t.amount, 0)
+      const pendingAmount = pendingTxs.reduce((sum, t) => sum + t.amount, 0)
+      const amount = realAmount + pendingAmount
+
       return {
         date,
         monthKey,
         monthLabel: format(date, 'MMM yy', { locale: es }),
         fullMonthName: format(date, 'MMMM yyyy', { locale: es }),
         amount,
-        transactions: txs.sort((a, b) => b.date.localeCompare(a.date)),
+        realAmount,
+        pendingAmount,
+        transactions: txs,
+        realTxs,
+        pendingTxs,
         txCount: txs.length,
+        realTxCount: realTxs.length,
+        pendingTxCount: pendingTxs.length,
       }
     })
 
-    // Calculate percentage change month over month
+    // Calculate percentage change month over month & compute detailed diagnostics
     const resultWithVariations: MonthEvolutionData[] = []
+    const currentDayOfMonth = getDate(now)
 
     for (let i = 1; i < fullMonthsTimeline.length; i++) {
       const current = fullMonthsTimeline[i]
       const previous = fullMonthsTimeline[i - 1]
       const prevAmount = previous.amount
+      const prevRealAmount = previous.realAmount
       const amount = current.amount
-      const absoluteChange = amount - prevAmount
+      const realAmount = current.realAmount
+      const pendingAmount = current.pendingAmount
+
+      const isCurrentMonth = isSameMonth(current.date, now)
+      const daysInMonth = getDaysInMonth(current.date)
+
+      // MTD (Month to date) calculation for fair day-to-day comparison
+      // Always compares transactions up to currentDayOfMonth vs same day of previous month
+      const targetPrevDay = Math.min(currentDayOfMonth, getDaysInMonth(previous.date))
+
+      const mtdCurrentTxs = isCurrentMonth
+        ? current.transactions.filter((t) => getDate(parseISO(t.date)) <= currentDayOfMonth)
+        : current.transactions
+
+      const mtdPrevTxs = isCurrentMonth
+        ? previous.transactions.filter((t) => getDate(parseISO(t.date)) <= targetPrevDay)
+        : previous.transactions
+
+      const mtdCurrentAmount = mtdCurrentTxs.reduce((sum, t) => sum + t.amount, 0)
+      const mtdPrevAmount = mtdPrevTxs.reduce((sum, t) => sum + t.amount, 0)
+
+      const mtdAbsoluteChange = mtdCurrentAmount - mtdPrevAmount
+      let mtdPercentageChange: number | null = null
+      if (mtdPrevAmount > 0) {
+        mtdPercentageChange = ((mtdCurrentAmount - mtdPrevAmount) / mtdPrevAmount) * 100
+      } else if (mtdPrevAmount === 0 && mtdCurrentAmount > 0) {
+        mtdPercentageChange = 100
+      } else if (mtdPrevAmount === 0 && mtdCurrentAmount === 0) {
+        mtdPercentageChange = 0
+      }
+
+      // For the current month, comparison against previous month is ALWAYS based on day-to-day elapsed period (MTD)
+      const absoluteChange = isCurrentMonth ? mtdAbsoluteChange : amount - prevAmount
 
       let percentageChange: number | null = null
-      if (prevAmount > 0) {
-        percentageChange = ((amount - prevAmount) / prevAmount) * 100
-      } else if (prevAmount === 0 && amount > 0) {
-        percentageChange = 100
-      } else if (prevAmount === 0 && amount === 0) {
-        percentageChange = 0
+      if (isCurrentMonth) {
+        percentageChange =
+          mtdPercentageChange !== null ? Number(mtdPercentageChange.toFixed(1)) : null
+      } else {
+        if (prevAmount > 0) {
+          percentageChange = Number((((amount - prevAmount) / prevAmount) * 100).toFixed(1))
+        } else if (prevAmount === 0 && amount > 0) {
+          percentageChange = 100
+        } else if (prevAmount === 0 && amount === 0) {
+          percentageChange = 0
+        }
+      }
+
+      // Category breakdown differences:
+      // For current month, compare like-for-like up to currentDayOfMonth vs same day in previous month
+      const currentCatTotals: Record<string, number> = {}
+      const curTxsForDiff = isCurrentMonth ? mtdCurrentTxs : current.transactions
+
+      curTxsForDiff.forEach((t) => {
+        currentCatTotals[t.category] = (currentCatTotals[t.category] || 0) + t.amount
+      })
+
+      const prevCatTotals: Record<string, number> = {}
+      const prevTxsForDiff = isCurrentMonth ? mtdPrevTxs : previous.transactions
+
+      prevTxsForDiff.forEach((t) => {
+        prevCatTotals[t.category] = (prevCatTotals[t.category] || 0) + t.amount
+      })
+
+      const allCatNames = Array.from(
+        new Set([...Object.keys(currentCatTotals), ...Object.keys(prevCatTotals)])
+      )
+
+      const categoryDiffs: CategoryDiff[] = allCatNames.map((catName) => {
+        const cur = currentCatTotals[catName] || 0
+        const prev = prevCatTotals[catName] || 0
+        const diff = Number((cur - prev).toFixed(2))
+        const percentageDiff =
+          prev > 0 ? Number((((cur - prev) / prev) * 100).toFixed(1)) : null
+        return {
+          category: catName,
+          currentAmount: cur,
+          prevAmount: prev,
+          diff,
+          percentageDiff,
+        }
+      })
+
+      const topIncreases = categoryDiffs
+        .filter((d) => d.diff > 0.01)
+        .sort((a, b) => b.diff - a.diff)
+        .slice(0, 5)
+
+      const topDecreases = categoryDiffs
+        .filter((d) => d.diff < -0.01)
+        .sort((a, b) => a.diff - b.diff)
+        .slice(0, 5)
+
+      const topTransactions = [...current.transactions]
+        .sort((a, b) => b.amount - a.amount)
+        .slice(0, 5)
+
+      const avgTicket = current.txCount > 0 ? amount / current.txCount : 0
+      const prevAvgTicket =
+        previous.txCount > 0 && prevAmount > 0 ? prevAmount / previous.txCount : null
+
+      // Build narrative explanation
+      let summaryExplanation = ''
+      if (selectedCategory === 'all') {
+        if (isCurrentMonth) {
+          if (mtdPrevAmount === null || mtdPrevAmount === 0) {
+            summaryExplanation = `Mes en curso (a día ${currentDayOfMonth}): llevas ${formatCurrency(mtdCurrentAmount)} en ${isExpense ? 'gastos cobrados' : 'ingresos'}.${pendingAmount > 0 ? ` Además, tienes ${formatCurrency(pendingAmount)} en previstos hasta fin de mes (Total esperado: ${formatCurrency(amount)}).` : ''}`
+          } else if (absoluteChange > 0) {
+            const causes = topIncreases
+              .slice(0, 2)
+              .map((c) => `${c.category} (+${formatCurrency(c.diff)})`)
+              .join(' y ')
+            summaryExplanation = `Comparativa a día de hoy (día ${currentDayOfMonth}): llevas un ${Math.abs(percentageChange || 0)}% (+${formatCurrency(absoluteChange)}) más que a la misma fecha del mes anterior.${causes ? ` Principales incrementos a día de hoy: ${causes}.` : ''}${pendingAmount > 0 ? ` Además, tienes ${formatCurrency(pendingAmount)} previstos pendientes hasta fin de mes (Total esperado: ${formatCurrency(amount)}).` : ''}`
+          } else if (absoluteChange < 0) {
+            const relief = topDecreases
+              .slice(0, 2)
+              .map((c) => `${c.category} (-${formatCurrency(Math.abs(c.diff))})`)
+              .join(' y ')
+            summaryExplanation = `Comparativa a día de hoy (día ${currentDayOfMonth}): ¡Llevas un ${Math.abs(percentageChange || 0)}% menos (-${formatCurrency(Math.abs(absoluteChange))}) que a la misma fecha del mes anterior!${relief ? ` Mayor reducción a la fecha en: ${relief}.` : ''}${pendingAmount > 0 ? ` Además, tienes ${formatCurrency(pendingAmount)} previstos pendientes hasta fin de mes (Total esperado: ${formatCurrency(amount)}).` : ''}`
+          } else {
+            summaryExplanation = `A día de hoy (${currentDayOfMonth}) llevas exactamente el mismo importe que el mes anterior a esta fecha (${formatCurrency(mtdCurrentAmount)}).`
+          }
+        } else {
+          // Closed past month
+          if (prevAmount === 0 && amount > 0) {
+            summaryExplanation = `Mes inicial de referencia. Tu ${isExpense ? 'gasto' : 'ingreso'} total fue de ${formatCurrency(amount)}.`
+          } else if (absoluteChange > 0) {
+            const causes = topIncreases
+              .slice(0, 2)
+              .map((c) => `${c.category} (+${formatCurrency(c.diff)})`)
+              .join(' y ')
+            summaryExplanation = `En ${current.fullMonthName}, el ${isExpense ? 'gasto' : 'ingreso'} subió un ${Math.abs(percentageChange || 0).toFixed(1)}% (+${formatCurrency(absoluteChange)}) respecto a ${previous.fullMonthName}.${causes ? ` Las causas principales fueron: ${causes}.` : ''}`
+            if (topDecreases.length > 0) {
+              summaryExplanation += ` Compensado parcialmente por ${topDecreases[0].category} (-${formatCurrency(Math.abs(topDecreases[0].diff))}).`
+            }
+          } else if (absoluteChange < 0) {
+            const relief = topDecreases
+              .slice(0, 2)
+              .map((c) => `${c.category} (-${formatCurrency(Math.abs(c.diff))})`)
+              .join(' y ')
+            summaryExplanation = `${isExpense ? '¡Excelente ahorro!' : 'Descenso de ingresos:'} En ${current.fullMonthName} ${isExpense ? 'gastaste' : 'ingresaste'} un ${Math.abs(percentageChange || 0).toFixed(1)}% menos (-${formatCurrency(Math.abs(absoluteChange))}) que en ${previous.fullMonthName}.${relief ? ` El mayor descenso se registró en: ${relief}.` : ''}`
+            if (topIncreases.length > 0) {
+              summaryExplanation += ` Aunque subió ${topIncreases[0].category} (+${formatCurrency(topIncreases[0].diff)}).`
+            }
+          } else {
+            summaryExplanation = `Volumen de ${isExpense ? 'gastos' : 'ingresos'} idéntico al mes anterior (${formatCurrency(amount)}).`
+          }
+        }
+      } else {
+        if (isCurrentMonth) {
+          const isUp = absoluteChange >= 0
+          summaryExplanation = `En ${selectedCategory}, a día ${currentDayOfMonth} el ${isExpense ? 'gasto' : 'ingreso'} ${isUp ? 'sube' : 'baja'} ${formatCurrency(Math.abs(absoluteChange))} (${Math.abs(percentageChange || 0)}%) comparado con el mismo día del mes anterior.`
+        } else {
+          if (prevAmount === 0 && amount > 0) {
+            summaryExplanation = `Primer mes con movimientos en ${selectedCategory}: total de ${formatCurrency(amount)} en ${current.txCount} movimiento(s).`
+          } else {
+            const isUp = absoluteChange >= 0
+            summaryExplanation = `En ${selectedCategory}, el ${isExpense ? 'gasto' : 'ingreso'} ${isUp ? 'subió' : 'bajó'} ${formatCurrency(Math.abs(absoluteChange))} (${Math.abs(percentageChange || 0).toFixed(1)}%). Registraste ${current.txCount} movimiento(s) (ticket medio de ${formatCurrency(avgTicket)}) frente a ${previous.txCount} del mes previo (${formatCurrency(prevAvgTicket || 0)}).`
+          }
+        }
       }
 
       resultWithVariations.push({
         monthKey: current.monthKey,
         monthLabel: current.monthLabel,
         fullMonthName: current.fullMonthName,
+        date: current.date,
         amount: Number(amount.toFixed(2)),
-        prevAmount: Number(prevAmount.toFixed(2)),
+        realAmount: Number(realAmount.toFixed(2)),
+        pendingAmount: Number(pendingAmount.toFixed(2)),
+        prevAmount: isCurrentMonth
+          ? Number(mtdPrevAmount.toFixed(2))
+          : Number(prevAmount.toFixed(2)),
+        prevRealAmount: Number(prevRealAmount.toFixed(2)),
         percentageChange: percentageChange !== null ? Number(percentageChange.toFixed(1)) : null,
         absoluteChange: Number(absoluteChange.toFixed(2)),
         txCount: current.txCount,
+        realTxCount: current.realTxCount,
+        pendingTxCount: current.pendingTxCount,
         transactions: current.transactions,
+        prevTransactions: previous.transactions,
+        mtdCurrentTxs,
+        mtdPrevTxs,
+        isCurrentMonth,
+        daysInMonth,
+        currentDayOfMonth,
+        mtdCurrentAmount: Number(mtdCurrentAmount.toFixed(2)),
+        mtdPrevAmount: Number(mtdPrevAmount.toFixed(2)),
+        mtdPercentageChange:
+          mtdPercentageChange !== null ? Number(mtdPercentageChange.toFixed(1)) : null,
+        mtdAbsoluteChange: Number(mtdAbsoluteChange.toFixed(2)),
+        categoryDiffs,
+        topIncreases,
+        topDecreases,
+        topTransactions,
+        summaryExplanation,
+        avgTicket: Number(avgTicket.toFixed(2)),
+        prevAvgTicket: prevAvgTicket !== null ? Number(prevAvgTicket.toFixed(2)) : null,
       })
     }
 
     return resultWithVariations
-  }, [validTransactions, selectedCategory, selectedAccountId, timeframe])
+  }, [
+    validTransactions,
+    selectedCategory,
+    selectedAccountId,
+    timeframe,
+  ])
 
   // Overall Statistics for active view
   const stats = useMemo(() => {
@@ -428,7 +640,7 @@ export default function EvolutionPage() {
     if (active && payload && payload.length) {
       const data: MonthEvolutionData = payload[0].payload
       return (
-        <div className="bg-popover/95 backdrop-blur-md border border-border/60 shadow-xl rounded-xl p-3 text-xs space-y-1.5 min-w-[170px] pointer-events-none">
+        <div className="bg-popover/95 backdrop-blur-md border border-border/60 shadow-xl rounded-xl p-3 text-xs space-y-1.5 min-w-[180px] pointer-events-none">
           <div className="font-bold text-foreground capitalize flex items-center justify-between border-b border-border/40 pb-1">
             <span>{data.fullMonthName}</span>
             <span className="text-[10px] text-muted-foreground font-normal">
@@ -450,8 +662,24 @@ export default function EvolutionPage() {
               {formatCurrency(data.amount)}
             </span>
           </div>
+          {data.pendingAmount > 0 && (
+            <div className="text-[10px] text-muted-foreground border-t border-border/30 pt-1 flex flex-col gap-0.5">
+              <div className="flex justify-between">
+                <span>Cobrado real:</span>
+                <span className="font-semibold text-foreground">{formatCurrency(data.realAmount)}</span>
+              </div>
+              <div className="flex justify-between text-amber-600 dark:text-amber-400">
+                <span>Previsto (recibos/hipoteca):</span>
+                <span className="font-semibold">+{formatCurrency(data.pendingAmount)}</span>
+              </div>
+            </div>
+          )}
           <div className="flex items-center justify-between gap-4">
-            <span className="text-muted-foreground">Variación mensual:</span>
+            <span className="text-muted-foreground">
+              {data.isCurrentMonth
+                ? `Variación a día ${data.currentDayOfMonth}:`
+                : 'Variación mensual:'}
+            </span>
             <div>{renderVariationBadge(data.percentageChange, data.absoluteChange, true)}</div>
           </div>
         </div>
@@ -459,8 +687,6 @@ export default function EvolutionPage() {
     }
     return null
   }
-
-  const isExpense = movementType === 'expense'
 
   return (
     <div className="container max-w-6xl mx-auto px-4 py-6 space-y-6">
@@ -538,9 +764,9 @@ export default function EvolutionPage() {
         </div>
       </div>
 
-      {/* Filter Bar: Category and Account Selectors */}
+      {/* Filter Bar: Category, Account, Pending Switch & Custom Date Range */}
       <Card className="border border-border/40 shadow-sm bg-card/60 backdrop-blur-sm rounded-2xl">
-        <CardContent className="p-4 sm:p-5">
+        <CardContent className="p-4 sm:p-5 space-y-4">
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-12 gap-4 items-center">
             {/* Category selector */}
             <div className="lg:col-span-8 space-y-1.5">
@@ -629,6 +855,7 @@ export default function EvolutionPage() {
               </Select>
             </div>
           </div>
+
         </CardContent>
       </Card>
 
@@ -655,9 +882,24 @@ export default function EvolutionPage() {
             <div className="text-2xl sm:text-3xl font-black text-foreground tracking-tight">
               {formatCurrency(stats.latestAmount)}
             </div>
+            {stats.latestMonth?.isCurrentMonth && (
+              <div className="text-xs text-muted-foreground font-medium pt-1 flex items-center gap-1.5 flex-wrap">
+                <span className="bg-muted/70 px-2 py-0.5 rounded-md text-foreground font-semibold">
+                  Cobrado: {formatCurrency(stats.latestMonth.realAmount)}
+                </span>
+                <span className="font-bold text-muted-foreground">+</span>
+                <span className="bg-amber-500/10 text-amber-600 dark:text-amber-400 border border-amber-500/20 px-2 py-0.5 rounded-md font-semibold">
+                  Prev: {formatCurrency(stats.latestMonth.pendingAmount)}
+                </span>
+              </div>
+            )}
             <div className="pt-1 flex items-center gap-2 flex-wrap">
               {renderVariationBadge(stats.latestPercentChange, stats.latestAbsoluteChange)}
-              <span className="text-[11px] text-muted-foreground">vs mes previo</span>
+              <span className="text-[11px] text-muted-foreground">
+                {stats.latestMonth?.isCurrentMonth
+                  ? `vs mismo día (${stats.latestMonth.currentDayOfMonth}) mes previo`
+                  : 'vs mes previo'}
+              </span>
             </div>
           </CardContent>
         </Card>
@@ -983,15 +1225,28 @@ export default function EvolutionPage() {
                         <div className="font-black text-sm sm:text-base text-foreground tracking-tight">
                           {formatCurrency(item.amount)}
                         </div>
-                        <div className="text-[11px] text-muted-foreground">
-                          {item.prevAmount !== null && (
-                            <span>prev: {formatCurrency(item.prevAmount)}</span>
-                          )}
-                        </div>
+                        {item.isCurrentMonth ? (
+                          <div className="text-[11px] text-muted-foreground flex items-center justify-end gap-1 flex-wrap">
+                            <span>Cobrado: <strong className="text-foreground font-semibold">{formatCurrency(item.realAmount)}</strong></span>
+                            <span>+</span>
+                            <span className="text-amber-600 dark:text-amber-400 font-semibold">Prev: {formatCurrency(item.pendingAmount)}</span>
+                          </div>
+                        ) : (
+                          <div className="text-[11px] text-muted-foreground">
+                            {item.prevAmount !== null && (
+                              <span>prev: {formatCurrency(item.prevAmount)}</span>
+                            )}
+                          </div>
+                        )}
                       </div>
 
-                      <div className="min-w-[90px] flex justify-end">
+                      <div className="min-w-[90px] flex flex-col items-end justify-center">
                         {renderVariationBadge(item.percentageChange, item.absoluteChange)}
+                        {item.isCurrentMonth && (
+                          <span className="text-[9px] text-muted-foreground mt-0.5">
+                            a día {item.currentDayOfMonth}
+                          </span>
+                        )}
                       </div>
 
                       <Button
@@ -1008,65 +1263,127 @@ export default function EvolutionPage() {
                     </div>
                   </div>
 
-                  {/* Expanded Transaction List */}
+                  {/* Expanded Content with Tabs: Diagnosis vs Transactions */}
                   {isExpanded && (
-                    <div className="mt-3 pt-3 border-t border-border/30 animate-in fade-in slide-in-from-top-2 duration-200">
-                      <div className="space-y-2">
-                        <div className="text-xs font-bold uppercase tracking-wider text-muted-foreground px-1">
-                          {isExpense ? 'Gastos' : 'Ingresos'} registrados en {item.fullMonthName}:
+                    <div className="mt-3 pt-3 border-t border-border/30 space-y-3 animate-in fade-in slide-in-from-top-2 duration-200">
+                      {/* Sub-tabs header */}
+                      <div className="flex items-center justify-between flex-wrap gap-2">
+                        <div className="flex items-center gap-1 bg-muted/60 p-1 rounded-xl">
+                          <button
+                            type="button"
+                            onClick={() => setMonthTab(item.monthKey, 'diagnosis')}
+                            className={cn(
+                              'px-3 py-1.5 text-xs font-bold rounded-lg transition-all flex items-center gap-1.5',
+                              getMonthTab(item.monthKey) === 'diagnosis'
+                                ? 'bg-background text-foreground shadow-xs'
+                                : 'text-muted-foreground hover:text-foreground'
+                            )}
+                          >
+                            <Sparkles className="w-3.5 h-3.5 text-primary" />
+                            <span>Diagnóstico & Por qué</span>
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => setMonthTab(item.monthKey, 'transactions')}
+                            className={cn(
+                              'px-3 py-1.5 text-xs font-bold rounded-lg transition-all flex items-center gap-1.5',
+                              getMonthTab(item.monthKey) === 'transactions'
+                                ? 'bg-background text-foreground shadow-xs'
+                                : 'text-muted-foreground hover:text-foreground'
+                            )}
+                          >
+                            <Receipt className="w-3.5 h-3.5" />
+                            <span>Movimientos ({item.txCount})</span>
+                          </button>
                         </div>
-                        {item.transactions.length === 0 ? (
-                          <div className="text-xs text-muted-foreground py-2 px-1 italic">
-                            No hay movimientos registrados en este mes.
+
+                        <div className="text-[11px] text-muted-foreground hidden sm:block">
+                          {item.fullMonthName}
+                        </div>
+                      </div>
+
+                      {/* Tab 1: Diagnóstico interactivo */}
+                      {getMonthTab(item.monthKey) === 'diagnosis' ? (
+                        <EvolutionMonthDiagnosis
+                          data={item}
+                          movementType={movementType}
+                          selectedCategory={selectedCategory}
+                          categories={categories}
+                          accounts={accounts}
+                          renderCategoryIcon={renderCategoryIcon}
+                          renderVariationBadge={renderVariationBadge}
+                          onViewTransactions={() => setMonthTab(item.monthKey, 'transactions')}
+                        />
+                      ) : (
+                        /* Tab 2: Lista detallada de transacciones */
+                        <div className="space-y-2 pt-1">
+                          <div className="text-xs font-bold uppercase tracking-wider text-muted-foreground px-1 flex items-center justify-between">
+                            <span>{isExpense ? 'Gastos' : 'Ingresos'} registrados en {item.fullMonthName}:</span>
+                            <span className="text-[11px] font-normal lowercase">{item.transactions.length} movimientos</span>
                           </div>
-                        ) : (
-                          <div className="space-y-1.5">
-                            {item.transactions.map((tx) => {
-                              const account = accounts.find((a) => a.id === tx.accountId)
-                              return (
-                                <div
-                                  key={tx.id}
-                                  className="flex items-center justify-between p-2.5 rounded-xl bg-background/80 border border-border/30 text-xs hover:border-border/60 transition-colors"
-                                >
-                                  <div className="flex items-center gap-2.5 min-w-0">
-                                    <div className="p-1.5 rounded-lg bg-muted text-muted-foreground shrink-0">
-                                      <Receipt className="w-3.5 h-3.5" />
-                                    </div>
-                                    <div className="min-w-0">
-                                      <p className="font-semibold text-foreground truncate">
-                                        {tx.description || tx.category}
-                                      </p>
-                                      <div className="flex items-center gap-2 text-[10px] text-muted-foreground">
-                                        <span>
-                                          {format(parseISO(tx.date), 'dd MMM yyyy', { locale: es })}
-                                        </span>
-                                        {account && (
-                                          <>
-                                            <span>•</span>
-                                            <span>{account.name}</span>
-                                          </>
-                                        )}
+                          {item.transactions.length === 0 ? (
+                            <div className="text-xs text-muted-foreground py-2 px-1 italic">
+                              No hay movimientos registrados en este mes.
+                            </div>
+                          ) : (
+                            <div className="space-y-1.5 max-h-96 overflow-y-auto pr-1">
+                              {item.transactions.map((tx) => {
+                                const account = accounts.find((a) => a.id === tx.accountId)
+                                return (
+                                  <div
+                                    key={tx.id}
+                                    className="flex items-center justify-between p-2.5 rounded-xl bg-background/80 border border-border/30 text-xs hover:border-border/60 transition-colors"
+                                  >
+                                    <div className="flex items-center gap-2.5 min-w-0 pr-2">
+                                      <div className="w-6 h-6 rounded-md bg-muted flex items-center justify-center shrink-0">
+                                        {renderCategoryIcon(tx.category, 'w-3.5 h-3.5')}
+                                      </div>
+                                      <div className="min-w-0">
+                                        <div className="flex items-center gap-1.5">
+                                          <p className="font-semibold text-foreground truncate">
+                                            {tx.description || tx.category}
+                                          </p>
+                                          {tx.isPending && (
+                                            <Badge
+                                              variant="outline"
+                                              className="text-[9px] px-1 py-0 border-amber-500/40 text-amber-600 bg-amber-500/10 font-bold"
+                                            >
+                                              Previsto
+                                            </Badge>
+                                          )}
+                                        </div>
+                                        <div className="flex items-center gap-2 text-[10px] text-muted-foreground">
+                                          <span>
+                                            {format(parseISO(tx.date), 'dd MMM yyyy', { locale: es })}
+                                          </span>
+                                          {account && (
+                                            <>
+                                              <span>•</span>
+                                              <span>{account.name}</span>
+                                            </>
+                                          )}
+                                        </div>
                                       </div>
                                     </div>
-                                  </div>
 
-                                  <div
-                                    className={cn(
-                                      'font-bold text-right shrink-0',
-                                      isExpense
-                                        ? 'text-foreground'
-                                        : 'text-emerald-600 dark:text-emerald-400'
-                                    )}
-                                  >
-                                    {isExpense ? '' : '+'}
-                                    {formatCurrency(tx.amount)}
+                                    <div
+                                      className={cn(
+                                        'font-bold text-right shrink-0',
+                                        isExpense
+                                          ? 'text-foreground'
+                                          : 'text-emerald-600 dark:text-emerald-400'
+                                      )}
+                                    >
+                                      {isExpense ? '' : '+'}
+                                      {formatCurrency(tx.amount)}
+                                    </div>
                                   </div>
-                                </div>
-                              )
-                            })}
-                          </div>
-                        )}
-                      </div>
+                                )
+                              })}
+                            </div>
+                          )}
+                        </div>
+                      )}
                     </div>
                   )}
                 </div>

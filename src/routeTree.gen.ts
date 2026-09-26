@@ -16,7 +16,6 @@ import { Route as SelectTeamRouteImport } from './routes/select-team'
 import { Route as AppIndexRouteImport } from './routes/_app.index'
 import { Route as AppAhorrosRouteImport } from './routes/_app.ahorros'
 import { Route as AppAjustesRouteImport } from './routes/_app.ajustes'
-import { Route as AppAsistenteRouteImport } from './routes/_app.asistente'
 import { Route as AppBackupRouteImport } from './routes/_app.backup'
 import { Route as AppBuscarRouteImport } from './routes/_app.buscar'
 import { Route as AppComparativaRouteImport } from './routes/_app.comparativa'
@@ -61,11 +60,6 @@ const AppAhorrosRoute = AppAhorrosRouteImport.update({
 const AppAjustesRoute = AppAjustesRouteImport.update({
   id: '/ajustes',
   path: '/ajustes',
-  getParentRoute: () => AppRoute,
-} as any)
-const AppAsistenteRoute = AppAsistenteRouteImport.update({
-  id: '/asistente',
-  path: '/asistente',
   getParentRoute: () => AppRoute,
 } as any)
 const AppBackupRoute = AppBackupRouteImport.update({
@@ -131,7 +125,6 @@ export interface FileRoutesByFullPath {
   '/select-team': typeof SelectTeamRoute
   '/ahorros': typeof AppAhorrosRoute
   '/ajustes': typeof AppAjustesRoute
-  '/asistente': typeof AppAsistenteRoute
   '/backup': typeof AppBackupRoute
   '/buscar': typeof AppBuscarRoute
   '/comparativa': typeof AppComparativaRoute
@@ -150,7 +143,6 @@ export interface FileRoutesByTo {
   '/select-team': typeof SelectTeamRoute
   '/ahorros': typeof AppAhorrosRoute
   '/ajustes': typeof AppAjustesRoute
-  '/asistente': typeof AppAsistenteRoute
   '/backup': typeof AppBackupRoute
   '/buscar': typeof AppBuscarRoute
   '/comparativa': typeof AppComparativaRoute
@@ -172,7 +164,6 @@ export interface FileRoutesById {
   '/select-team': typeof SelectTeamRoute
   '/_app/ahorros': typeof AppAhorrosRoute
   '/_app/ajustes': typeof AppAjustesRoute
-  '/_app/asistente': typeof AppAsistenteRoute
   '/_app/backup': typeof AppBackupRoute
   '/_app/buscar': typeof AppBuscarRoute
   '/_app/comparativa': typeof AppComparativaRoute
@@ -195,7 +186,6 @@ export interface FileRouteTypes {
     | '/select-team'
     | '/ahorros'
     | '/ajustes'
-    | '/asistente'
     | '/backup'
     | '/buscar'
     | '/comparativa'
@@ -214,7 +204,6 @@ export interface FileRouteTypes {
     | '/select-team'
     | '/ahorros'
     | '/ajustes'
-    | '/asistente'
     | '/backup'
     | '/buscar'
     | '/comparativa'
@@ -235,7 +224,6 @@ export interface FileRouteTypes {
     | '/select-team'
     | '/_app/ahorros'
     | '/_app/ajustes'
-    | '/_app/asistente'
     | '/_app/backup'
     | '/_app/buscar'
     | '/_app/comparativa'
@@ -306,13 +294,6 @@ declare module '@tanstack/react-router' {
       path: '/ajustes'
       fullPath: '/ajustes'
       preLoaderRoute: typeof AppAjustesRouteImport
-      parentRoute: typeof AppRoute
-    }
-    '/_app/asistente': {
-      id: '/_app/asistente'
-      path: '/asistente'
-      fullPath: '/asistente'
-      preLoaderRoute: typeof AppAsistenteRouteImport
       parentRoute: typeof AppRoute
     }
     '/_app/backup': {
@@ -398,7 +379,6 @@ declare module '@tanstack/react-router' {
 interface AppRouteChildren {
   AppAhorrosRoute: typeof AppAhorrosRoute
   AppAjustesRoute: typeof AppAjustesRoute
-  AppAsistenteRoute: typeof AppAsistenteRoute
   AppBackupRoute: typeof AppBackupRoute
   AppBuscarRoute: typeof AppBuscarRoute
   AppComparativaRoute: typeof AppComparativaRoute
@@ -416,7 +396,6 @@ interface AppRouteChildren {
 const AppRouteChildren: AppRouteChildren = {
   AppAhorrosRoute: AppAhorrosRoute,
   AppAjustesRoute: AppAjustesRoute,
-  AppAsistenteRoute: AppAsistenteRoute,
   AppBackupRoute: AppBackupRoute,
   AppBuscarRoute: AppBuscarRoute,
   AppComparativaRoute: AppComparativaRoute,
