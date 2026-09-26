@@ -59,6 +59,7 @@ import { useCategories } from "@/hooks/useCategories";
 import { usePlanning } from "@/hooks/usePlanning";
 import { useLoans } from "@/hooks/useLoans";
 import { useFavorites } from "@/hooks/useFavorites";
+import { HomeDiagnosisWidget } from "@/components/HomeDiagnosisWidget";
 
 const Index = () => {
   const navigate = useNavigate();
@@ -105,8 +106,10 @@ const Index = () => {
     if (saved) {
       try {
         const parsed = JSON.parse(saved) as string[];
-        // Migrar 'charts' antiguo a los nuevos
-        let migrated = parsed.flatMap(item => item === "charts" ? ["upcoming", "categories"] : item);
+        // Migrar 'charts' antiguo a los nuevos y limpiar 'diagnosis' si existiese
+        let migrated = parsed
+          .flatMap(item => item === "charts" ? ["upcoming", "categories"] : item)
+          .filter(item => item !== "diagnosis");
         
         // Asegurar que no falte ninguno de los por defecto
         const missing = defaultOrder.filter(w => !migrated.includes(w));
@@ -814,6 +817,16 @@ const Index = () => {
                 projectedBalance={projectedBalance}
               />
             </div>
+
+            {/* Smart Compact Alert Banner (Option B) */}
+            {isCurrentMonth && (
+              <HomeDiagnosisWidget
+                transactions={data.transactions}
+                categories={data.categories}
+                accounts={data.accounts}
+                accountFilter={accountFilter}
+              />
+            )}
 
             {/* Draggable Widgets Area */}
             <DndContext 

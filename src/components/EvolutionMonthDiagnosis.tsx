@@ -288,14 +288,29 @@ export function EvolutionMonthDiagnosis({
                             <span className="text-[11px] text-muted-foreground hidden sm:inline">
                               {formatCurrency(item.prevAmount)} → {formatCurrency(item.currentAmount)}
                             </span>
-                            <span
-                              className={cn(
-                                'font-black text-xs',
-                                isExpense ? 'text-rose-600 dark:text-rose-400' : 'text-emerald-600 dark:text-emerald-400'
+                            <div className="flex items-center gap-1">
+                              {item.percentageDiff !== null && (
+                                <Badge
+                                  variant="outline"
+                                  className={cn(
+                                    'font-bold text-[10px] px-1.5 py-0',
+                                    isExpense
+                                      ? 'bg-rose-500/10 text-rose-600 dark:text-rose-400 border-rose-500/20'
+                                      : 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border-emerald-500/20'
+                                  )}
+                                >
+                                  +{item.percentageDiff}%
+                                </Badge>
                               )}
-                            >
-                              +{formatCurrency(item.diff)}
-                            </span>
+                              <span
+                                className={cn(
+                                  'font-black text-xs',
+                                  isExpense ? 'text-rose-600 dark:text-rose-400' : 'text-emerald-600 dark:text-emerald-400'
+                                )}
+                              >
+                                +{formatCurrency(item.diff)}
+                              </span>
+                            </div>
                           </div>
                         </div>
 
@@ -328,7 +343,7 @@ export function EvolutionMonthDiagnosis({
                   )}
                 >
                   <TrendingDown className="w-4 h-4" />
-                  {isExpense ? 'Mayor ahorro / partidas reducidas' : 'Ingresos que disminuyeron'}
+                  {isExpense ? 'Top 5 mayor descenso / ahorro (%)' : 'Ingresos que disminuyeron (%)'}
                 </span>
                 <span className="text-[10px] font-semibold text-muted-foreground">
                   {data.isCurrentMonth
@@ -360,14 +375,29 @@ export function EvolutionMonthDiagnosis({
                             <span className="text-[11px] text-muted-foreground hidden sm:inline">
                               {formatCurrency(item.prevAmount)} → {formatCurrency(item.currentAmount)}
                             </span>
-                            <span
-                              className={cn(
-                                'font-black text-xs',
-                                isExpense ? 'text-emerald-600 dark:text-emerald-400' : 'text-rose-600 dark:text-rose-400'
+                            <div className="flex items-center gap-1">
+                              {item.percentageDiff !== null && (
+                                <Badge
+                                  variant="outline"
+                                  className={cn(
+                                    'font-bold text-[10px] px-1.5 py-0',
+                                    isExpense
+                                      ? 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border-emerald-500/20'
+                                      : 'bg-rose-500/10 text-rose-600 dark:text-rose-400 border-rose-500/20'
+                                  )}
+                                >
+                                  {item.percentageDiff}%
+                                </Badge>
                               )}
-                            >
-                              -{formatCurrency(Math.abs(item.diff))}
-                            </span>
+                              <span
+                                className={cn(
+                                  'font-black text-xs',
+                                  isExpense ? 'text-emerald-600 dark:text-emerald-400' : 'text-rose-600 dark:text-rose-400'
+                                )}
+                              >
+                                -{formatCurrency(Math.abs(item.diff))}
+                              </span>
+                            </div>
                           </div>
                         </div>
 

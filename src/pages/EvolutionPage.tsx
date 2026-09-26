@@ -364,8 +364,14 @@ export default function EvolutionPage() {
         const cur = currentCatTotals[catName] || 0
         const prev = prevCatTotals[catName] || 0
         const diff = Number((cur - prev).toFixed(2))
-        const percentageDiff =
-          prev > 0 ? Number((((cur - prev) / prev) * 100).toFixed(1)) : null
+        let percentageDiff: number | null = null
+        if (prev > 0) {
+          percentageDiff = Number((((cur - prev) / prev) * 100).toFixed(1))
+        } else if (prev === 0 && cur > 0) {
+          percentageDiff = 100
+        } else if (prev > 0 && cur === 0) {
+          percentageDiff = -100
+        }
         return {
           category: catName,
           currentAmount: cur,
@@ -377,12 +383,22 @@ export default function EvolutionPage() {
 
       const topIncreases = categoryDiffs
         .filter((d) => d.diff > 0.01)
-        .sort((a, b) => b.diff - a.diff)
+        .sort((a, b) => {
+          const pctA = a.percentageDiff ?? 0
+          const pctB = b.percentageDiff ?? 0
+          if (pctB !== pctA) return pctB - pctA
+          return b.diff - a.diff
+        })
         .slice(0, 5)
 
       const topDecreases = categoryDiffs
         .filter((d) => d.diff < -0.01)
-        .sort((a, b) => a.diff - b.diff)
+        .sort((a, b) => {
+          const pctA = a.percentageDiff ?? 0
+          const pctB = b.percentageDiff ?? 0
+          if (pctA !== pctB) return pctA - pctB
+          return a.diff - b.diff
+        })
         .slice(0, 5)
 
       const topTransactions = [...current.transactions]
