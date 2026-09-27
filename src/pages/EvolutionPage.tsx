@@ -3,7 +3,6 @@ import {
   format,
   parseISO,
   startOfMonth,
-  endOfMonth,
   subMonths,
   eachMonthOfInterval,
   isSameMonth,
@@ -30,9 +29,6 @@ import {
   Receipt,
   ArrowDownCircle,
   ArrowUpCircle,
-  Clock,
-  Repeat,
-  SlidersHorizontal,
 } from 'lucide-react'
 import * as Icons from 'lucide-react'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
@@ -60,7 +56,7 @@ import {
 import { useTransactions } from '@/hooks/useTransactions'
 import { useCategories } from '@/hooks/useCategories'
 import { useAccounts } from '@/hooks/useAccounts'
-import { formatCurrency } from '@/lib/calculations'
+import { formatCurrency, isTransfer } from '@/lib/calculations'
 import { Transaction, Category, TransactionType } from '@/types/finance'
 import { cn } from '@/lib/utils'
 import {
@@ -89,15 +85,6 @@ export default function EvolutionPage() {
   const getMonthTab = (monthKey: string) => monthTabs[monthKey] || 'diagnosis'
   const setMonthTab = (monthKey: string, tab: 'diagnosis' | 'transactions') =>
     setMonthTabs((prev) => ({ ...prev, [monthKey]: tab }))
-
-  // Helper to check transfer category
-  const isTransfer = (category: string) => {
-    const normalized = category
-      .toLowerCase()
-      .normalize('NFD')
-      .replace(/[\u0300-\u036f]/g, '')
-    return normalized === 'transferencia'
-  }
 
   // Extract all valid transactions for current movementType (expense or income)
   // Always includes pending transactions (unless explicitly ignored)
@@ -369,8 +356,6 @@ export default function EvolutionPage() {
           percentageDiff = Number((((cur - prev) / prev) * 100).toFixed(1))
         } else if (prev === 0 && cur > 0) {
           percentageDiff = 100
-        } else if (prev > 0 && cur === 0) {
-          percentageDiff = -100
         }
         return {
           category: catName,
@@ -515,6 +500,7 @@ export default function EvolutionPage() {
     selectedCategory,
     selectedAccountId,
     timeframe,
+    isExpense,
   ])
 
   // Overall Statistics for active view

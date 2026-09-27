@@ -1,4 +1,3 @@
-/* eslint-disable @typescript-eslint/no-explicit-any */
 import { useState, useEffect, useMemo } from 'react'
 import { useNavigate, useLocation } from '@tanstack/react-router'
 import {
@@ -83,7 +82,7 @@ const MobileNav = () => {
 
   const allDrawerNavItems: NavItem[] = [
     { icon: Home, label: 'Inicio', path: '/', exact: true },
-    { icon: Scale, label: 'Balance', path: '/comparativa' },
+    { icon: Scale, label: 'Cuadrar', path: '/comparativa' },
     { icon: ArrowLeftRight, label: 'Transf.', path: '/transferir' },
     { icon: SearchIcon, label: 'Buscar', path: '/buscar' },
     { icon: PiggyBank, label: 'Presupuestos', path: '/presupuestos' },

@@ -1,4 +1,3 @@
-/* eslint-disable @typescript-eslint/no-explicit-any */
 import { useState, useEffect, useRef } from "react";
 import { useSearchParams } from '@/hooks/useSearchParams';
 import { useTheme } from "next-themes";

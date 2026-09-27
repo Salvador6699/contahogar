@@ -24,7 +24,7 @@ import * as Icons from 'lucide-react'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Transaction, Category, Account } from '@/types/finance'
-import { formatCurrency } from '@/lib/calculations'
+import { formatCurrency, isTransfer } from '@/lib/calculations'
 import { cn } from '@/lib/utils'
 
 interface HomeDiagnosisWidgetProps {
@@ -39,15 +39,6 @@ export function HomeDiagnosisWidget({
 }: HomeDiagnosisWidgetProps) {
   const navigate = useNavigate()
   const [isExpanded, setIsExpanded] = useState(false)
-
-  // Helper to check transfer category
-  const isTransfer = (category: string) => {
-    const normalized = category
-      .toLowerCase()
-      .normalize('NFD')
-      .replace(/[\u0300-\u036f]/g, '')
-    return normalized === 'transferencia'
-  }
 
   // Helper for category icon
   const renderCategoryIcon = (catName: string, sizeClass = 'w-3.5 h-3.5') => {
@@ -146,8 +137,6 @@ export function HomeDiagnosisWidget({
         percentageDiff = Number((((cur - prev) / prev) * 100).toFixed(1))
       } else if (prev === 0 && cur > 0) {
         percentageDiff = 100
-      } else if (prev > 0 && cur === 0) {
-        percentageDiff = -100
       }
       return {
         category: name,
@@ -195,7 +184,7 @@ export function HomeDiagnosisWidget({
       topIncreases,
       topDecreases,
     }
-  }, [transactions, categories])
+  }, [transactions])
 
   const isOverspending = diagnosis.mtdDiff > 0
   const isHighAlert = isOverspending && (diagnosis.mtdPercent === null || diagnosis.mtdPercent >= 15)

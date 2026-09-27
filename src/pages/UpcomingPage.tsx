@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { Transaction, TransactionType } from "@/types/finance";
-import { calculateCategorySummaries } from "@/lib/calculations";
+import { calculateCategorySummaries, isTransfer } from "@/lib/calculations";
 import { useMonthFilter } from "@/hooks/useMonthFilter";
 import CategoryBreakdown from "@/components/CategoryBreakdown";
 import TransactionModal from "@/components/TransactionModal";
@@ -26,7 +26,7 @@ const UpcomingPage = () => {
   const { filteredTransactions } = useMonthFilter(transactions, null);
 
   const nonTransferTransactions = filteredTransactions.filter(
-    (t) => t.category !== "Transferencia"
+    (t) => !isTransfer(t.category)
   );
 
   const pendingExpenseCategories = calculateCategorySummaries(

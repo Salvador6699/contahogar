@@ -94,7 +94,7 @@ export function VoiceButton({ accounts = [], onResult }: VoiceButtonProps) {
     const textNoSpaces = normalizedText.replace(/\s+/g, "");
 
     if (type === 'transfer') {
-      let foundAccounts = accounts.filter(acc => {
+      const foundAccounts = accounts.filter(acc => {
         const nameNoSpaces = acc.name.toLowerCase().replace(/\s+/g, "");
         return textNoSpaces.includes(nameNoSpaces);
       });

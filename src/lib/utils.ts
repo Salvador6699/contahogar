@@ -87,3 +87,16 @@ export function parseAmount(val: string | number | undefined | null): number {
   const num = parseFloat(str);
   return isNaN(num) ? 0 : num;
 }
+
+/**
+ * Determina si una categoría corresponde a una transferencia
+ */
+export function isTransfer(category?: string | null): boolean {
+  if (!category) return false;
+  return (
+    category
+      .toLowerCase()
+      .normalize('NFD')
+      .replace(/[\u0300-\u036f]/g, '') === 'transferencia'
+  );
+}

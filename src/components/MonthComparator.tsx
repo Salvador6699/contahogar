@@ -27,7 +27,7 @@ import {
     SelectValue,
 } from '@/components/ui/select';
 import { Transaction } from '@/types/finance';
-import { formatCurrency } from '@/lib/calculations';
+import { formatCurrency, isTransfer } from '@/lib/calculations';
 import { cn } from '@/lib/utils';
 
 interface MonthlyOption {
@@ -111,11 +111,6 @@ export const MonthComparator = ({
 
     // Total active (non-excluded) income for Month A and Month B in selected date range
     const activeIncomeTotalA = useMemo(() => {
-        const isTransfer = (category: string) => {
-            const normalized = category.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '');
-            return normalized === 'transferencia';
-        };
-
         return transactions
             .filter(t => 
                 !t.isPending && 
@@ -130,11 +125,6 @@ export const MonthComparator = ({
     }, [transactions, monthA, startDay, endDay, excludedIncomeCategories]);
 
     const activeIncomeTotalB = useMemo(() => {
-        const isTransfer = (category: string) => {
-            const normalized = category.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '');
-            return normalized === 'transferencia';
-        };
-
         return transactions
             .filter(t => 
                 !t.isPending && 
@@ -150,11 +140,6 @@ export const MonthComparator = ({
 
     // Main comparison data computed for active tab
     const comparisonData = useMemo(() => {
-        const isTransfer = (category: string) => {
-            const normalized = category.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '');
-            return normalized === 'transferencia';
-        };
-
         const filterTx = (t: Transaction, monthKey: string) => {
             if (t.isPending || isTransfer(t.category)) return false;
             if (t.type !== activeTab) return false;

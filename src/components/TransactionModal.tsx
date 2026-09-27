@@ -171,7 +171,9 @@ const TransactionModal = ({
           if (parsed.category) draftCategory = parsed.category;
           if (parsed.description) draftDescription = parsed.description;
           if (parsed.accountId) draftAccountId = parsed.accountId;
-        } catch (e) {}
+        } catch {
+          // Ignorar borrador corrupto
+        }
       }
 
       if (hookAccounts.length <= 1 || editingTransaction || draftAccountId) {
@@ -211,7 +213,7 @@ const TransactionModal = ({
         setSetupFeeDate("");
       }
     }
-  }, [isOpen, editingTransaction, defaultAccountId, type]);
+  }, [isOpen, editingTransaction, defaultAccountId, type, hookAccounts, isAccLoading]);
 
   useEffect(() => {
     const timeoutId = setTimeout(() => {

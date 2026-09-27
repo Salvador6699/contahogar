@@ -1,17 +1,14 @@
-/* eslint-disable @typescript-eslint/no-explicit-any */
-import { useState, useMemo, useEffect } from 'react';
+import { useState, useMemo } from 'react';
 import { useNavigate } from '@tanstack/react-router';
 import { format, parseISO, startOfMonth } from 'date-fns';
 import { es } from 'date-fns/locale';
-import { Calendar, History } from 'lucide-react';
-import { Button } from '@/components/ui/button';
-import { Card, CardContent } from '@/components/ui/card';
+import { Calendar } from 'lucide-react';
 import { Transaction } from '@/types/finance';
 import { useTransactions } from '@/hooks/useTransactions';
 import { useCategories } from '@/hooks/useCategories';
-import { formatCurrency } from '@/lib/calculations';
+import { formatCurrency, isTransfer } from '@/lib/calculations';
 import MobileNav from '@/components/MobileNav';
-import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, Cell } from 'recharts';
+import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from 'recharts';
 import { ChartContainer, ChartTooltipContent } from '@/components/ui/chart';
 import { ResponsiveDialog, ResponsiveDialogContent, ResponsiveDialogHeader, ResponsiveDialogTitle } from '@/components/ui/responsive-dialog';
 import { MonthComparator } from '@/components/MonthComparator';
@@ -31,11 +28,6 @@ const HistoryPage = () => {
 
     const monthlyData: MonthlyData[] = useMemo(() => {
         const monthMap = new Map<string, Transaction[]>();
-
-        const isTransfer = (category: string) => {
-            const normalized = category.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '');
-            return normalized === 'transferencia';
-        };
 
         transactions.forEach(transaction => {
             if (isTransfer(transaction.category) || transaction.isPending) return;
@@ -83,11 +75,6 @@ const HistoryPage = () => {
 
     const chartDetailsData = useMemo(() => {
         if (!selectedChartMonth) return null;
-        
-        const isTransfer = (category: string) => {
-            const normalized = category.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '');
-            return normalized === 'transferencia';
-        };
 
         const monthTransactions = transactions.filter(t => 
             t.date.startsWith(selectedChartMonth.monthKey) && 

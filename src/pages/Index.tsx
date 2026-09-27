@@ -102,7 +102,9 @@ const Index = () => {
         migrated = migrated.filter(w => defaultOrder.includes(w));
         
         return migrated;
-      } catch (e) {}
+      } catch {
+        // Fallback al orden por defecto si el parsing falla
+      }
     }
     return defaultOrder;
   });
@@ -187,7 +189,7 @@ const Index = () => {
     if (paramsChanged) {
       setSearchParams(newParams);
     }
-  }, [searchParams, setSearchParams]);
+  }, [searchParams, setSearchParams, favorites]);
 
   const handleAddTransaction = async (
     transaction: Omit<Transaction, "id">,

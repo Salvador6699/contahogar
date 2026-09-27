@@ -29,6 +29,7 @@ import {
   formatCurrency,
   calculateTotalBalance,
   calculatePendingImpact,
+  isTransfer,
 } from '@/lib/calculations'
 import { cn } from '@/lib/utils'
 
@@ -47,15 +48,6 @@ export function HomeBudgetWidget({
 }: HomeBudgetWidgetProps) {
   const navigate = useNavigate()
   const [isExpanded, setIsExpanded] = useState(false)
-
-  // Helper to check transfer category
-  const isTransfer = (category: string) => {
-    const normalized = category
-      .toLowerCase()
-      .normalize('NFD')
-      .replace(/[\u0300-\u036f]/g, '')
-    return normalized === 'transferencia'
-  }
 
   // Helper for category icon
   const renderCategoryIcon = (catName: string, sizeClass = 'w-3.5 h-3.5') => {
@@ -227,7 +219,7 @@ export function HomeBudgetWidget({
       hasOverbudget,
       overbudgetEnvelopes,
     }
-  }, [transactions, categories, budgets, accounts])
+  }, [transactions, budgets, accounts])
 
   // Empty state if no budgets and no next month provision
   if (!analysis.hasBudgets && analysis.nextMonthBudgetsTotal === 0) {
