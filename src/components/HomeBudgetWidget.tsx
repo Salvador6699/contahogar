@@ -37,7 +37,6 @@ interface HomeBudgetWidgetProps {
   categories: Category[]
   budgets: Budget[]
   accounts?: Account[]
-  accountFilter?: string
 }
 
 export function HomeBudgetWidget({
@@ -45,7 +44,6 @@ export function HomeBudgetWidget({
   categories,
   budgets,
   accounts = [],
-  accountFilter,
 }: HomeBudgetWidgetProps) {
   const navigate = useNavigate()
   const [isExpanded, setIsExpanded] = useState(false)
@@ -108,11 +106,10 @@ export function HomeBudgetWidget({
       (b) => b.month === currentMonthKey && !isTransfer(b.category)
     )
 
-    // Filter valid expense transactions for current month
+    // Filter valid expense transactions for current month (global across all accounts)
     const curMonthExpenses = transactions.filter((t) => {
       if (t.type !== 'expense') return false
       if (isTransfer(t.category)) return false
-      if (accountFilter && t.accountId !== accountFilter) return false
       if (!t.date.startsWith(currentMonthKey)) return false
       if (t.isPending && t.isIgnored) return false
       return true
@@ -230,7 +227,7 @@ export function HomeBudgetWidget({
       hasOverbudget,
       overbudgetEnvelopes,
     }
-  }, [transactions, categories, budgets, accounts, accountFilter])
+  }, [transactions, categories, budgets, accounts])
 
   // Empty state if no budgets and no next month provision
   if (!analysis.hasBudgets && analysis.nextMonthBudgetsTotal === 0) {

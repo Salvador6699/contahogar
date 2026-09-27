@@ -825,7 +825,6 @@ const Index = () => {
                 transactions={data.transactions}
                 categories={data.categories}
                 accounts={data.accounts}
-                accountFilter={accountFilter}
               />
             )}
 
@@ -836,7 +835,6 @@ const Index = () => {
                 categories={data.categories}
                 budgets={data.budgets}
                 accounts={data.accounts}
-                accountFilter={accountFilter}
               />
             )}
 

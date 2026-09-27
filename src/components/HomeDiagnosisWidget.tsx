@@ -30,14 +30,12 @@ import { cn } from '@/lib/utils'
 interface HomeDiagnosisWidgetProps {
   transactions: Transaction[]
   categories: Category[]
-  accounts: Account[]
-  accountFilter?: string
+  accounts?: Account[]
 }
 
 export function HomeDiagnosisWidget({
   transactions,
   categories,
-  accountFilter,
 }: HomeDiagnosisWidgetProps) {
   const navigate = useNavigate()
   const [isExpanded, setIsExpanded] = useState(false)
@@ -83,11 +81,10 @@ export function HomeDiagnosisWidget({
     const daysInPrevMonth = getDaysInMonth(prevMonthDate)
     const targetPrevDay = Math.min(currentDayOfMonth, daysInPrevMonth)
 
-    // Filter valid expense transactions
+    // Filter valid expense transactions (global across all accounts)
     const expenseTxs = transactions.filter((t) => {
       if (t.type !== 'expense') return false
       if (isTransfer(t.category)) return false
-      if (accountFilter && t.accountId !== accountFilter) return false
       if (t.isPending && t.isIgnored) return false
       return true
     })
@@ -198,7 +195,7 @@ export function HomeDiagnosisWidget({
       topIncreases,
       topDecreases,
     }
-  }, [transactions, categories, accountFilter])
+  }, [transactions, categories])
 
   const isOverspending = diagnosis.mtdDiff > 0
   const isHighAlert = isOverspending && (diagnosis.mtdPercent === null || diagnosis.mtdPercent >= 15)
