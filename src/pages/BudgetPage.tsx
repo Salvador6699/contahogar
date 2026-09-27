@@ -1,6 +1,5 @@
 import { useState, useMemo, useEffect } from 'react';
 import { useSearchParams } from '@/hooks/useSearchParams';
-import { loadData } from '@/lib/storage';
 import { Budget } from '@/types/finance';
 import { formatCurrency, calculateTotalBalance, calculatePendingImpact } from '@/lib/calculations';
 import { format, parseISO, addMonths, subMonths } from 'date-fns';
@@ -36,23 +35,17 @@ import { BudgetAssignmentModal } from '@/components/BudgetAssignmentModal';
 
 const BudgetPage = () => {
     const { activeRole } = useTeam();
-    const [legacyData, setLegacyData] = useState(loadData());
     const { accounts, isLoading: isAccLoading } = useAccounts();
     const { transactions, isLoading: isTxLoading } = useTransactions();
     const { categories, isLoading: isCatLoading } = useCategories();
     const { budgets, saveBudgets, isBudgetsLoading: isBudLoading } = usePlanning();
 
     const data = useMemo(() => ({
-        ...legacyData,
         accounts,
         transactions,
         categories,
-        budgets
-    }), [legacyData, accounts, transactions, categories, budgets]);
-
-    useEffect(() => {
-        setLegacyData(loadData());
-    }, []);
+        budgets,
+    }), [accounts, transactions, categories, budgets]);
 
     const [searchParams] = useSearchParams();
     const [selectedMonth, setSelectedMonth] = useState<string | null>(searchParams.get("month"));

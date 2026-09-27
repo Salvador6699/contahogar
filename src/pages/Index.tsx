@@ -4,14 +4,8 @@ import {
   TransactionType,
   FavoriteExpense,
 } from "@/types/finance";
+import { findSimilarCategory } from "@/lib/storage";
 import {
-  loadData,
-  saveData,
-  updateAlertSettings,
-  findSimilarCategory,
-} from "@/lib/storage";
-import {
-  calculateBalance,
   calculateAccountBalance,
   calculateTotalBalance,
   calculateTotalIncome,
@@ -26,7 +20,6 @@ import { useMonthFilter } from "@/hooks/useMonthFilter";
 import BalanceCard from "@/components/BalanceCard";
 import SummaryCards from "@/components/SummaryCards";
 import CategoryBreakdown from "@/components/CategoryBreakdown";
-import QuickExpenses from "@/components/QuickExpenses";
 import TransactionModal from "@/components/TransactionModal";
 import TransactionList from "@/components/TransactionList";
 import AccountSelector from "@/components/AccountSelector";
@@ -34,14 +27,10 @@ import QuickAmountModal from "@/components/QuickAmountModal";
 import { VoiceButton } from "@/components/VoiceButton";
 import { format, parseISO, addMonths, subMonths } from "date-fns";
 import {
-  Wallet,
   Calendar,
   ChevronLeft,
   ChevronRight,
-  Scale,
   BarChart3,
-  ArrowDownCircle,
-  ArrowUpCircle,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
@@ -49,7 +38,6 @@ import { useNavigate } from '@tanstack/react-router';
 import { useSearchParams } from '@/hooks/useSearchParams';
 import { appToast as toast } from "@/lib/swal";
 
-import { useQueryClient } from "@tanstack/react-query";
 import { DndContext, closestCenter, KeyboardSensor, PointerSensor, useSensor, useSensors, DragEndEvent } from '@dnd-kit/core';
 import { arrayMove, SortableContext, sortableKeyboardCoordinates, verticalListSortingStrategy } from '@dnd-kit/sortable';
 import { SortableWidget } from "@/components/SortableWidget";
@@ -64,21 +52,18 @@ import { HomeBudgetWidget } from "@/components/HomeBudgetWidget";
 
 const Index = () => {
   const navigate = useNavigate();
-  const queryClient = useQueryClient();
-  
-  const [legacyData, setLegacyData] = useState(loadData());
+
   const { accounts, isLoading: accountsLoading } = useAccounts();
   const { transactions, addTransaction: rqAddTransaction, updateTransaction: rqUpdateTransaction, deleteTransaction: rqDeleteTransaction, isLoading: transactionsLoading } = useTransactions();
   const { categories, addCategory: rqAddCategory } = useCategories();
   const { budgets } = usePlanning();
 
   const data = useMemo(() => ({
-    ...legacyData,
     accounts,
     transactions,
     categories,
-    budgets
-  }), [legacyData, accounts, transactions, categories, budgets]);
+    budgets,
+  }), [accounts, transactions, categories, budgets]);
 
   const [isTransactionModalOpen, setIsTransactionModalOpen] = useState(false);
   const [transactionType, setTransactionType] = useState<TransactionType>("expense");
@@ -90,9 +75,6 @@ const Index = () => {
   const [selectedAccount, setSelectedAccount] = useState<string | "total">(
     "total",
   );
-  const [isFavoriteModalOpen, setIsFavoriteModalOpen] = useState(false);
-  const [editingFavorite, setEditingFavorite] =
-    useState<FavoriteExpense | null>(null);
   const [isQuickAmountModalOpen, setIsQuickAmountModalOpen] = useState(false);
   const [activeQuickFavorite, setActiveQuickFavorite] =
     useState<FavoriteExpense | null>(null);
@@ -169,10 +151,6 @@ const Index = () => {
   }, [data.transactions, selectedAccount, selectedMonth]);
 
   useEffect(() => {
-    // Only update legacy data that hasn't been migrated yet
-    const storedData = loadData();
-    setLegacyData(storedData);
-
     let paramsChanged = false;
     const newParams = new URLSearchParams(searchParams);
 
@@ -203,10 +181,6 @@ const Index = () => {
       }
       newParams.delete("action");
       newParams.delete("id");
-      paramsChanged = true;
-    } else if (action === "manage-favorites") {
-      setIsFavoriteModalOpen(true);
-      newParams.delete("action");
       paramsChanged = true;
     }
 
@@ -312,10 +286,7 @@ const Index = () => {
     toast.success("Transacción eliminada");
   };
 
-  const handleUpdateAlertSettings = (newSettings: Parameters<typeof updateAlertSettings>[0]) => {
-    updateAlertSettings(newSettings);
-    setLegacyData(loadData());
-  };
+
 
   const handleConfirmTransaction = async (transaction: Transaction) => {
     // Check for linked account
