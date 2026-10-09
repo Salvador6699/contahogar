@@ -61,52 +61,74 @@ const FavoritesPage = () => {
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
-    if (file) {
-      const reader = new FileReader();
-      reader.onload = (event) => {
-        const img = new Image();
-        img.onload = () => {
-          const canvas = document.createElement('canvas');
-          const MAX_SIZE = 120;
-          let width = img.width;
-          let height = img.height;
-          
-          if (width > height) {
-            if (width > MAX_SIZE) {
-              height *= MAX_SIZE / width;
-              width = MAX_SIZE;
-            }
-          } else {
-            if (height > MAX_SIZE) {
-              width *= MAX_SIZE / height;
-              height = MAX_SIZE;
-            }
-          }
-          canvas.width = width;
-          canvas.height = height;
-          const ctx = canvas.getContext('2d');
-          ctx?.drawImage(img, 0, 0, width, height);
-          setCustomIcon(canvas.toDataURL('image/png', 0.8));
-          setIcon('Tag'); 
-        };
-        img.src = event.target?.result as string;
-      };
-      reader.readAsDataURL(file);
+    if (!file) return;
+
+    if (!file.type.startsWith('image/')) {
+      toast.error('Por favor, selecciona un archivo de imagen válido.');
+      return;
     }
+
+    const reader = new FileReader();
+    reader.onload = (event) => {
+      const result = event.target?.result as string;
+      if (!result) return;
+
+      const img = new Image();
+      img.onload = () => {
+        const canvas = document.createElement('canvas');
+        const MAX_SIZE = 120;
+        let width = img.width;
+        let height = img.height;
+        
+        if (width > height) {
+          if (width > MAX_SIZE) {
+            height = Math.round((height * MAX_SIZE) / width);
+            width = MAX_SIZE;
+          }
+        } else {
+          if (height > MAX_SIZE) {
+            width = Math.round((width * MAX_SIZE) / height);
+            height = MAX_SIZE;
+          }
+        }
+        canvas.width = Math.max(1, width);
+        canvas.height = Math.max(1, height);
+        const ctx = canvas.getContext('2d');
+        if (ctx) {
+          ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+          const dataUrl = canvas.toDataURL('image/png');
+          setCustomIcon(dataUrl);
+          setIcon('Tag');
+          toast.success('Imagen cargada');
+        }
+      };
+      img.onerror = () => {
+        toast.error('No se pudo procesar la imagen seleccionada');
+      };
+      img.src = result;
+    };
+    reader.onerror = () => {
+      toast.error('Error al leer el archivo');
+    };
+    reader.readAsDataURL(file);
+    e.target.value = '';
   };
 
   const handleEdit = (fav: FavoriteExpense) => {
     setEditingId(fav.id);
     setName(fav.name);
-    setAmount(fav.amount.toString());
+    setAmount(fav.amount > 0 ? fav.amount.toString() : '');
     setCategory(fav.category);
     setAccountId(fav.accountId);
     setDescription(fav.description || '');
     setIcon(fav.icon || 'Tag');
-    setCustomIcon(fav.customIcon);
+    setCustomIcon(fav.customIcon || undefined);
     
-    // Scroll to the edit form
-    window.scrollTo({ top: document.body.scrollHeight, behavior: 'smooth' });
+    // Scroll smoothly to form
+    const formElement = document.getElementById('favorite-form-section');
+    if (formElement) {
+      formElement.scrollIntoView({ behavior: 'smooth' });
+    }
   };
 
   const handleDelete = async (id: string) => {
@@ -116,30 +138,35 @@ const FavoritesPage = () => {
   };
 
   const handleSave = async () => {
-    const amountNum = parseAmount(amount);
-    if (!name || amountNum <= 0 || !category || !accountId) {
-      toast.error('Por favor, completa todos los campos obligatorios');
+    if (!name.trim() || !category || !accountId) {
+      toast.error('Por favor, completa los campos obligatorios (Nombre, Categoría y Cuenta)');
+      return;
+    }
+
+    const amountNum = amount.trim() === '' ? 0 : parseAmount(amount);
+    if (isNaN(amountNum) || amountNum < 0) {
+      toast.error('El importe introducido no es válido');
       return;
     }
 
     const favoriteData = {
-      name,
+      name: name.trim(),
       amount: amountNum,
       category,
       accountId,
-      description,
+      description: description.trim(),
       type: 'expense' as const,
       icon,
-      customIcon,
+      customIcon: customIcon || null,
     };
 
     if (editingId) {
       await updateFavorite({ ...favoriteData, id: editingId });
-      toast.success('Favorito actualizado correctamente');
+      toast.success('Gasto rápido actualizado correctamente');
       resetForm();
     } else {
       await addFavorite(favoriteData);
-      toast.success('Favorito guardado correctamente');
+      toast.success('Gasto rápido guardado correctamente');
       resetForm();
     }
     
@@ -204,7 +231,7 @@ const FavoritesPage = () => {
                         <div className="min-w-0">
                           <p className="font-bold text-base truncate">{fav.name}</p>
                           <p className="text-xs text-muted-foreground truncate">
-                            {fav.amount}€ • {fav.category}
+                            {fav.amount > 0 ? `${fav.amount} €` : 'Importe variable al pulsar'} • {fav.category}
                           </p>
                         </div>
                       </div>
@@ -229,7 +256,7 @@ const FavoritesPage = () => {
           <hr className="border-border/50" />
 
           {/* Form to add/edit */}
-          <div className="space-y-6 bg-white dark:bg-card p-6 sm:p-8 rounded-3xl border shadow-sm">
+          <div id="favorite-form-section" className="space-y-6 bg-white dark:bg-card p-6 sm:p-8 rounded-3xl border shadow-sm scroll-mt-6">
             <h3 className="font-bold text-lg flex items-center justify-between">
               <div className="flex items-center gap-2">
                 <Plus className="w-5 h-5 text-primary" />
@@ -253,7 +280,10 @@ const FavoritesPage = () => {
                 />
               </div>
               <div className="space-y-3">
-                <Label htmlFor="fav-amount" className="text-base font-semibold">Importe (€)</Label>
+                <Label htmlFor="fav-amount" className="text-base font-semibold flex items-center justify-between">
+                  <span>Importe (€)</span>
+                  <span className="text-xs text-muted-foreground font-normal">Opcional (0 € por defecto)</span>
+                </Label>
                 <Input
                   id="fav-amount"
                   type="text"
@@ -375,7 +405,10 @@ const FavoritesPage = () => {
             </div>
 
             <div className="space-y-3 mt-4">
-              <Label htmlFor="fav-desc" className="text-base font-semibold">Nota opcional</Label>
+              <Label htmlFor="fav-desc" className="text-base font-semibold flex items-center justify-between">
+                <span>Nota opcional</span>
+                <span className="text-xs text-muted-foreground font-normal">Opcional</span>
+              </Label>
               <Input
                 id="fav-desc"
                 value={description}
