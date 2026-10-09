@@ -195,7 +195,7 @@ const BudgetPage = () => {
         const current = parseISO(activeMonth + "-01");
         const prevMonthStr = format(subMonths(current, 1), "yyyy-MM");
         
-        const prevMonthBudgets = data.budgets.filter(b => b.month === prevMonthStr && b.category !== 'Transferencia');
+        const prevMonthBudgets = budgets.filter(b => b.month === prevMonthStr && b.category !== 'Transferencia');
         
         const next = { ...localAssignments };
         let copiedCount = 0;
