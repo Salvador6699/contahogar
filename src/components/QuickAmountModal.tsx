@@ -23,6 +23,9 @@ interface QuickAmountModalProps {
   accounts: Account[];
   categories: Category[];
   favoriteName: string;
+  customIcon?: string;
+  favoriteIcon?: string;
+  defaultAmount?: number;
 }
 
 const QuickAmountModal = ({
@@ -35,6 +38,9 @@ const QuickAmountModal = ({
   accounts,
   categories,
   favoriteName,
+  customIcon,
+  favoriteIcon,
+  defaultAmount,
 }: QuickAmountModalProps) => {
   const [amount, setAmount] = useState('');
   const [step, setStep] = useState<'account' | 'amount'>('account');
@@ -43,15 +49,17 @@ const QuickAmountModal = ({
 
   const account = accounts.find(a => a.id === selectedAccountId);
   const category = categories.find(c => c.name === categoryName);
-  const IconComponent = (Icons as any)[category?.icon || 'Tag'] || Icons.Tag;
+  const IconComponent = (Icons as any)[favoriteIcon || category?.icon || 'Tag'] || Icons.Tag;
+  const hasImage = Boolean(customIcon || (!favoriteIcon && category?.customIcon));
+  const imageSrc = customIcon || (!favoriteIcon ? category?.customIcon : undefined);
 
   useEffect(() => {
     if (isOpen) {
-      setAmount('');
+      setAmount(defaultAmount && defaultAmount > 0 ? defaultAmount.toString() : '');
       setStep('account');
       setSelectedAccountId(accountId);
     }
-  }, [isOpen, accountId]);
+  }, [isOpen, accountId, defaultAmount]);
 
   const handleSubmit = (e?: React.FormEvent) => {
     e?.preventDefault();
@@ -121,10 +129,14 @@ const QuickAmountModal = ({
             <ResponsiveDialogHeader className="space-y-4 shrink-0">
               <div className="flex items-center justify-center gap-4">
                 <div
-                  className="w-16 h-16 rounded-2xl flex items-center justify-center text-white shadow-lg animate-in zoom-in duration-500"
-                  style={{ backgroundColor: category?.color || '#3b82f6' }}
+                  className="w-16 h-16 rounded-2xl flex items-center justify-center text-white shadow-lg animate-in zoom-in duration-500 overflow-hidden shrink-0 border border-border/40"
+                  style={{ backgroundColor: hasImage ? 'transparent' : (category?.color || '#3b82f6') }}
                 >
-                  <IconComponent className="w-8 h-8" />
+                  {hasImage ? (
+                    <img src={imageSrc} alt={favoriteName} className="w-full h-full object-cover" />
+                  ) : (
+                    <IconComponent className="w-8 h-8" />
+                  )}
                 </div>
                 <div className="text-left">
                   <ResponsiveDialogTitle className="text-xl font-black tracking-tight flex items-center gap-2">

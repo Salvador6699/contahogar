@@ -864,6 +864,9 @@ const Index = () => {
             accounts={data.accounts}
             categories={data.categories}
             favoriteName={activeQuickFavorite.name}
+            customIcon={activeQuickFavorite.customIcon}
+            favoriteIcon={activeQuickFavorite.icon}
+            defaultAmount={activeQuickFavorite.amount}
           />
         )}
 

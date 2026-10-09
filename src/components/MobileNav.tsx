@@ -206,6 +206,9 @@ const MobileNav = () => {
                     const cat = categories.find((c) => c.name === fav.category)
                     const IconComponent =
                       (Icons as any)[fav.icon || cat?.icon || 'Tag'] || Icons.Tag
+                    const hasImage = Boolean(fav.customIcon || (!fav.icon && cat?.customIcon))
+                    const imageSrc = fav.customIcon || (!fav.icon ? cat?.customIcon : undefined)
+
                     return (
                       <button
                         key={fav.id}
@@ -218,10 +221,14 @@ const MobileNav = () => {
                         className="flex items-center gap-3 px-3 py-2 rounded-xl text-sm font-bold transition-all text-left group/item hover:bg-muted"
                       >
                         <div
-                          className="p-1.5 rounded-lg bg-background group-hover/item:bg-background shadow-sm border border-border/50 text-white"
-                          style={{ backgroundColor: cat?.color || '#3b82f6' }}
+                          className="w-8 h-8 rounded-lg flex items-center justify-center overflow-hidden shrink-0 shadow-sm border border-border/50 text-white"
+                          style={{ backgroundColor: hasImage ? 'transparent' : (cat?.color || '#3b82f6') }}
                         >
-                          <IconComponent className="w-4 h-4" />
+                          {hasImage ? (
+                            <img src={imageSrc} alt={fav.name} className="w-full h-full object-cover" />
+                          ) : (
+                            <IconComponent className="w-4 h-4" />
+                          )}
                         </div>
                         <span className="truncate flex-1 text-muted-foreground group-hover/item:text-foreground">
                           {fav.name}
@@ -364,6 +371,9 @@ const MobileNav = () => {
                           const cat = categories.find((c) => c.name === fav.category)
                           const IconComponent =
                             (Icons as any)[fav.icon || cat?.icon || 'Tag'] || Icons.Tag
+                          const hasImage = Boolean(fav.customIcon || (!fav.icon && cat?.customIcon))
+                          const imageSrc = fav.customIcon || (!fav.icon ? cat?.customIcon : undefined)
+
                           return (
                             <DrawerClose asChild key={fav.id}>
                               <button
@@ -373,15 +383,19 @@ const MobileNav = () => {
                                     search: { action: 'quick-expense', id: fav.id } as any,
                                   })
                                 }
-                                className="flex flex-col items-center gap-2 p-3 rounded-xl border border-border/50 hover:bg-muted/50 active:scale-95 transition-all"
+                                className="flex flex-col items-center gap-2 p-3 rounded-2xl border border-border/50 hover:bg-muted/50 active:scale-95 transition-all"
                               >
                                 <div
-                                  className="w-10 h-10 rounded-full flex items-center justify-center text-white"
-                                  style={{ backgroundColor: cat?.color || '#3b82f6' }}
+                                  className="w-12 h-12 rounded-2xl flex items-center justify-center text-white overflow-hidden shadow-sm border border-border/40 shrink-0"
+                                  style={{ backgroundColor: hasImage ? 'transparent' : (cat?.color || '#3b82f6') }}
                                 >
-                                  <IconComponent className="w-5 h-5" />
+                                  {hasImage ? (
+                                    <img src={imageSrc} alt={fav.name} className="w-full h-full object-cover" />
+                                  ) : (
+                                    <IconComponent className="w-6 h-6" />
+                                  )}
                                 </div>
-                                <span className="text-[10px] font-bold text-center leading-tight">
+                                <span className="text-[11px] font-bold text-center leading-tight truncate max-w-full">
                                   {fav.name}
                                 </span>
                               </button>
