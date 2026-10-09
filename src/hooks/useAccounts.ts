@@ -1,5 +1,8 @@
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { getAccounts, addAccount, updateAccount, deleteAccount } from "@/api/local/accounts";
+import { Account } from "@/types/finance";
+
+const EMPTY_ACCOUNTS: Account[] = [];
 
 export const useAccounts = () => {
   const queryClient = useQueryClient();
@@ -31,7 +34,7 @@ export const useAccounts = () => {
   });
 
   return {
-    accounts: accountsQuery.data || [],
+    accounts: accountsQuery.data ?? EMPTY_ACCOUNTS,
     isLoading: accountsQuery.isLoading,
     isError: accountsQuery.isError,
     error: accountsQuery.error,

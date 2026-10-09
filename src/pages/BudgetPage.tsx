@@ -38,13 +38,6 @@ const BudgetPage = () => {
     const { categories, isLoading: isCatLoading } = useCategories();
     const { budgets, saveBudgets, isBudgetsLoading: isBudLoading } = usePlanning();
 
-    const data = useMemo(() => ({
-        accounts,
-        transactions,
-        categories,
-        budgets,
-    }), [accounts, transactions, categories, budgets]);
-
     const [searchParams] = useSearchParams();
     const [selectedMonth, setSelectedMonth] = useState<string | null>(searchParams.get("month"));
     
@@ -52,7 +45,7 @@ const BudgetPage = () => {
       isCurrentMonth,
       selectedMonthLabel,
       currentMonthKey,
-    } = useMonthFilter(data.transactions, selectedMonth);
+    } = useMonthFilter(transactions, selectedMonth);
 
     const activeMonth = selectedMonth || currentMonthKey;
 
@@ -69,15 +62,37 @@ const BudgetPage = () => {
     // Search query for categories
     const [searchQuery, setSearchQuery] = useState(searchParams.get('category') || '');
 
-    // Sync local assignments when data or active month changes
+    // Sync local assignments when budgets, transactions, or active month changes
     useEffect(() => {
         const assignments: Record<string, { amount: number, isAuto: boolean }> = {};
-        const monthBudgets = data.budgets.filter(b => b.month === activeMonth && b.category !== 'Transferencia');
+        
+        // 1. Cargar presupuestos guardados de la base de datos para este mes
+        const monthBudgets = budgets.filter(b => b.month === activeMonth && b.category !== 'Transferencia');
         monthBudgets.forEach(b => {
             assignments[b.category] = { amount: b.amount, isAuto: !!b.isAuto };
         });
+
+        // 2. Auto-asignar gastos del mes sin sobre registrado
+        const monthExpenses = transactions.filter(t => 
+            t.type === 'expense' && 
+            t.date.startsWith(activeMonth) &&
+            t.category !== 'Transferencia' &&
+            !t.isIgnored
+        );
+
+        const spentByCategory: Record<string, number> = {};
+        monthExpenses.forEach(t => {
+            spentByCategory[t.category] = (spentByCategory[t.category] || 0) + t.amount;
+        });
+
+        Object.entries(spentByCategory).forEach(([category, amount]) => {
+            if (!assignments[category]) {
+                assignments[category] = { amount, isAuto: true };
+            }
+        });
+
         setLocalAssignments(assignments);
-    }, [data, activeMonth]);
+    }, [budgets, transactions, activeMonth]);
 
     // Save assignments directly to Supabase
     const saveAssignmentsToDb = async (assignments: Record<string, { amount: number, isAuto: boolean }>) => {
@@ -117,8 +132,8 @@ const BudgetPage = () => {
         toast.success(`Sobre ${categoryName} eliminado`);
     };
 
-    const handleAutoAssignFutureExpenses = async (silent = false) => {
-        const monthExpenses = data.transactions.filter(t => 
+    const handleAutoAssignFutureExpenses = async () => {
+        const monthExpenses = transactions.filter(t => 
             t.type === 'expense' && 
             t.date.startsWith(activeMonth) &&
             t.category !== 'Transferencia' &&
@@ -148,20 +163,12 @@ const BudgetPage = () => {
 
         if (assignedCount > 0) {
             setLocalAssignments(next);
-            if (!silent) {
-                await saveAssignmentsToDb(next);
-                toast.success(`${assignedCount} gastos futuros autoasignados`);
-            }
-        } else if (!silent) {
+            await saveAssignmentsToDb(next);
+            toast.success(`${assignedCount} gastos futuros autoasignados`);
+        } else {
             toast.info("No hay nuevos gastos futuros para autoasignar");
         }
     };
-
-    // Auto-asignar silenciosamente al cambiar de mes o transacciones
-    useEffect(() => {
-        handleAutoAssignFutureExpenses(true);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [activeMonth, data.transactions]);
 
     const handleClearAll = async () => {
         const result = await Swal.fire({
@@ -240,7 +247,7 @@ const BudgetPage = () => {
     const incomeOnlyCategories = useMemo(() => {
         const incomeCats = new Set<string>();
         const expenseCats = new Set<string>();
-        data.transactions.forEach(t => {
+        transactions.forEach(t => {
             if (t.type === 'income') incomeCats.add(t.category);
             if (t.type === 'expense') expenseCats.add(t.category);
         });
@@ -248,39 +255,39 @@ const BudgetPage = () => {
         if (!expenseCats.has('Nómina')) incomeCats.add('Nómina');
         
         return new Set([...incomeCats].filter(c => !expenseCats.has(c)));
-    }, [data.transactions]);
+    }, [transactions]);
 
-    const availableCategoriesToAdd = data.categories.filter(c => 
+    const availableCategoriesToAdd = categories.filter(c => 
         (localAssignments[c.name] === undefined || localAssignments[c.name].isAuto) && 
         c.name !== 'Transferencia' &&
         !incomeOnlyCategories.has(c.name)
     );
 
     const capitalDisponible = useMemo(() => {
-        const balanceActual = calculateTotalBalance(data.accounts, data.transactions, false, activeMonth);
+        const balanceActual = calculateTotalBalance(accounts, transactions, false, activeMonth);
         let pendingImpact = 0;
-        data.accounts.forEach(acc => {
+        accounts.forEach(acc => {
             if (!acc.excludeFromTotals) {
-                pendingImpact += calculatePendingImpact(data.transactions, activeMonth, acc.id);
+                pendingImpact += calculatePendingImpact(transactions, activeMonth, acc.id);
             }
         });
         return Number((balanceActual + pendingImpact).toFixed(2));
-    }, [data, activeMonth]);
+    }, [accounts, transactions, activeMonth]);
 
     const ingresosDelMes = useMemo(() => {
-        return Number(data.transactions
+        return Number(transactions
             .filter(t => t.type === 'income' && t.category !== 'Transferencia' && t.date.startsWith(activeMonth) && !t.isIgnored)
             .reduce((sum, t) => sum + t.amount, 0).toFixed(2));
-    }, [data.transactions, activeMonth]);
+    }, [transactions, activeMonth]);
 
     const getGastado = (catName: string) => {
-        return Number(data.transactions
+        return Number(transactions
             .filter(t => !t.isPending && t.type === 'expense' && t.category === catName && t.date.startsWith(activeMonth))
             .reduce((sum, t) => sum + t.amount, 0).toFixed(2));
     };
 
     const getRestoForSort = (catName: string) => {
-        const savedBudget = data.budgets.find(b => b.month === activeMonth && b.category === catName);
+        const savedBudget = budgets.find(b => b.month === activeMonth && b.category === catName);
         const amount = savedBudget ? savedBudget.amount : 0;
         const gastado = getGastado(catName);
         return amount - gastado;
@@ -334,7 +341,7 @@ const BudgetPage = () => {
     const nextMonthStr = useMemo(() => format(addMonths(parseISO(activeMonth + "-01"), 1), "yyyy-MM"), [activeMonth]);
 
     const nextMonthBudgetsTotal = useMemo(() => {
-        const nextMonthExpenses = data.transactions.filter(t => 
+        const nextMonthExpenses = transactions.filter(t => 
             t.type === 'expense' && 
             t.date.startsWith(nextMonthStr) &&
             t.category !== 'Transferencia' &&
@@ -343,26 +350,26 @@ const BudgetPage = () => {
 
         const sum = nextMonthExpenses.reduce((acc, t) => acc + t.amount, 0);
         return Number(sum.toFixed(2));
-    }, [data.transactions, nextMonthStr]);
+    }, [transactions, nextMonthStr]);
 
     const sumManualBudgets = Number(manuales.reduce((sum, cat) => sum + localAssignments[cat].amount, 0).toFixed(2));
     const sumAutoBudgets = Number(sinSobre.reduce((sum, cat) => sum + localAssignments[cat].amount, 0).toFixed(2));
     
     const disponibleParaAsignar = useMemo(() => {
-        const realBalance = calculateTotalBalance(data.accounts, data.transactions, false, currentMonthKey);
+        const realBalance = calculateTotalBalance(accounts, transactions, false, currentMonthKey);
         let currentMonthPendingImpact = 0;
-        data.accounts.forEach(acc => {
+        accounts.forEach(acc => {
             if (!acc.excludeFromTotals) {
-                currentMonthPendingImpact += calculatePendingImpact(data.transactions, currentMonthKey, acc.id);
+                currentMonthPendingImpact += calculatePendingImpact(transactions, currentMonthKey, acc.id);
             }
         });
         const baseCapital = realBalance + currentMonthPendingImpact;
-        const baseGastos = Number(data.transactions
+        const baseGastos = Number(transactions
             .filter(t => t.type === 'expense' && t.category !== 'Transferencia' && t.date.startsWith(currentMonthKey) && !t.isIgnored)
             .reduce((sum, t) => sum + t.amount, 0).toFixed(2));
         const baseBudgets = currentMonthKey === activeMonth
             ? sumManualBudgets + sumAutoBudgets
-            : Number(data.budgets
+            : Number(budgets
                 .filter(b => b.month === currentMonthKey && b.category !== 'Transferencia')
                 .reduce((sum, b) => sum + b.amount, 0).toFixed(2));
         
@@ -373,7 +380,7 @@ const BudgetPage = () => {
 
         while (m <= end) {
             const mStr = format(m, 'yyyy-MM');
-            const monthIngresos = Number(data.transactions
+            const monthIngresos = Number(transactions
                 .filter(t => t.type === 'income' && t.category !== 'Transferencia' && t.date.startsWith(mStr) && !t.isIgnored)
                 .reduce((sum, t) => sum + t.amount, 0).toFixed(2));
             
@@ -381,7 +388,7 @@ const BudgetPage = () => {
             if (mStr === activeMonth) {
                 monthBudgets = sumManualBudgets + sumAutoBudgets;
             } else {
-                monthBudgets = Number(data.budgets
+                monthBudgets = Number(budgets
                     .filter(b => b.month === mStr && b.category !== 'Transferencia')
                     .reduce((sum, b) => sum + b.amount, 0).toFixed(2));
             }
@@ -393,7 +400,7 @@ const BudgetPage = () => {
         noAsignada -= nextMonthBudgetsTotal;
 
         return Number(noAsignada.toFixed(2));
-    }, [activeMonth, currentMonthKey, sumManualBudgets, sumAutoBudgets, data, nextMonthBudgetsTotal]);
+    }, [activeMonth, currentMonthKey, sumManualBudgets, sumAutoBudgets, accounts, transactions, budgets, nextMonthBudgetsTotal]);
 
     const filteredEnPeligro = enPeligro.filter(cat => cat.toLowerCase().includes(searchQuery.toLowerCase()));
     const filteredSaludables = saludables.filter(cat => cat.toLowerCase().includes(searchQuery.toLowerCase()));
@@ -549,7 +556,7 @@ const BudgetPage = () => {
                                     Copiar mes
                                 </Button>
                                 <Button 
-                                    onClick={() => handleAutoAssignFutureExpenses(false)}
+                                    onClick={handleAutoAssignFutureExpenses}
                                     variant="secondary"
                                     className="bg-primary/10 hover:bg-primary/20 text-primary border border-primary/20 font-bold shadow-sm transition-all text-[11px] sm:text-sm h-9 sm:h-10 px-2 sm:px-4"
                                 >

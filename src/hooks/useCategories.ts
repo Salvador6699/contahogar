@@ -1,5 +1,8 @@
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { getCategories, addCategory, updateCategory, deleteCategory } from "@/api/local/categories";
+import { Category } from "@/types/finance";
+
+const EMPTY_CATEGORIES: Category[] = [];
 
 export const useCategories = () => {
   const queryClient = useQueryClient();
@@ -32,7 +35,7 @@ export const useCategories = () => {
   });
 
   return {
-    categories: categoriesQuery.data || [],
+    categories: categoriesQuery.data ?? EMPTY_CATEGORIES,
     isLoading: categoriesQuery.isLoading,
     isError: categoriesQuery.isError,
     error: categoriesQuery.error,

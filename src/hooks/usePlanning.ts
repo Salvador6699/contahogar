@@ -1,5 +1,9 @@
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { getBudgets, saveBudgetsForMonth, getSavingsGoals, addSavingsGoal, updateSavingsGoal, deleteSavingsGoal } from "@/api/local/planning";
+import { Budget, SavingsGoal } from "@/types/finance";
+
+const EMPTY_BUDGETS: Budget[] = [];
+const EMPTY_GOALS: SavingsGoal[] = [];
 
 export const usePlanning = () => {
   const queryClient = useQueryClient();
@@ -43,9 +47,9 @@ export const usePlanning = () => {
   });
 
   return {
-    budgets: budgetsQuery.data || [],
+    budgets: budgetsQuery.data ?? EMPTY_BUDGETS,
     isBudgetsLoading: budgetsQuery.isLoading,
-    goals: goalsQuery.data || [],
+    goals: goalsQuery.data ?? EMPTY_GOALS,
     isGoalsLoading: goalsQuery.isLoading,
     saveBudgets: saveBudgetsMutation.mutateAsync,
     addGoal: addGoalMutation.mutateAsync,

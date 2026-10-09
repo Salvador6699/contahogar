@@ -1,5 +1,8 @@
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { getTransactions, addTransaction, updateTransaction, deleteTransaction } from "@/api/local/transactions";
+import { Transaction } from "@/types/finance";
+
+const EMPTY_TRANSACTIONS: Transaction[] = [];
 
 export const useTransactions = () => {
   const queryClient = useQueryClient();
@@ -35,7 +38,7 @@ export const useTransactions = () => {
   });
 
   return {
-    transactions: transactionsQuery.data || [],
+    transactions: transactionsQuery.data ?? EMPTY_TRANSACTIONS,
     isLoading: transactionsQuery.isLoading,
     isError: transactionsQuery.isError,
     error: transactionsQuery.error,
