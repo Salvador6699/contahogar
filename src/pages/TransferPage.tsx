@@ -243,7 +243,7 @@ const TransferPage = () => {
                             </div>
 
                             {/* Importe */}
-                            <div className="space-y-3">
+                            <div className="space-y-3 scroll-mt-20">
                                 <Label className="text-base font-semibold">Importe a transferir</Label>
                                 <div className="relative">
                                     <Input

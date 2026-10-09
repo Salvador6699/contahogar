@@ -31,7 +31,6 @@ import {
 } from 'lucide-react'
 import * as Icons from 'lucide-react'
 import { cn, withKeyboardClose } from '@/lib/utils'
-import { useVirtualKeyboard } from '@/hooks/useVirtualKeyboard'
 import {
   Sheet,
   SheetContent,
@@ -112,8 +111,6 @@ const MobileNav = () => {
   const primaryNavPaths = ['/', '/presupuestos', '/comparativa', '/historial']
   const primaryNavItems = allDrawerNavItems.filter((item) => primaryNavPaths.includes(item.path))
   const secondaryNavItems = allDrawerNavItems.filter((item) => !primaryNavPaths.includes(item.path))
-
-  const isKeyboardOpen = useVirtualKeyboard()
 
   return (
     <>
@@ -258,10 +255,7 @@ const MobileNav = () => {
       {/* BARRA INFERIOR MODERNA (Mobile Only) */}
       <Sheet>
         <nav
-          className={cn(
-            'fixed bottom-0 left-0 right-0 z-50 h-[72px] bg-gradient-to-t from-background/95 via-background/85 to-transparent nav-blur-fade px-2 pb-safe lg:hidden transition-all duration-300 border-t border-border/10',
-            isKeyboardOpen && 'translate-y-full opacity-0 pointer-events-none'
-          )}
+          className="fixed bottom-0 left-0 right-0 z-50 h-[72px] bg-gradient-to-t from-background/95 via-background/85 to-transparent nav-blur-fade px-2 pb-safe lg:hidden transition-all duration-300 border-t border-border/10"
         >
           <div className="grid h-full grid-cols-5 max-w-lg mx-auto items-center">
             <button

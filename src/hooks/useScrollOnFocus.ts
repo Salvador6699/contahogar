@@ -11,17 +11,13 @@ export function useScrollOnFocus() {
     const handleFocus = (e: FocusEvent<HTMLInputElement | HTMLTextAreaElement>) => {
         const input = e.currentTarget;
 
-        // Buscamos el contenedor padre (normalmente un div.space-y-2 que envuelve al Label y al Input)
-        // para que sea el Label el que quede pegado arriba y no se corte visualmente.
-        const target = input.closest('.space-y-2') || input;
+        // Buscamos el contenedor padre (normalmente un div.space-y-2 o space-y-3 que envuelve al Label y al Input)
+        const target = input.closest('.space-y-2, .space-y-3, .space-y-4') || input;
 
-        // Esperamos a que el teclado termine de abrirse para calcular el viewport
+        // Esperamos a que el teclado termine de abrirse para posicionarlo centrado en el viewport visible
         setTimeout(() => {
-            target.scrollIntoView({ behavior: 'smooth', block: 'start', inline: 'nearest' });
-            
-            // Si el header es sticky, podemos ajustar un poco el scroll si hiciera falta,
-            // pero block: 'start' es lo más nativo para pegarlo arriba.
-        }, 350); // ~350ms: tiempo de animación del teclado
+            target.scrollIntoView({ behavior: 'smooth', block: 'center', inline: 'nearest' });
+        }, 300);
     };
 
     return handleFocus;
