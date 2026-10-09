@@ -64,8 +64,10 @@ export const BudgetAssignmentModal = ({
   };
 
   // Evaluar expresiones matemáticas en el input principal (ej: 178+53 o 100-27)
-  const handleEvaluateExpression = (inputVal?: string) => {
-    const raw = (inputVal !== undefined ? inputVal : amountStr).replace(/,/g, '.').trim();
+  const handleEvaluateExpression = (inputVal?: unknown) => {
+    const target = typeof inputVal === 'string' ? inputVal : amountStr;
+    if (typeof target !== 'string') return '';
+    const raw = target.replace(/,/g, '.').trim();
     if (!raw) return raw;
 
     if (/^[\d.\s+\-*/]+$/.test(raw) && /[+\-*/]/.test(raw.slice(1))) {
@@ -86,8 +88,8 @@ export const BudgetAssignmentModal = ({
   };
 
   const handleSubmit = async (e?: React.FormEvent) => {
-    if (e) e.preventDefault();
-    const evaluated = handleEvaluateExpression() || amountStr;
+    if (e && typeof e.preventDefault === 'function') e.preventDefault();
+    const evaluated = handleEvaluateExpression(amountStr) || amountStr;
     setIsSaving(true);
     try {
       const finalAmount = parseAmount(evaluated);
@@ -183,7 +185,7 @@ export const BudgetAssignmentModal = ({
                 inputMode="decimal"
                 value={amountStr}
                 onChange={(e) => setAmountStr(e.target.value)}
-                onBlur={handleEvaluateExpression}
+                onBlur={() => handleEvaluateExpression()}
                 onKeyDown={(e) => {
                   if (e.key === 'Enter') {
                     handleEvaluateExpression();
