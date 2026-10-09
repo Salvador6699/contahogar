@@ -2,6 +2,7 @@ import { useState, useMemo, useEffect } from 'react';
 
 import { Account, SavingsGoal, RecurringExpenseRule, isRuleIncludedInSavings } from '@/types/finance';
 import { calculateAccountBalance, formatCurrency } from '@/lib/calculations';
+import { calculateSavingsProvisions } from '@/lib/savingsCalculations';
 import { useAccounts } from '@/hooks/useAccounts';
 import { useTransactions } from '@/hooks/useTransactions';
 import { usePlanning } from '@/hooks/usePlanning';
@@ -39,127 +40,19 @@ export const SavingsPage = () => {
 
 
 
-    // 1. Calculate Total Savings Balance (Accounts with excludeFromTotals === true)
-    const savingsAccounts = useMemo(() => data.accounts.filter(a => a.excludeFromTotals), [data.accounts]);
-    const totalSavingsCapital = useMemo(() => {
-        return savingsAccounts.reduce((total, acc) => {
-            return total + calculateAccountBalance(acc, data.transactions);
-        }, 0);
-    }, [savingsAccounts, data.transactions]);
-
-    // 2. Limit date for filtering
-    const limitDateStr = useMemo(() => {
-        const today = new Date();
-        return endOfMonth(addMonths(today, parseInt(timeframeMonths))).toISOString().split('T')[0];
-    }, [timeframeMonths]);
-
-    // 3. Gather Manual Goals (Filtered by timeframe)
-    const manualGoals = useMemo(() => {
-        return (data.savingsGoals || [])
-            .filter(g => !g.deadline || g.deadline <= limitDateStr)
-            .map(g => ({
-                ...g,
-                isVirtual: false,
-                priority: g.priority || 999,
-                isIgnored: !!g.isIgnored
-            }));
-    }, [data.savingsGoals, limitDateStr]);
-
-    // 4. Gather Virtual Goals from long-term Recurring Rules
-    const virtualGoals = useMemo(() => {
-        const todayStr = new Date().toISOString().split('T')[0];
-        const goals: any[] = [];
-        
-        (data.recurringRules || [])
-            .filter(isRuleIncludedInSavings)
-            .forEach(r => {
-                const txs = data.transactions
-                    .filter(t => t.isPending && t.id.startsWith(`rec_${r.id}_`) && t.date >= todayStr && t.date <= limitDateStr)
-                    .sort((a,b) => a.date.localeCompare(b.date));
-                
-                txs.forEach((tx, idx) => {
-                    const year = tx.date.split('-')[0];
-                    const isYearly = r.frequency === 'yearly' || r.frequency === 'Anual' as any;
-                    const suffix = isYearly ? ` (${year})` : (txs.length > 1 ? ` (${idx + 1})` : '');
-                    
-                    goals.push({
-                        id: `virtual_${r.id}_${tx.date}`,
-                        name: r.name + suffix,
-                        targetAmount: r.amount,
-                        currentAmount: 0,
-                        deadline: tx.date,
-                        category: r.category,
-                        priority: r.savingsPriority || 999,
-                        isVirtual: true,
-                        ruleId: r.id,
-                        isIgnored: !!tx.isIgnored,
-                        txId: tx.id // Needed to toggle ignore on the specific transaction
-                    });
-                });
-            });
-            
-        return goals;
-    }, [data.recurringRules, data.transactions, limitDateStr]);
-
-    // 5. Combine, Sort, and Distribute Capital
-    const unifiedGoals = useMemo(() => {
-        const allGoals = [...manualGoals, ...virtualGoals];
-        
-        // Sort by priority (asc), then by deadline (asc). Ignored goals go to the bottom.
-        allGoals.sort((a, b) => {
-            if (a.isIgnored && !b.isIgnored) return 1;
-            if (!a.isIgnored && b.isIgnored) return -1;
-            if (a.priority !== b.priority) return a.priority - b.priority;
-            if (a.deadline && b.deadline) return a.deadline.localeCompare(b.deadline);
-            return 0;
-        });
-
-        // Distribute capital
-        let remainingCapital = totalSavingsCapital;
-
-        let activePriorityCount = 0;
-
-        return allGoals.map((goal, index) => {
-            const needed = goal.targetAmount;
-            let allocated = 0;
-            
-            if (!goal.isIgnored) {
-                allocated = Math.min(needed, remainingCapital);
-                remainingCapital -= allocated;
-                activePriorityCount++;
-            }
-            
-            const missing = needed - allocated;
-            let monthsLeft = 1;
-            if (goal.deadline) {
-                const targetDate = parseISO(goal.deadline);
-                const currentDate = new Date();
-                const diff = (targetDate.getFullYear() - currentDate.getFullYear()) * 12 + (targetDate.getMonth() - currentDate.getMonth());
-                monthsLeft = Math.max(1, diff); // At least 1 month
-            }
-            
-            const suggestedMonthly = missing / monthsLeft;
-
-            return {
-                ...goal,
-                allocatedAmount: allocated,
-                missingAmount: missing,
-                monthsLeft,
-                suggestedMonthly: goal.isIgnored ? 0 : suggestedMonthly,
-                currentIndex: index, // For moving up/down in absolute terms
-                displayPriority: goal.isIgnored ? '-' : activePriorityCount
-            };
-        });
-    }, [manualGoals, virtualGoals, totalSavingsCapital]);
-
-    const totalSuggestedMonthly = useMemo(() => {
-        return unifiedGoals.reduce((sum, goal) => {
-            if (!goal.isIgnored && goal.allocatedAmount < goal.targetAmount) {
-                return sum + goal.suggestedMonthly;
-            }
-            return sum;
-        }, 0);
-    }, [unifiedGoals]);
+    const {
+        totalSavingsCapital,
+        unifiedGoals,
+        totalSuggestedMonthly,
+    } = useMemo(() => {
+        return calculateSavingsProvisions(
+            data.accounts,
+            data.transactions,
+            data.savingsGoals || [],
+            data.recurringRules || [],
+            timeframeMonths
+        );
+    }, [data.accounts, data.transactions, data.savingsGoals, data.recurringRules, timeframeMonths]);
 
     const handleMovePriority = (index: number, direction: 'up' | 'down') => {
         if (direction === 'up' && index === 0) return;
@@ -301,6 +194,7 @@ export const SavingsPage = () => {
                                     <SelectValue placeholder="Horizonte" />
                                 </SelectTrigger>
                                 <SelectContent>
+                                    <SelectItem value="none">Sin provisión (0 €)</SelectItem>
                                     <SelectItem value="3">Próximos 3 meses</SelectItem>
                                     <SelectItem value="6">Próximos 6 meses</SelectItem>
                                     <SelectItem value="12">Próximos 12 meses</SelectItem>
