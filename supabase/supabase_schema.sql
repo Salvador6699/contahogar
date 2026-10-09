@@ -101,6 +101,7 @@ CREATE TABLE recurring_rules (
     "startDate" DATE NOT NULL,
     type TEXT NOT NULL CHECK (type IN ('income', 'expense')),
     "savingsPriority" INTEGER,
+    "includeInSavings" BOOLEAN, -- ALTER TABLE recurring_rules ADD COLUMN IF NOT EXISTS "includeInSavings" BOOLEAN;
     created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
 );
 

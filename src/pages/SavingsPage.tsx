@@ -1,6 +1,6 @@
 import { useState, useMemo, useEffect } from 'react';
 
-import { Account, SavingsGoal, RecurringExpenseRule } from '@/types/finance';
+import { Account, SavingsGoal, RecurringExpenseRule, isRuleIncludedInSavings } from '@/types/finance';
 import { calculateAccountBalance, formatCurrency } from '@/lib/calculations';
 import { useAccounts } from '@/hooks/useAccounts';
 import { useTransactions } from '@/hooks/useTransactions';
@@ -71,7 +71,7 @@ export const SavingsPage = () => {
         const goals: any[] = [];
         
         (data.recurringRules || [])
-            .filter(r => r.frequency === 'yearly' || r.frequency === 'custom' || r.frequency === 'Anual' as any)
+            .filter(isRuleIncludedInSavings)
             .forEach(r => {
                 const txs = data.transactions
                     .filter(t => t.isPending && t.id.startsWith(`rec_${r.id}_`) && t.date >= todayStr && t.date <= limitDateStr)
@@ -414,15 +414,27 @@ export const SavingsPage = () => {
                                                                 {goal.isIgnored ? <EyeOff className="w-3.5 h-3.5" /> : <Eye className="w-3.5 h-3.5" />}
                                                             </Button>
                                                         )}
-                                                        {!goal.isVirtual && (
+                                                        {!goal.isVirtual ? (
                                                             <>
-                                                                <Button variant="ghost" size="icon" className="h-8 w-8 text-muted-foreground hover:text-foreground" onClick={() => { setEditingGoal(goal as SavingsGoal); setIsModalOpen(true); }}>
+                                                                <Button variant="ghost" size="icon" className="h-8 w-8 text-muted-foreground hover:text-foreground" onClick={() => { setEditingGoal(goal as SavingsGoal); setIsModalOpen(true); }} title="Editar meta">
                                                                     <Edit2 className="w-3.5 h-3.5" />
                                                                 </Button>
-                                                                <Button variant="ghost" size="icon" className="h-8 w-8 text-muted-foreground hover:text-destructive" onClick={() => handleDeleteManual(goal.id)}>
+                                                                <Button variant="ghost" size="icon" className="h-8 w-8 text-muted-foreground hover:text-destructive" onClick={() => handleDeleteManual(goal.id)} title="Eliminar meta">
                                                                     <Trash2 className="w-3.5 h-3.5" />
                                                                 </Button>
                                                             </>
+                                                        ) : (
+                                                            <Button 
+                                                                variant="ghost" 
+                                                                size="icon" 
+                                                                className="h-8 w-8 text-muted-foreground hover:text-primary" 
+                                                                title="Editar gasto fijo y sus opciones de provisión"
+                                                                onClick={() => {
+                                                                    window.location.href = `/gastos-fijos?editRuleId=${goal.ruleId}`;
+                                                                }}
+                                                            >
+                                                                <Edit2 className="w-3.5 h-3.5" />
+                                                            </Button>
                                                         )}
                                                     </div>
                                             </div>

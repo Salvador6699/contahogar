@@ -3,6 +3,7 @@ import { useSearchParams } from '@/hooks/useSearchParams';
 import {
   RecurringExpenseRule,
   RecurrenceFrequency,
+  isRuleIncludedInSavings,
 } from "@/types/finance";
 import { useRecurringRules } from "@/hooks/useRecurringRules";
 import { useAccounts } from "@/hooks/useAccounts";
@@ -25,7 +26,8 @@ import {
 } from "@/components/ui/dialog";
 import { format } from "date-fns";
 import { es } from "date-fns/locale";
-import { Edit2, Trash2, Calendar, PlusCircle, Search, X, Repeat, CreditCard, Tag } from "lucide-react";
+import { Edit2, Trash2, Calendar, PlusCircle, Search, X, Repeat, CreditCard, Tag, PiggyBank } from "lucide-react";
+import { Switch } from "@/components/ui/switch";
 import { cn, parseAmount } from "@/lib/utils";
 import { appToast as toast } from "@/lib/swal";
 import { formatCurrency } from "@/lib/calculations";
@@ -52,6 +54,7 @@ export const RecurringExpensesManager = () => {
   const [customInterval, setCustomInterval] = useState("1");
   const [customIntervalUnit, setCustomIntervalUnit] = useState<"days" | "months" | "years">("months");
   const [startDate, setStartDate] = useState(format(new Date(), "yyyy-MM-dd"));
+  const [includeInSavings, setIncludeInSavings] = useState(false);
 
   useEffect(() => {
     const editRuleId = searchParams.get("editRuleId");
@@ -79,6 +82,7 @@ export const RecurringExpensesManager = () => {
     setCustomInterval(rule.customInterval?.toString() || "1");
     setCustomIntervalUnit(rule.customIntervalUnit || "months");
     setStartDate(rule.startDate);
+    setIncludeInSavings(isRuleIncludedInSavings(rule));
     setIsModalOpen(true);
   };
 
@@ -91,6 +95,7 @@ export const RecurringExpensesManager = () => {
     setCustomInterval("1");
     setCustomIntervalUnit("months");
     setStartDate(format(new Date(), "yyyy-MM-dd"));
+    setIncludeInSavings(false);
   };
 
   const handleOpenAdd = () => {
@@ -138,6 +143,7 @@ export const RecurringExpensesManager = () => {
         customInterval: frequency === "custom" ? parseInt(customInterval) || 1 : undefined,
         customIntervalUnit: frequency === "custom" ? customIntervalUnit : undefined,
         startDate: startDate,
+        includeInSavings,
       });
       toast.success("Automatización actualizada");
     } else {
@@ -151,6 +157,7 @@ export const RecurringExpensesManager = () => {
         customInterval: frequency === "custom" ? parseInt(customInterval) || 1 : undefined,
         customIntervalUnit: frequency === "custom" ? customIntervalUnit : undefined,
         startDate,
+        includeInSavings,
       });
       toast.success("Automatización creada");
     }
@@ -170,6 +177,8 @@ export const RecurringExpensesManager = () => {
     rule.name.toLowerCase().includes(searchQuery.toLowerCase()) || 
     rule.category.toLowerCase().includes(searchQuery.toLowerCase())
   );
+
+
 
   const getFrequencyLabel = (rule: RecurringExpenseRule) => {
     if (rule.frequency === "monthly") return "Mensual";
@@ -279,6 +288,15 @@ export const RecurringExpensesManager = () => {
                         <span>{getFrequencyLabel(rule)}</span>
                         <span className="w-1 h-1 rounded-full bg-border" />
                         <span className="truncate">{rule.category}</span>
+                        {isRuleIncludedInSavings(rule) && (
+                          <>
+                            <span className="w-1 h-1 rounded-full bg-border" />
+                            <span className="text-primary font-bold inline-flex items-center gap-1 normal-case tracking-normal text-xs bg-primary/10 px-2.5 py-0.5 rounded-full border border-primary/20">
+                              <PiggyBank className="w-3 h-3" />
+                              Ahorros y Provisiones
+                            </span>
+                          </>
+                        )}
                       </p>
                     </div>
                   </div>
@@ -330,6 +348,29 @@ export const RecurringExpensesManager = () => {
                             {rule.category}
                           </span>
                         </div>
+
+                        {rule.type === "expense" && (
+                          <div className="flex items-center justify-between pt-2 border-t border-border/30">
+                            <div className="flex items-center gap-2">
+                              <PiggyBank className="w-4 h-4 text-primary" />
+                              <div>
+                                <span className="font-bold text-foreground block text-sm">Ahorros y Provisiones</span>
+                                <span className="text-[11px] text-muted-foreground">
+                                  {isRuleIncludedInSavings(rule)
+                                    ? "Activado: planifica y reserva fondos en Ahorros y Provisiones"
+                                    : "Desactivado: no se incluye en Ahorros y Provisiones"}
+                                </span>
+                              </div>
+                            </div>
+                            <Switch
+                              checked={isRuleIncludedInSavings(rule)}
+                              onCheckedChange={async (checked) => {
+                                await updateRule({ ...rule, includeInSavings: checked });
+                                toast.success(checked ? "Incluido en Ahorros y Provisiones" : "Excluido de Ahorros y Provisiones");
+                              }}
+                            />
+                          </div>
+                        )}
                       </div>
 
                     </div>
@@ -424,7 +465,12 @@ export const RecurringExpensesManager = () => {
                 <Label>Frecuencia</Label>
                 <Select
                   value={frequency}
-                  onValueChange={(v: RecurrenceFrequency) => setFrequency(v)}
+                  onValueChange={(v: RecurrenceFrequency) => {
+                    setFrequency(v);
+                    if (!editingRule) {
+                      setIncludeInSavings(v === "yearly" || v === "custom");
+                    }
+                  }}
                 >
                   <SelectTrigger className="h-11 rounded-xl">
                     <SelectValue placeholder="Selecciona..." />
@@ -525,6 +571,30 @@ export const RecurringExpensesManager = () => {
                 </SelectContent>
               </Select>
             </div>
+
+            {/* TOGGLE INCLUIR EN AHORROS / PROVISIONES */}
+            {type === "expense" && (
+              <div className="flex items-center justify-between p-3.5 bg-muted/40 rounded-2xl border border-border/50">
+                <div className="flex items-center gap-3 pr-2">
+                  <div className="w-9 h-9 rounded-xl bg-primary/10 text-primary flex items-center justify-center flex-shrink-0">
+                    <PiggyBank className="w-5 h-5" />
+                  </div>
+                  <div>
+                    <Label htmlFor="include-in-savings" className="font-bold text-sm cursor-pointer">
+                      Incluir en Ahorros y Provisiones
+                    </Label>
+                    <p className="text-xs text-muted-foreground mt-0.5 leading-tight">
+                      Planifica y reserva fondos mes a mes en la sección de Ahorros para cubrir este gasto.
+                    </p>
+                  </div>
+                </div>
+                <Switch
+                  id="include-in-savings"
+                  checked={includeInSavings}
+                  onCheckedChange={setIncludeInSavings}
+                />
+              </div>
+            )}
           </div>
 
           <div className="flex justify-end gap-3 pt-4 border-t border-border/30 mt-2">

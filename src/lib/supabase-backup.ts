@@ -1,4 +1,4 @@
-﻿import { supabase } from './supabase'
+import { supabase } from './supabase'
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 type AnyData = any
@@ -25,7 +25,7 @@ function buildSafePayloads(data: AnyData) {
     safeBudgets: (data.budgets || []).map((b: AnyData) => ({ id: b.id, category: b.category, amount: b.amount, month: b.month, isAuto: b.isAuto || false })),
     safeFavorites: (data.favorites || []).map((f: AnyData) => ({ id: f.id, name: f.name, amount: f.amount, category: f.category, accountId: safeId(f.accountId), description: f.description, type: f.type === 'income' ? 'income' : 'expense', icon: f.icon, customIcon: f.customIcon })).filter((f: AnyData) => f.accountId != null),
     safeSavingsGoals: (data.savingsGoals || []).map((sg: AnyData) => ({ id: sg.id, name: sg.name, targetAmount: sg.targetAmount, currentAmount: sg.currentAmount, deadline: sg.deadline, accountId: safeId(sg.accountId), color: sg.color, category: sg.category, priority: sg.priority, isIgnored: sg.isIgnored || false })).filter((sg: AnyData) => sg.accountId != null),
-    safeRecurringRules: (data.recurringRules || []).map((r: AnyData) => ({ id: r.id, name: r.name, amount: r.amount, category: r.category, accountId: safeId(r.accountId), frequency: parseFreq(r.frequency), customInterval: r.customInterval, customIntervalUnit: r.customIntervalUnit, startDate: r.startDate, type: r.type === 'income' ? 'income' : 'expense', savingsPriority: r.savingsPriority })).filter((r: AnyData) => r.accountId != null),
+    safeRecurringRules: (data.recurringRules || []).map((r: AnyData) => ({ id: r.id, name: r.name, amount: r.amount, category: r.category, accountId: safeId(r.accountId), frequency: parseFreq(r.frequency), customInterval: r.customInterval, customIntervalUnit: r.customIntervalUnit, startDate: r.startDate, type: r.type === 'income' ? 'income' : 'expense', savingsPriority: r.savingsPriority, includeInSavings: r.includeInSavings })).filter((r: AnyData) => r.accountId != null),
     safeLoans: (data.loans || []).map((l: AnyData) => ({ id: l.id, name: l.name, type: l.type === 'fractionation' ? 'fractionation' : 'loan', amount: l.amount, installments: l.installments, installmentAmount: l.installmentAmount, setupFee: l.setupFee || 0, startDate: l.startDate, accountId: safeId(l.accountId), status: l.status === 'completed' ? 'completed' : 'active', isStarted: l.isStarted || false, startingPaidAmount: l.startingPaidAmount || 0, originalTransactionData: l.originalTransactionData })).filter((l: AnyData) => l.accountId != null),
   }
 }
@@ -53,7 +53,15 @@ export const restoreToSupabase = async (data: AnyData): Promise<void> => {
   const insert = async (table: string, payload: AnyData[]) => {
     if (!payload?.length) return
     const { error } = await supabase.from(table).insert(payload)
-    if (error) throw new Error(`Error insertando en tabla ${table}: ${error.message}`)
+    if (error) {
+      if (table === 'recurring_rules' && (error.message.includes('includeInSavings') || error.message.includes('column'))) {
+        const stripped = payload.map(({ includeInSavings, ...rest }: AnyData) => rest)
+        const { error: err2 } = await supabase.from(table).insert(stripped)
+        if (err2) throw new Error(`Error insertando en tabla ${table}: ${err2.message}`)
+        return
+      }
+      throw new Error(`Error insertando en tabla ${table}: ${error.message}`)
+    }
   }
 
   const p = buildSafePayloads(data)
@@ -72,7 +80,15 @@ export const uploadToSupabase = async (data: AnyData): Promise<void> => {
   const upsert = async (table: string, payload: AnyData[]) => {
     if (!payload?.length) return
     const { error } = await supabase.from(table).upsert(payload)
-    if (error) throw new Error(`Error en tabla ${table}: ${error.message}`)
+    if (error) {
+      if (table === 'recurring_rules' && (error.message.includes('includeInSavings') || error.message.includes('column'))) {
+        const stripped = payload.map(({ includeInSavings, ...rest }: AnyData) => rest)
+        const { error: err2 } = await supabase.from(table).upsert(stripped)
+        if (err2) throw new Error(`Error en tabla ${table}: ${err2.message}`)
+        return
+      }
+      throw new Error(`Error en tabla ${table}: ${error.message}`)
+    }
   }
 
   const p = buildSafePayloads(data)

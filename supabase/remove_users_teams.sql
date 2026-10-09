@@ -78,6 +78,9 @@ BEGIN
     END LOOP;
 END $$;
 
+-- 5. Añadir columna opcional para planificar provisiones en gastos fijos
+ALTER TABLE public.recurring_rules ADD COLUMN IF NOT EXISTS "includeInSavings" BOOLEAN;
+
 COMMIT;
 
 -- Opcional: borrar las cuentas de usuario de Supabase Auth (Authentication > Users).

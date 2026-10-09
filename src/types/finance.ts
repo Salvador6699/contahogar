@@ -111,7 +111,14 @@ export interface RecurringExpenseRule {
   startDate: string; // yyyy-MM-dd
   type: TransactionType;
   savingsPriority?: number; // Priority for sinking funds
+  includeInSavings?: boolean; // Si se incluye o no en la planificación de ahorros / provisiones
 }
+
+export const isRuleIncludedInSavings = (rule: RecurringExpenseRule): boolean => {
+  if (rule.type === 'income') return false;
+  if (rule.includeInSavings !== undefined) return rule.includeInSavings;
+  return rule.frequency === 'yearly' || rule.frequency === 'custom' || (rule.frequency as any) === 'Anual';
+};
 
 export interface FinanceData {
   accounts: Account[];
