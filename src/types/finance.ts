@@ -21,8 +21,6 @@ export interface Transaction {
   isPending?: boolean;
   isIgnored?: boolean; // If true, this pending transaction is not included in forecast
   linkedLoanId?: string; // Link to a Loan or Fractionation
-  user_id?: string; // ID of the user who created it
-  user_profiles?: { full_name?: string; email?: string }; // Joined profile data
 }
 
 export interface Category {

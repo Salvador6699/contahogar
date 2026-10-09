@@ -14,7 +14,7 @@ export function useSearchParams() {
   }, [searchObj])
   
   const setSearchParams = useCallback((updater: any) => {
-    navigate({
+    (navigate as any)({
       search: (old: any) => {
         let newParams = new URLSearchParams()
         Object.entries(old || {}).forEach(([k, v]) => {

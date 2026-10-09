@@ -3,22 +3,15 @@ import { supabase } from "@/lib/supabase";
 import { addMonths, parseISO, format } from "date-fns";
 
 
-const getTeamId = () => {
-  const teamId = localStorage.getItem('contahogar_active_team_id');
-  if (!teamId) throw new Error("No hay equipo activo");
-  return teamId;
-};
-
-
 export const getLoans = async (): Promise<Loan[]> => {
-  const { data, error } = await supabase.from('loans').select('*').eq('team_id', getTeamId());
+  const { data, error } = await supabase.from('loans').select('*');
   if (error) throw new Error(error.message);
   return data as Loan[];
 };
 
 export const addLoan = async (loan: Omit<Loan, "id">): Promise<Loan> => {
   const newLoan = {
-    id: crypto.randomUUID(), team_id: getTeamId(),
+    id: crypto.randomUUID(),
     ...loan
   };
   const { data, error } = await supabase.from('loans').insert([newLoan]).select().single();
@@ -66,7 +59,6 @@ export const applyFractionatedTransaction = async (
 
   const newLoan: any = {
     id: loanId,
-    team_id: getTeamId(),
     name: transaction.description || "Fraccionamiento",
     type: "fractionation",
     amount: originalTotal,
@@ -88,7 +80,7 @@ export const applyFractionatedTransaction = async (
     const isSetupFeeFuture = new Date(fractionationData.setupFeeDate) > new Date();
     transactionsToInsert.push({
       ...transaction,
-      id: crypto.randomUUID(), team_id: getTeamId(),
+      id: crypto.randomUUID(),
       amount: setupFee,
       category: "Gastos Financieros",
       date: fractionationData.setupFeeDate,
@@ -106,7 +98,7 @@ export const applyFractionatedTransaction = async (
 
     transactionsToInsert.push({
       ...transaction,
-      id: crypto.randomUUID(), team_id: getTeamId(),
+      id: crypto.randomUUID(),
       amount: installmentAmount,
       date: dateStr,
       isPending: isPending || false,
@@ -116,8 +108,7 @@ export const applyFractionatedTransaction = async (
   }
   
   if (transactionsToInsert.length > 0) {
-    const txsWithTeam = transactionsToInsert.map(t => ({ ...t, team_id: getTeamId() }));
-    const { error: txsError } = await supabase.from('transactions').insert(txsWithTeam);
+    const { error: txsError } = await supabase.from('transactions').insert(transactionsToInsert);
     if (txsError) throw new Error(txsError.message);
   }
 };
@@ -131,7 +122,6 @@ export const applyLoanTransaction = async (
 
   const newLoan: any = {
     id: loanId,
-    team_id: getTeamId(),
     name,
     type: "loan",
     amount,
@@ -152,7 +142,7 @@ export const applyLoanTransaction = async (
 
   if (!isStarted) {
     transactionsToInsert.push({
-      id: crypto.randomUUID(), team_id: getTeamId(),
+      id: crypto.randomUUID(),
       date,
       amount,
       category: "Ingresos",
@@ -167,7 +157,7 @@ export const applyLoanTransaction = async (
   if (setupFee > 0) {
     const isSetupFeeFuture = new Date(setupFeeDate) > new Date();
     transactionsToInsert.push({
-      id: crypto.randomUUID(), team_id: getTeamId(),
+      id: crypto.randomUUID(),
       date: setupFeeDate,
       amount: setupFee,
       category: "Gastos Financieros",
@@ -184,7 +174,7 @@ export const applyLoanTransaction = async (
     const dateStr = format(dt, "yyyy-MM-dd");
     
     transactionsToInsert.push({
-      id: crypto.randomUUID(), team_id: getTeamId(),
+      id: crypto.randomUUID(),
       amount: installmentAmount,
       date: dateStr,
       category: "Devolución Préstamo",
@@ -197,8 +187,7 @@ export const applyLoanTransaction = async (
   }
   
   if (transactionsToInsert.length > 0) {
-    const txsWithTeam = transactionsToInsert.map(t => ({ ...t, team_id: getTeamId() }));
-    const { error: txsError } = await supabase.from('transactions').insert(txsWithTeam);
+    const { error: txsError } = await supabase.from('transactions').insert(transactionsToInsert);
     if (txsError) throw new Error(txsError.message);
   }
 };

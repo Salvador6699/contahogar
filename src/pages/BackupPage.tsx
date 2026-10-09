@@ -15,12 +15,10 @@ import { format, subDays, parseISO, isSameDay, startOfToday } from 'date-fns';
 import { es } from 'date-fns/locale';
 import { cn } from '@/lib/utils';
 import { CloudSnapshotSummary } from '@/api/local/snapshots';
-import { useTeam } from '@/contexts/TeamContext';
 
 const BackupPage = () => {
     const queryClient = useQueryClient();
     const { snapshots, isLoading, getSnapshotData, createSnapshot } = useSnapshots();
-    const { activeRole } = useTeam();
     const [selectedSnapshot, setSelectedSnapshot] = useState<CloudSnapshotSummary | null>(null);
     const [isRestoring, setIsRestoring] = useState(false);
     const [isCreatingBackup, setIsCreatingBackup] = useState(false);
@@ -210,7 +208,6 @@ const BackupPage = () => {
                                         </div>
 
                                         <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-4">
-                                            {activeRole === 'admin' ? (
                                                 <>
                                                     <Button 
                                                         onClick={handleRestore}
@@ -232,11 +229,6 @@ const BackupPage = () => {
                                                         {isCreatingBackup ? 'Forzando...' : 'Forzar Copia Ahora'}
                                                     </Button>
                                                 </>
-                                            ) : (
-                                                <div className="w-full text-center p-3 rounded-xl border border-dashed border-primary/20 bg-primary/5">
-                                                    <p className="text-sm font-medium text-primary/80">Solo los administradores pueden gestionar o restaurar copias de seguridad.</p>
-                                                </div>
-                                            )}
                                         </div>
                                         
                                         <div className="p-3 bg-destructive/10 rounded-xl border border-destructive/20 flex gap-3 mt-2">
@@ -277,9 +269,8 @@ const BackupPage = () => {
                             </CardContent>
                         </Card>
 
-                        {/* Emergency Restore Section - Solo Admin */}
-                        {activeRole === 'admin' && (
-                            <Card className="border-destructive shadow-sm">
+                        {/* Emergency Restore Section */}
+                        <Card className="border-destructive shadow-sm">
                                 <CardHeader>
                                     <div className="flex items-center gap-2 mb-1">
                                         <HardDrive className="w-5 h-5 text-destructive" />
@@ -302,7 +293,6 @@ const BackupPage = () => {
                                     </div>
                                 </CardContent>
                             </Card>
-                        )}
 
 
                     </div>

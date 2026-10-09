@@ -74,12 +74,10 @@ import { AccountManager } from "@/components/AccountManager";
 import { RecurringExpensesManager } from "@/components/RecurringExpensesManager";
 import { useAccounts } from "@/hooks/useAccounts";
 import { useCategories } from "@/hooks/useCategories";
-import { useTeam } from "@/contexts/TeamContext";
 
 const SettingsPage = () => {
   const { setTheme } = useTheme();
   const [searchParams] = useSearchParams();
-  const { activeRole } = useTeam();
 
   const [activeTab, setActiveTab] = useState<
     "cuentas" | "categorias" | "apariencia" | "gastos_fijos"
@@ -326,8 +324,7 @@ const SettingsPage = () => {
 
         {/* Custom Tabs Navigation */}
         <div className="grid grid-cols-2 lg:grid-cols-4 gap-2 mb-6">
-          {activeRole === 'admin' && (
-            <>
+          <>
               <Button
                 variant={activeTab === "cuentas" ? "default" : "outline"}
                 onClick={() => setActiveTab("cuentas")}
@@ -354,7 +351,6 @@ const SettingsPage = () => {
                 <span>Gastos Fijos</span>
               </Button>
             </>
-          )}
 
           <Button
             variant={activeTab === "apariencia" ? "default" : "outline"}
@@ -368,7 +364,7 @@ const SettingsPage = () => {
 
         <div className="space-y-6">
           {/* TAB: CUENTAS */}
-          {activeRole === 'admin' && activeTab === "cuentas" && (
+          {activeTab === "cuentas" && (
             <div className="animate-in fade-in slide-in-from-bottom-2 duration-300">
               <AccountManager />
             </div>

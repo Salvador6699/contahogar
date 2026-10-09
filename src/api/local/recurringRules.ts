@@ -1,23 +1,16 @@
 import { RecurringExpenseRule } from "@/types/finance";
 import { supabase } from "@/lib/supabase";
-import { v4 as uuidv4 } from "uuid";
-
-const getTeamId = () => {
-  const teamId = localStorage.getItem('contahogar_active_team_id');
-  if (!teamId) throw new Error("No hay equipo activo");
-  return teamId;
-};
 
 
 export const getRecurringRules = async (): Promise<RecurringExpenseRule[]> => {
-  const { data, error } = await supabase.from('recurring_rules').select('*').eq('team_id', getTeamId());
+  const { data, error } = await supabase.from('recurring_rules').select('*');
   if (error) throw new Error(error.message);
   return data as RecurringExpenseRule[];
 };
 
 export const addRecurringRule = async (rule: Omit<RecurringExpenseRule, "id">): Promise<RecurringExpenseRule> => {
   const newRule = {
-    id: crypto.randomUUID(), team_id: getTeamId(),
+    id: crypto.randomUUID(),
     ...rule
   };
   const { data, error } = await supabase.from('recurring_rules').insert([newRule]).select().single();

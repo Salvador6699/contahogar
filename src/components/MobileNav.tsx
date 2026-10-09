@@ -23,10 +23,8 @@ import {
   PiggyBank,
   Zap,
   Landmark,
-  Users,
   ChevronDown,
   CheckCircle2,
-  LogOut,
   MoreHorizontal,
   TrendingUp,
 } from 'lucide-react'
@@ -55,8 +53,6 @@ import { useCategories } from '@/hooks/useCategories'
 import { calculateCategorySummaries } from '@/lib/calculations'
 import { FavoriteExpense, Category } from '@/types/finance'
 import { format } from 'date-fns'
-import { useTeam } from '@/contexts/TeamContext'
-import { useAuth } from '@/contexts/AuthContext'
 
 const MobileNav = () => {
   const navigate = useNavigate()
@@ -64,8 +60,6 @@ const MobileNav = () => {
 
   const { favorites } = useFavorites()
   const { categories } = useCategories()
-  const { teams, activeTeam, setActiveTeamId } = useTeam()
-  const { user, signOut } = useAuth()
 
   interface NavItem {
     icon: any
@@ -91,7 +85,6 @@ const MobileNav = () => {
     { icon: History, label: 'Historial', path: '/historial' },
     { icon: TrendingUp, label: 'Evolución', path: '/evolucion' },
     { icon: Zap, label: 'Botones Rápidos', path: '/favorites' },
-    { icon: Users, label: 'Equipos', path: '/equipos' },
     { icon: Settings, label: 'Ajustes', path: '/ajustes' },
     { icon: ShieldCheck, label: 'Seguridad', path: '/backup' },
   ]
@@ -118,31 +111,7 @@ const MobileNav = () => {
   const primaryNavItems = allDrawerNavItems.filter((item) => primaryNavPaths.includes(item.path))
   const secondaryNavItems = allDrawerNavItems.filter((item) => !primaryNavPaths.includes(item.path))
 
-  const [isMobileUserMenuOpen, setIsMobileUserMenuOpen] = useState(false)
-  const [isDesktopUserMenuOpen, setIsDesktopUserMenuOpen] = useState(false)
   const isKeyboardOpen = useVirtualKeyboard()
-
-  useEffect(() => {
-    const handleInteraction = () => {
-      if (isMobileUserMenuOpen) setIsMobileUserMenuOpen(false)
-      if (isDesktopUserMenuOpen) setIsDesktopUserMenuOpen(false)
-    }
-
-    if (isMobileUserMenuOpen || isDesktopUserMenuOpen) {
-      window.addEventListener('scroll', handleInteraction, { passive: true })
-      window.addEventListener('touchmove', handleInteraction, { passive: true })
-      // Cierre por click global (con setTimeout para evitar que cierre al abrir)
-      setTimeout(() => {
-        window.addEventListener('click', handleInteraction)
-      }, 10)
-    }
-
-    return () => {
-      window.removeEventListener('scroll', handleInteraction)
-      window.removeEventListener('touchmove', handleInteraction)
-      window.removeEventListener('click', handleInteraction)
-    }
-  }, [isMobileUserMenuOpen, isDesktopUserMenuOpen])
 
   return (
     <>
@@ -154,53 +123,6 @@ const MobileNav = () => {
             {title}
           </h2>
         </div>
-
-        {user && (
-          <div className="relative">
-            <button
-              onClick={() => setIsMobileUserMenuOpen(!isMobileUserMenuOpen)}
-              className="flex items-center gap-2 bg-muted/80 backdrop-blur-md px-3 py-1.5 rounded-full text-xs font-bold border border-border/50"
-            >
-              <Users className="w-3.5 h-3.5" />
-              <span className="max-w-[80px] truncate">
-                {user.user_metadata?.full_name?.split(' ')[0] || user.email?.split('@')[0]}
-              </span>
-              <ChevronDown className="w-3.5 h-3.5" />
-            </button>
-
-            {isMobileUserMenuOpen && (
-              <>
-                <div className="absolute top-full right-0 mt-2 w-52 bg-background/95 backdrop-blur-xl border border-border/50 rounded-2xl shadow-2xl p-2 z-50 grid gap-1 animate-in fade-in zoom-in-95">
-                  <div className="px-3 py-2 text-[10px] uppercase tracking-widest text-muted-foreground border-b border-border/10 mb-1">
-                    <div className="truncate font-bold text-foreground">
-                      Equipo: {activeTeam?.name}
-                    </div>
-                  </div>
-                  {teams.length > 1 && (
-                    <button
-                      onClick={() => {
-                        setIsMobileUserMenuOpen(false)
-                        navigate({ to: '/select-team' } as any)
-                      }}
-                      className="flex items-center gap-2 px-3 py-2 rounded-xl text-sm font-bold hover:bg-muted transition-all text-left w-full"
-                    >
-                      <ArrowLeftRight className="w-4 h-4 text-muted-foreground" /> Cambiar Equipo
-                    </button>
-                  )}
-                  <button
-                    onClick={() => {
-                      setIsMobileUserMenuOpen(false)
-                      signOut()
-                    }}
-                    className="flex items-center gap-2 px-3 py-2 rounded-xl text-sm font-bold text-destructive hover:bg-destructive/10 transition-all text-left w-full"
-                  >
-                    <LogOut className="w-4 h-4" /> Cerrar Sesión
-                  </button>
-                </div>
-              </>
-            )}
-          </div>
-        )}
       </header>
 
       {/* DESKTOP TOP NAVIGATION (Hidden on mobile) */}
@@ -271,62 +193,6 @@ const MobileNav = () => {
 
         {/* Action Buttons */}
         <div className="flex items-center gap-3">
-          {/* User Profile Desktop */}
-          {user && (
-            <div className="relative">
-              <button
-                onClick={() => setIsDesktopUserMenuOpen(!isDesktopUserMenuOpen)}
-                className="flex items-center gap-2 bg-muted/50 hover:bg-muted text-foreground px-4 py-2.5 rounded-xl font-bold transition-all duration-300 text-sm border border-border/50"
-              >
-                <Users className="w-4 h-4" />
-                <span className="max-w-[120px] truncate">
-                  {user.user_metadata?.full_name?.split(' ')[0] || user.email?.split('@')[0]}
-                </span>
-                <ChevronDown className="w-4 h-4 text-muted-foreground" />
-              </button>
-
-              {isDesktopUserMenuOpen && (
-                <>
-                  <div className="absolute top-full right-0 mt-2 w-64 bg-background/95 backdrop-blur-xl border border-border/50 rounded-2xl shadow-2xl p-2 z-50 grid gap-1 animate-in fade-in zoom-in-95">
-                    <div className="px-3 py-2 text-[10px] uppercase tracking-widest text-muted-foreground border-b border-border/10 mb-1">
-                      <div className="truncate font-bold text-foreground">
-                        Equipo: {activeTeam?.name}
-                      </div>
-                    </div>
-                    {teams.length > 1 && (
-                      <button
-                        onClick={() => {
-                          setIsDesktopUserMenuOpen(false)
-                          navigate({ to: '/select-team' } as any)
-                        }}
-                        className="flex items-center gap-2 px-3 py-2 rounded-xl text-sm font-bold hover:bg-muted transition-all text-left w-full"
-                      >
-                        <ArrowLeftRight className="w-4 h-4 text-muted-foreground" /> Cambiar Equipo
-                      </button>
-                    )}
-                    <button
-                      onClick={() => {
-                        setIsDesktopUserMenuOpen(false)
-                        navigate({ to: '/equipos' } as any)
-                      }}
-                      className="flex items-center gap-2 px-3 py-2 rounded-xl text-sm font-bold text-muted-foreground hover:bg-muted transition-all text-left w-full"
-                    >
-                      <Users className="w-4 h-4" /> Administrar Equipos
-                    </button>
-                    <button
-                      onClick={() => {
-                        setIsDesktopUserMenuOpen(false)
-                        signOut()
-                      }}
-                      className="flex items-center gap-2 px-3 py-2 rounded-xl text-sm font-bold text-destructive hover:bg-destructive/10 transition-all text-left w-full"
-                    >
-                      <LogOut className="w-4 h-4" /> Cerrar Sesión
-                    </button>
-                  </div>
-                </>
-              )}
-            </div>
-          )}
           {favorites.length > 0 && (
             <div className="relative group/quick">
               <button className="flex items-center gap-2 bg-primary/10 hover:bg-primary/20 text-primary px-4 py-2.5 rounded-xl font-bold transition-all duration-300 text-sm shadow-sm">

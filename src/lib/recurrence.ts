@@ -107,7 +107,7 @@ export const syncRecurringTransactionsToSupabase = async (): Promise<void> => {
         if (!existingTx.isPending || existingTx.linkedLoanId) {
           // leave untouched
         } else {
-          const { user_profiles, ...cleanExistingTx } = existingTx as any;
+          const cleanExistingTx = existingTx;
           const matchingLoan = findMatchingFractionLoan(txId, dateStr);
           if (matchingLoan) {
             // Mark as fractionated retroactively (e.g. old backup without linkedLoanId)
@@ -147,8 +147,7 @@ export const syncRecurringTransactionsToSupabase = async (): Promise<void> => {
             isPending: false,
             isIgnored: true,
             linkedLoanId: matchingLoan.id,
-            team_id: (rule as any).team_id
-          } as any);
+          });
         } else {
           transactionsToUpsert.push({
             id: txId,
@@ -159,8 +158,7 @@ export const syncRecurringTransactionsToSupabase = async (): Promise<void> => {
             type: rule.type,
             description: rule.name,
             isPending: true,
-            team_id: (rule as any).team_id
-          } as any);
+          });
         }
       }
 

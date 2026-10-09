@@ -30,11 +30,9 @@ import { useAccounts } from '@/hooks/useAccounts';
 import { useTransactions } from '@/hooks/useTransactions';
 import { useCategories } from '@/hooks/useCategories';
 import { usePlanning } from '@/hooks/usePlanning';
-import { useTeam } from '@/contexts/TeamContext';
 import { BudgetAssignmentModal } from '@/components/BudgetAssignmentModal';
 
 const BudgetPage = () => {
-    const { activeRole } = useTeam();
     const { accounts, isLoading: isAccLoading } = useAccounts();
     const { transactions, isLoading: isTxLoading } = useTransactions();
     const { categories, isLoading: isCatLoading } = useCategories();
@@ -437,10 +435,10 @@ const BudgetPage = () => {
             <div 
                 key={cat} 
                 id={`row-${cat}`} 
-                onClick={() => activeRole === 'admin' && setEditingCategory(cat)}
+                onClick={() => setEditingCategory(cat)}
                 className={cn(
                     "bg-card rounded-2xl sm:rounded-3xl border border-border/50 shadow-sm p-4 transition-all duration-200 select-none group",
-                    activeRole === 'admin' ? "cursor-pointer hover:border-primary/40 hover:shadow-md active:scale-[0.99]" : ""
+                    "cursor-pointer hover:border-primary/40 hover:shadow-md active:scale-[0.99]"
                 )}
             >
                 <div className="flex items-center justify-between mb-2">
@@ -458,11 +456,9 @@ const BudgetPage = () => {
                         <span className={cn("font-black text-lg", resto > 0 ? "text-income" : resto < 0 ? "text-destructive" : "text-foreground")}>
                             {formatCurrency(resto)}
                         </span>
-                        {activeRole === 'admin' && (
-                            <div className="w-7 h-7 rounded-xl bg-muted/40 group-hover:bg-primary/10 group-hover:text-primary flex items-center justify-center text-muted-foreground transition-colors ml-1">
+                        <div className="w-7 h-7 rounded-xl bg-muted/40 group-hover:bg-primary/10 group-hover:text-primary flex items-center justify-center text-muted-foreground transition-colors ml-1">
                                 <Pencil className="w-3.5 h-3.5" />
                             </div>
-                        )}
                     </div>
                 </div>
 
@@ -535,8 +531,7 @@ const BudgetPage = () => {
                     </h1>
 
                     <div className="grid grid-cols-2 sm:flex sm:flex-row w-full sm:w-auto items-stretch sm:items-center gap-2 mt-4 sm:mt-0 z-10">
-                        {activeRole === 'admin' && (
-                            <>
+                        <>
                                 <Button 
                                     onClick={() => setIsAddModalOpen(true)}
                                     variant="outline"
@@ -570,7 +565,6 @@ const BudgetPage = () => {
                                     Limpiar
                                 </Button>
                             </>
-                        )}
                     </div>
                 </div>
 

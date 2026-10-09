@@ -10,16 +10,12 @@
 
 import { Route as rootRouteImport } from './routes/__root'
 import { Route as AppRouteImport } from './routes/_app'
-import { Route as LoginRouteImport } from './routes/login'
-import { Route as RegisterRouteImport } from './routes/register'
-import { Route as SelectTeamRouteImport } from './routes/select-team'
 import { Route as AppIndexRouteImport } from './routes/_app.index'
 import { Route as AppAhorrosRouteImport } from './routes/_app.ahorros'
 import { Route as AppAjustesRouteImport } from './routes/_app.ajustes'
 import { Route as AppBackupRouteImport } from './routes/_app.backup'
 import { Route as AppBuscarRouteImport } from './routes/_app.buscar'
 import { Route as AppComparativaRouteImport } from './routes/_app.comparativa'
-import { Route as AppEquiposRouteImport } from './routes/_app.equipos'
 import { Route as AppEvolucionRouteImport } from './routes/_app.evolucion'
 import { Route as AppFavoritesRouteImport } from './routes/_app.favorites'
 import { Route as AppHistorialRouteImport } from './routes/_app.historial'
@@ -30,21 +26,6 @@ import { Route as AppTransferirRouteImport } from './routes/_app.transferir'
 
 const AppRoute = AppRouteImport.update({
   id: '/_app',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const LoginRoute = LoginRouteImport.update({
-  id: '/login',
-  path: '/login',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const RegisterRoute = RegisterRouteImport.update({
-  id: '/register',
-  path: '/register',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const SelectTeamRoute = SelectTeamRouteImport.update({
-  id: '/select-team',
-  path: '/select-team',
   getParentRoute: () => rootRouteImport,
 } as any)
 const AppIndexRoute = AppIndexRouteImport.update({
@@ -75,11 +56,6 @@ const AppBuscarRoute = AppBuscarRouteImport.update({
 const AppComparativaRoute = AppComparativaRouteImport.update({
   id: '/comparativa',
   path: '/comparativa',
-  getParentRoute: () => AppRoute,
-} as any)
-const AppEquiposRoute = AppEquiposRouteImport.update({
-  id: '/equipos',
-  path: '/equipos',
   getParentRoute: () => AppRoute,
 } as any)
 const AppEvolucionRoute = AppEvolucionRouteImport.update({
@@ -120,15 +96,11 @@ const AppTransferirRoute = AppTransferirRouteImport.update({
 
 export interface FileRoutesByFullPath {
   '/': typeof AppIndexRoute
-  '/login': typeof LoginRoute
-  '/register': typeof RegisterRoute
-  '/select-team': typeof SelectTeamRoute
   '/ahorros': typeof AppAhorrosRoute
   '/ajustes': typeof AppAjustesRoute
   '/backup': typeof AppBackupRoute
   '/buscar': typeof AppBuscarRoute
   '/comparativa': typeof AppComparativaRoute
-  '/equipos': typeof AppEquiposRoute
   '/evolucion': typeof AppEvolucionRoute
   '/favorites': typeof AppFavoritesRoute
   '/historial': typeof AppHistorialRoute
@@ -138,15 +110,11 @@ export interface FileRoutesByFullPath {
   '/transferir': typeof AppTransferirRoute
 }
 export interface FileRoutesByTo {
-  '/login': typeof LoginRoute
-  '/register': typeof RegisterRoute
-  '/select-team': typeof SelectTeamRoute
   '/ahorros': typeof AppAhorrosRoute
   '/ajustes': typeof AppAjustesRoute
   '/backup': typeof AppBackupRoute
   '/buscar': typeof AppBuscarRoute
   '/comparativa': typeof AppComparativaRoute
-  '/equipos': typeof AppEquiposRoute
   '/evolucion': typeof AppEvolucionRoute
   '/favorites': typeof AppFavoritesRoute
   '/historial': typeof AppHistorialRoute
@@ -159,15 +127,11 @@ export interface FileRoutesByTo {
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/_app': typeof AppRouteWithChildren
-  '/login': typeof LoginRoute
-  '/register': typeof RegisterRoute
-  '/select-team': typeof SelectTeamRoute
   '/_app/ahorros': typeof AppAhorrosRoute
   '/_app/ajustes': typeof AppAjustesRoute
   '/_app/backup': typeof AppBackupRoute
   '/_app/buscar': typeof AppBuscarRoute
   '/_app/comparativa': typeof AppComparativaRoute
-  '/_app/equipos': typeof AppEquiposRoute
   '/_app/evolucion': typeof AppEvolucionRoute
   '/_app/favorites': typeof AppFavoritesRoute
   '/_app/historial': typeof AppHistorialRoute
@@ -181,15 +145,11 @@ export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
   fullPaths:
     | '/'
-    | '/login'
-    | '/register'
-    | '/select-team'
     | '/ahorros'
     | '/ajustes'
     | '/backup'
     | '/buscar'
     | '/comparativa'
-    | '/equipos'
     | '/evolucion'
     | '/favorites'
     | '/historial'
@@ -199,15 +159,11 @@ export interface FileRouteTypes {
     | '/transferir'
   fileRoutesByTo: FileRoutesByTo
   to:
-    | '/login'
-    | '/register'
-    | '/select-team'
     | '/ahorros'
     | '/ajustes'
     | '/backup'
     | '/buscar'
     | '/comparativa'
-    | '/equipos'
     | '/evolucion'
     | '/favorites'
     | '/historial'
@@ -219,15 +175,11 @@ export interface FileRouteTypes {
   id:
     | '__root__'
     | '/_app'
-    | '/login'
-    | '/register'
-    | '/select-team'
     | '/_app/ahorros'
     | '/_app/ajustes'
     | '/_app/backup'
     | '/_app/buscar'
     | '/_app/comparativa'
-    | '/_app/equipos'
     | '/_app/evolucion'
     | '/_app/favorites'
     | '/_app/historial'
@@ -240,9 +192,6 @@ export interface FileRouteTypes {
 }
 export interface RootRouteChildren {
   AppRoute: typeof AppRouteWithChildren
-  LoginRoute: typeof LoginRoute
-  RegisterRoute: typeof RegisterRoute
-  SelectTeamRoute: typeof SelectTeamRoute
 }
 
 declare module '@tanstack/react-router' {
@@ -252,27 +201,6 @@ declare module '@tanstack/react-router' {
       path: ''
       fullPath: '/'
       preLoaderRoute: typeof AppRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/login': {
-      id: '/login'
-      path: '/login'
-      fullPath: '/login'
-      preLoaderRoute: typeof LoginRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/register': {
-      id: '/register'
-      path: '/register'
-      fullPath: '/register'
-      preLoaderRoute: typeof RegisterRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/select-team': {
-      id: '/select-team'
-      path: '/select-team'
-      fullPath: '/select-team'
-      preLoaderRoute: typeof SelectTeamRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/_app/': {
@@ -315,13 +243,6 @@ declare module '@tanstack/react-router' {
       path: '/comparativa'
       fullPath: '/comparativa'
       preLoaderRoute: typeof AppComparativaRouteImport
-      parentRoute: typeof AppRoute
-    }
-    '/_app/equipos': {
-      id: '/_app/equipos'
-      path: '/equipos'
-      fullPath: '/equipos'
-      preLoaderRoute: typeof AppEquiposRouteImport
       parentRoute: typeof AppRoute
     }
     '/_app/evolucion': {
@@ -382,7 +303,6 @@ interface AppRouteChildren {
   AppBackupRoute: typeof AppBackupRoute
   AppBuscarRoute: typeof AppBuscarRoute
   AppComparativaRoute: typeof AppComparativaRoute
-  AppEquiposRoute: typeof AppEquiposRoute
   AppEvolucionRoute: typeof AppEvolucionRoute
   AppFavoritesRoute: typeof AppFavoritesRoute
   AppHistorialRoute: typeof AppHistorialRoute
@@ -399,7 +319,6 @@ const AppRouteChildren: AppRouteChildren = {
   AppBackupRoute: AppBackupRoute,
   AppBuscarRoute: AppBuscarRoute,
   AppComparativaRoute: AppComparativaRoute,
-  AppEquiposRoute: AppEquiposRoute,
   AppEvolucionRoute: AppEvolucionRoute,
   AppFavoritesRoute: AppFavoritesRoute,
   AppHistorialRoute: AppHistorialRoute,
@@ -414,9 +333,6 @@ const AppRouteWithChildren = AppRoute._addFileChildren(AppRouteChildren)
 
 const rootRouteChildren: RootRouteChildren = {
   AppRoute: AppRouteWithChildren,
-  LoginRoute: LoginRoute,
-  RegisterRoute: RegisterRoute,
-  SelectTeamRoute: SelectTeamRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)

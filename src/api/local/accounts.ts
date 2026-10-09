@@ -1,16 +1,9 @@
 import { Account } from "@/types/finance";
 import { supabase } from "@/lib/supabase";
-import { v4 as uuidv4 } from "uuid";
-
-const getTeamId = () => {
-  const teamId = localStorage.getItem('contahogar_active_team_id');
-  if (!teamId) throw new Error("No hay equipo activo");
-  return teamId;
-};
 
 
 export const getAccounts = async (): Promise<Account[]> => {
-  const { data, error } = await supabase.from('accounts').select('*').eq('team_id', getTeamId());
+  const { data, error } = await supabase.from('accounts').select('*');
   if (error) throw new Error(error.message);
   return data as Account[];
 };
@@ -23,7 +16,7 @@ export const addAccount = async (data: {
   excludeFromTotals?: boolean;
 }): Promise<Account> => {
   const newAccount = {
-    id: crypto.randomUUID(), team_id: getTeamId(),
+    id: crypto.randomUUID(),
     ...data
   };
   const { data: result, error } = await supabase.from('accounts').insert([newAccount]).select().single();

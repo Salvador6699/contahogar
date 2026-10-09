@@ -1,13 +1,16 @@
-import { Outlet, Navigate, useLocation } from '@tanstack/react-router';
+import { Outlet } from '@tanstack/react-router';
 import MobileNav from './MobileNav';
-import { useTeam } from '@/contexts/TeamContext';
 import { useTheme } from 'next-themes';
 import { useEffect } from 'react';
+import { syncRecurringTransactionsToSupabase } from '@/lib/recurrence';
 
 const AppLayout = () => {
-  const { activeTeam, teams, loading: teamLoading } = useTeam();
-  const location = useLocation();
   const { resolvedTheme } = useTheme();
+
+  // Generate pending recurring transactions once when the app starts
+  useEffect(() => {
+    syncRecurringTransactionsToSupabase().catch(console.error);
+  }, []);
 
   useEffect(() => {
     let metaThemeColor = document.querySelector('meta[name="theme-color"]');
@@ -21,25 +24,6 @@ const AppLayout = () => {
       resolvedTheme === 'dark' ? '#09090b' : '#ffffff'
     );
   }, [resolvedTheme]);
-
-  if (teamLoading) {
-    return (
-      <div className="min-h-screen flex items-center justify-center bg-background">
-        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary"></div>
-      </div>
-    );
-  }
-
-  // Force users without a team to go to Teams to create or join one
-  console.log('AppLayout Debug:', { activeTeam, teamsLength: teams.length, pathname: location.pathname });
-  if (!activeTeam && location.pathname !== '/equipos' && location.pathname !== '/select-team') {
-    if (teams.length > 1) {
-      console.log('AppLayout: Redirecting to /select-team');
-      return <Navigate to="/select-team" replace />;
-    }
-    console.log('AppLayout: Redirecting to /equipos');
-    return <Navigate to="/equipos" replace />;
-  }
 
   return (
     <div className="min-h-screen app-gradient-bg flex flex-col">

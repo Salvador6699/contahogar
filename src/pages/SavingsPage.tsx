@@ -5,7 +5,6 @@ import { calculateAccountBalance, formatCurrency } from '@/lib/calculations';
 import { useAccounts } from '@/hooks/useAccounts';
 import { useTransactions } from '@/hooks/useTransactions';
 import { usePlanning } from '@/hooks/usePlanning';
-import { useTeam } from '@/contexts/TeamContext';
 import { useRecurringRules } from '@/hooks/useRecurringRules';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -16,7 +15,6 @@ import { differenceInMonths, parseISO, startOfMonth, addMonths, endOfMonth } fro
 import { appToast as toast } from "@/lib/swal";
 
 export const SavingsPage = () => {
-    const { activeRole } = useTeam();
     const { accounts, isLoading: isAccLoading } = useAccounts();
     const { transactions, updateTransaction: rqUpdateTransaction, isLoading: isTxLoading } = useTransactions();
     const { goals, addGoal: rqAddGoal, updateGoal: rqUpdateGoal, deleteGoal: rqDeleteGoal, isGoalsLoading } = usePlanning();
@@ -240,12 +238,10 @@ export const SavingsPage = () => {
                             Gestiona tu capital destinado a metas y gastos futuros.
                         </p>
                     </div>
-                    {activeRole === 'admin' && (
-                        <Button onClick={() => { setEditingGoal(null); setIsModalOpen(true); }} className="rounded-2xl h-12 px-6 font-bold shadow-lg shadow-primary/20 hover:scale-105 transition-transform">
+                    <Button onClick={() => { setEditingGoal(null); setIsModalOpen(true); }} className="rounded-2xl h-12 px-6 font-bold shadow-lg shadow-primary/20 hover:scale-105 transition-transform">
                             <Plus className="w-5 h-5 mr-2" />
                             Nueva Meta
                         </Button>
-                    )}
                 </div>
 
                 {/* Capital Card */}
@@ -339,8 +335,7 @@ export const SavingsPage = () => {
                                         <CardContent className="p-4 sm:p-5 flex flex-col sm:flex-row gap-4 sm:items-center">
                                             {/* Priority Controls */}
                                             <div className="flex sm:flex-col gap-1 items-center justify-center order-first">
-                                                {activeRole === 'admin' && (
-                                                    <Button 
+                                                <Button 
                                                         variant="ghost" 
                                                         size="icon" 
                                                         className="w-8 h-8 rounded-full" 
@@ -349,10 +344,8 @@ export const SavingsPage = () => {
                                                     >
                                                         <ArrowUpCircle className="w-5 h-5 text-muted-foreground" />
                                                     </Button>
-                                                )}
                                                 <span className="text-xs font-bold text-muted-foreground w-4 text-center">{goal.displayPriority}</span>
-                                                {activeRole === 'admin' && (
-                                                    <Button 
+                                                <Button 
                                                         variant="ghost" 
                                                         size="icon" 
                                                         className="w-8 h-8 rounded-full" 
@@ -361,7 +354,6 @@ export const SavingsPage = () => {
                                                     >
                                                         <ArrowDownCircle className="w-5 h-5 text-muted-foreground" />
                                                     </Button>
-                                                )}
                                             </div>
 
                                             {/* Info */}
@@ -416,8 +408,7 @@ export const SavingsPage = () => {
                                                 )}
 
                                                 {/* Actions */}
-                                                {activeRole === 'admin' && (
-                                                    <div className="flex gap-1 mt-1 sm:mt-0">
+                                                <div className="flex gap-1 mt-1 sm:mt-0">
                                                         {!isComplete && (
                                                             <Button variant="ghost" size="icon" className="h-8 w-8 text-muted-foreground hover:text-foreground" onClick={() => handleToggleIgnore(goal)}>
                                                                 {goal.isIgnored ? <EyeOff className="w-3.5 h-3.5" /> : <Eye className="w-3.5 h-3.5" />}
@@ -434,7 +425,6 @@ export const SavingsPage = () => {
                                                             </>
                                                         )}
                                                     </div>
-                                                )}
                                             </div>
                                         </CardContent>
                                     </Card>

@@ -8,7 +8,6 @@ import {
   SavingsGoal,
   RecurringExpenseRule,
 } from "@/types/finance";
-import { v4 as uuidv4 } from "uuid";
 
 const STORAGE_KEY = "finance_app_data";
 
@@ -682,6 +681,7 @@ export const applyFractionatedTransaction = (
   const { installments, installmentAmount, firstInstallmentDate, setupFee } = fractionationData;
   const originalTotal = transaction.amount;
   
+  if (!data.loans) data.loans = [];
   data.loans.push({
     id: loanId,
     name: transaction.description || "Fraccionamiento",
@@ -806,6 +806,7 @@ export const applyLoanTransaction = (
   
   const { name, amount, installments, installmentAmount, firstInstallmentDate, setupFee, setupFeeDate, accountId, date, description, isStarted, startingPaidAmount } = loanData;
 
+  if (!data.loans) data.loans = [];
   data.loans.push({
     id: loanId,
     name,

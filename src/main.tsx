@@ -3,8 +3,6 @@ import { createRoot } from 'react-dom/client'
 import { RouterProvider, createRouter } from '@tanstack/react-router'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { ThemeProvider } from 'next-themes'
-import { AuthProvider } from './contexts/AuthContext'
-import { TeamProvider } from './contexts/TeamContext'
 import { routeTree } from './routeTree.gen'
 import './index.css'
 import { registerSW } from 'virtual:pwa-register'
@@ -40,11 +38,7 @@ createRoot(document.getElementById('root')!).render(
   <StrictMode>
     <QueryClientProvider client={queryClient}>
       <ThemeProvider attribute="class" defaultTheme="system" enableSystem>
-        <AuthProvider>
-          <TeamProvider>
-            <RouterProvider router={router} />
-          </TeamProvider>
-        </AuthProvider>
+        <RouterProvider router={router} />
       </ThemeProvider>
     </QueryClientProvider>
   </StrictMode>,

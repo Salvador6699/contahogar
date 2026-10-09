@@ -2,43 +2,36 @@ import { Budget, SavingsGoal } from "@/types/finance";
 import { supabase } from "@/lib/supabase";
 
 
-const getTeamId = () => {
-  const teamId = localStorage.getItem('contahogar_active_team_id');
-  if (!teamId) throw new Error("No hay equipo activo");
-  return teamId;
-};
-
 
 // Budgets
 export const getBudgets = async (): Promise<Budget[]> => {
-  const { data, error } = await supabase.from('budgets').select('*').eq('team_id', getTeamId());
+  const { data, error } = await supabase.from('budgets').select('*');
   if (error) throw new Error(error.message);
   return data as Budget[];
 };
 
 export const saveBudgetsForMonth = async (month: string, budgets: Budget[]): Promise<void> => {
   // 1. Delete all budgets for the given month
-  const { error: deleteError } = await supabase.from('budgets').delete().eq('month', month).eq('team_id', getTeamId());
+  const { error: deleteError } = await supabase.from('budgets').delete().eq('month', month);
   if (deleteError) throw new Error(deleteError.message);
 
   // 2. Insert new budgets
   if (budgets.length > 0) {
-    const budgetsWithTeam = budgets.map(b => ({ ...b, team_id: getTeamId() }));
-    const { error: insertError } = await supabase.from('budgets').insert(budgetsWithTeam);
+    const { error: insertError } = await supabase.from('budgets').insert(budgets);
     if (insertError) throw new Error(insertError.message);
   }
 };
 
 // Goals
 export const getSavingsGoals = async (): Promise<SavingsGoal[]> => {
-  const { data, error } = await supabase.from('savings_goals').select('*').eq('team_id', getTeamId());
+  const { data, error } = await supabase.from('savings_goals').select('*');
   if (error) throw new Error(error.message);
   return data as SavingsGoal[];
 };
 
 export const addSavingsGoal = async (goal: Omit<SavingsGoal, "id">): Promise<SavingsGoal> => {
   const newGoal = {
-    id: crypto.randomUUID(), team_id: getTeamId(),
+    id: crypto.randomUUID(),
     ...goal
   };
   const { data, error } = await supabase.from('savings_goals').insert([newGoal]).select().single();
