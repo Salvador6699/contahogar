@@ -64,9 +64,9 @@ export const BudgetAssignmentModal = ({
   };
 
   // Evaluar expresiones matemáticas en el input principal (ej: 178+53 o 100-27)
-  const handleEvaluateExpression = () => {
-    const raw = amountStr.replace(/,/g, '.').trim();
-    if (!raw) return;
+  const handleEvaluateExpression = (inputVal?: string) => {
+    const raw = (inputVal !== undefined ? inputVal : amountStr).replace(/,/g, '.').trim();
+    if (!raw) return raw;
 
     if (/^[\d.\s+\-*/]+$/.test(raw) && /[+\-*/]/.test(raw.slice(1))) {
       try {
@@ -74,20 +74,23 @@ export const BudgetAssignmentModal = ({
         const result = new Function(`return (${sanitized})`)();
         if (typeof result === 'number' && !isNaN(result) && isFinite(result)) {
           const finalVal = Math.max(0, Number(result.toFixed(2)));
-          setAmountStr(finalVal > 0 ? finalVal.toString() : '0');
+          const str = finalVal > 0 ? finalVal.toString() : '0';
+          setAmountStr(str);
+          return str;
         }
       } catch {
         // En caso de fallo de sintaxis, no modificamos
       }
     }
+    return raw;
   };
 
   const handleSubmit = async (e?: React.FormEvent) => {
     if (e) e.preventDefault();
-    handleEvaluateExpression();
+    const evaluated = handleEvaluateExpression() || amountStr;
     setIsSaving(true);
     try {
-      const finalAmount = parseAmount(amountStr);
+      const finalAmount = parseAmount(evaluated);
       await onSave(categoryName, finalAmount);
       onClose();
     } finally {

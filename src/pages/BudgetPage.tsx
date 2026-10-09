@@ -62,49 +62,29 @@ const BudgetPage = () => {
     // Search query for categories
     const [searchQuery, setSearchQuery] = useState(searchParams.get('category') || '');
 
-    // Sync local assignments when budgets, transactions, or active month changes
+    // Sincronizar asignaciones locales ÚNICAMENTE con los presupuestos guardados en la BD para el mes activo
     useEffect(() => {
         const assignments: Record<string, { amount: number, isAuto: boolean }> = {};
         
-        // 1. Cargar presupuestos guardados de la base de datos para este mes
         const monthBudgets = budgets.filter(b => b.month === activeMonth && b.category !== 'Transferencia');
         monthBudgets.forEach(b => {
             assignments[b.category] = { amount: b.amount, isAuto: !!b.isAuto };
         });
 
-        // 2. Auto-asignar gastos del mes sin sobre registrado
-        const monthExpenses = transactions.filter(t => 
-            t.type === 'expense' && 
-            t.date.startsWith(activeMonth) &&
-            t.category !== 'Transferencia' &&
-            !t.isIgnored
-        );
-
-        const spentByCategory: Record<string, number> = {};
-        monthExpenses.forEach(t => {
-            spentByCategory[t.category] = (spentByCategory[t.category] || 0) + t.amount;
-        });
-
-        Object.entries(spentByCategory).forEach(([category, amount]) => {
-            if (!assignments[category]) {
-                assignments[category] = { amount, isAuto: true };
-            }
-        });
-
         setLocalAssignments(assignments);
-    }, [budgets, transactions, activeMonth]);
+    }, [budgets, activeMonth]);
 
-    // Save assignments directly to Supabase
+    // Guardar asignaciones directamente en Supabase
     const saveAssignmentsToDb = async (assignments: Record<string, { amount: number, isAuto: boolean }>) => {
         const newBudgets: Budget[] = [];
-        Object.entries(assignments).forEach(([category, { amount }]) => {
+        Object.entries(assignments).forEach(([category, { amount, isAuto }]) => {
             if (amount > 0) {
                 newBudgets.push({
                     id: crypto.randomUUID(),
                     category,
                     amount,
                     month: activeMonth,
-                    isAuto: false,
+                    isAuto: !!isAuto,
                     createdAt: new Date().toISOString()
                 });
             }
@@ -143,7 +123,7 @@ const BudgetPage = () => {
         const next = { ...localAssignments };
         // Limpiar sobres automáticos anteriores
         Object.keys(next).forEach(cat => {
-            if (next[cat].isAuto) {
+            if (next[cat]?.isAuto) {
                 delete next[cat];
             }
         });
@@ -156,7 +136,7 @@ const BudgetPage = () => {
         let assignedCount = 0;
         Object.entries(spentByCategory).forEach(([category, amount]) => {
             if (!next[category]) {
-                next[category] = { amount, isAuto: true };
+                next[category] = { amount: Number(amount.toFixed(2)), isAuto: true };
                 assignedCount++;
             }
         });
@@ -164,9 +144,9 @@ const BudgetPage = () => {
         if (assignedCount > 0) {
             setLocalAssignments(next);
             await saveAssignmentsToDb(next);
-            toast.success(`${assignedCount} gastos futuros autoasignados`);
+            toast.success(`${assignedCount} gastos del mes autoasignados`);
         } else {
-            toast.info("No hay nuevos gastos futuros para autoasignar");
+            toast.info("No hay nuevos gastos para autoasignar");
         }
     };
 
@@ -202,8 +182,8 @@ const BudgetPage = () => {
         
         prevMonthBudgets.forEach(b => {
             if (!b.isAuto) {
-                const currentAmount = next[b.category]?.amount || 0;
-                if (currentAmount === 0) {
+                const currentItem = next[b.category];
+                if (!currentItem || currentItem.amount === 0 || currentItem.isAuto) {
                     next[b.category] = { amount: b.amount, isAuto: false };
                     copiedCount++;
                 }
@@ -215,7 +195,7 @@ const BudgetPage = () => {
             await saveAssignmentsToDb(next);
             toast.success(`${copiedCount} presupuestos copiados del mes anterior`);
         } else {
-            toast.info('No hay presupuestos manuales nuevos que copiar');
+            toast.info('No hay presupuestos manuales que copiar del mes anterior');
         }
     };
 
@@ -709,11 +689,39 @@ const BudgetPage = () => {
                     )}
 
                     {filteredEnPeligro.length === 0 && filteredSaludables.length === 0 && filteredVacios.length === 0 && filteredSinSobre.length === 0 && (
-                        <div className="bg-card/50 rounded-3xl border border-dashed border-border/60 p-12 text-center flex flex-col items-center justify-center mt-8">
-                            <PiggyBank className="w-16 h-16 text-muted-foreground/20 mb-4" />
-                            <p className="text-muted-foreground text-sm uppercase tracking-wider font-bold">
-                                {searchQuery ? "No se encontraron sobres" : "Añade tu primer sobre para este mes"}
+                        <div className="bg-card/50 rounded-3xl border border-dashed border-border/60 p-10 sm:p-12 text-center flex flex-col items-center justify-center mt-8">
+                            <PiggyBank className="w-16 h-16 text-muted-foreground/20 mb-3" />
+                            <p className="text-muted-foreground text-sm uppercase tracking-wider font-bold mb-4">
+                                {searchQuery ? "No se encontraron sobres" : "No hay presupuestos para este mes"}
                             </p>
+                            {!searchQuery && (
+                                <div className="flex flex-wrap items-center justify-center gap-2.5">
+                                    <Button
+                                        onClick={handleCopyPreviousMonth}
+                                        variant="secondary"
+                                        className="bg-primary/10 hover:bg-primary/20 text-primary border border-primary/20 font-bold rounded-2xl h-10 px-4 text-xs sm:text-sm"
+                                    >
+                                        <Copy className="w-4 h-4 mr-2" />
+                                        Copiar mes anterior
+                                    </Button>
+                                    <Button
+                                        onClick={handleAutoAssignFutureExpenses}
+                                        variant="secondary"
+                                        className="bg-primary/10 hover:bg-primary/20 text-primary border border-primary/20 font-bold rounded-2xl h-10 px-4 text-xs sm:text-sm"
+                                    >
+                                        <PlusCircle className="w-4 h-4 mr-2" />
+                                        Autoasignar gastos
+                                    </Button>
+                                    <Button
+                                        onClick={() => setIsAddModalOpen(true)}
+                                        variant="outline"
+                                        className="font-bold rounded-2xl h-10 px-4 text-xs sm:text-sm border-border"
+                                    >
+                                        <PlusCircle className="w-4 h-4 mr-2" />
+                                        Añadir sobre
+                                    </Button>
+                                </div>
+                            )}
                         </div>
                     )}
                 </div>
