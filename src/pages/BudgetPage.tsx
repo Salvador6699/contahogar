@@ -219,12 +219,10 @@ const BudgetPage = () => {
         let copiedCount = 0;
         
         prevMonthBudgets.forEach(b => {
-            if (!b.isAuto) {
-                const currentItem = next[b.category];
-                if (!currentItem || currentItem.amount === 0 || currentItem.isAuto) {
-                    next[b.category] = { amount: b.amount, isAuto: false };
-                    copiedCount++;
-                }
+            const currentItem = next[b.category];
+            if (!currentItem || currentItem.amount === 0 || currentItem.isAuto) {
+                next[b.category] = { amount: b.amount, isAuto: false };
+                copiedCount++;
             }
         });
         
@@ -233,7 +231,11 @@ const BudgetPage = () => {
             await saveAssignmentsToDb(next);
             toast.success(`${copiedCount} presupuestos copiados del mes anterior`);
         } else {
-            toast.info('No hay presupuestos manuales que copiar del mes anterior');
+            if (prevMonthBudgets.length === 0) {
+                toast.info(`No existen presupuestos guardados en ${format(parseISO(prevMonthStr + "-01"), "MMMM", { locale: es })}`);
+            } else {
+                toast.info('Todas las categorías del mes anterior ya están asignadas');
+            }
         }
     };
 
