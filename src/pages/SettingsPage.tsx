@@ -71,7 +71,6 @@ import { appToast as toast } from "@/lib/swal";
 import { cn } from "@/lib/utils";
 import { format, addMonths } from "date-fns";
 import { AccountManager } from "@/components/AccountManager";
-import { RecurringExpensesManager } from "@/components/RecurringExpensesManager";
 import { useAccounts } from "@/hooks/useAccounts";
 import { useCategories } from "@/hooks/useCategories";
 
@@ -80,10 +79,10 @@ const SettingsPage = () => {
   const [searchParams] = useSearchParams();
 
   const [activeTab, setActiveTab] = useState<
-    "cuentas" | "categorias" | "apariencia" | "gastos_fijos"
+    "cuentas" | "categorias" | "apariencia"
   >(() => {
     const tabParam = searchParams.get("tab");
-    if (tabParam === "gastos_fijos" || tabParam === "cuentas" || tabParam === "categorias" || tabParam === "apariencia") {
+    if (tabParam === "cuentas" || tabParam === "categorias" || tabParam === "apariencia") {
       return tabParam as any;
     }
     return "cuentas";
@@ -91,7 +90,7 @@ const SettingsPage = () => {
 
   useEffect(() => {
     const tabParam = searchParams.get("tab");
-    if (tabParam === "gastos_fijos" || tabParam === "cuentas" || tabParam === "categorias" || tabParam === "apariencia") {
+    if (tabParam === "cuentas" || tabParam === "categorias" || tabParam === "apariencia") {
       setActiveTab(tabParam as any);
     }
   }, [searchParams]);
@@ -323,35 +322,23 @@ const SettingsPage = () => {
         </div>
 
         {/* Custom Tabs Navigation */}
-        <div className="grid grid-cols-2 lg:grid-cols-4 gap-2 mb-6">
-          <>
-              <Button
-                variant={activeTab === "cuentas" ? "default" : "outline"}
-                onClick={() => setActiveTab("cuentas")}
-                className="w-full flex items-center justify-center rounded-xl"
-              >
-                <Wallet className="w-4 h-4 mr-2" />
-                <span>Cuentas</span>
-              </Button>
-              <Button
-                variant={activeTab === "categorias" ? "default" : "outline"}
-                onClick={() => setActiveTab("categorias")}
-                className="w-full flex items-center justify-center rounded-xl"
-              >
-                <Tag className="w-4 h-4 mr-2" />
-                <span>Categorías</span>
-              </Button>
-
-              <Button
-                variant={activeTab === "gastos_fijos" ? "default" : "outline"}
-                onClick={() => setActiveTab("gastos_fijos")}
-                className="w-full flex items-center justify-center rounded-xl"
-              >
-                <Clock className="w-4 h-4 mr-2" />
-                <span>Gastos Fijos</span>
-              </Button>
-            </>
-
+        <div className="grid grid-cols-3 gap-2 mb-6">
+          <Button
+            variant={activeTab === "cuentas" ? "default" : "outline"}
+            onClick={() => setActiveTab("cuentas")}
+            className="w-full flex items-center justify-center rounded-xl"
+          >
+            <Wallet className="w-4 h-4 mr-2" />
+            <span>Cuentas</span>
+          </Button>
+          <Button
+            variant={activeTab === "categorias" ? "default" : "outline"}
+            onClick={() => setActiveTab("categorias")}
+            className="w-full flex items-center justify-center rounded-xl"
+          >
+            <Tag className="w-4 h-4 mr-2" />
+            <span>Categorías</span>
+          </Button>
           <Button
             variant={activeTab === "apariencia" ? "default" : "outline"}
             onClick={() => setActiveTab("apariencia")}
@@ -370,10 +357,6 @@ const SettingsPage = () => {
             </div>
           )}
 
-          {/* TAB: GASTOS FIJOS */}
-          {activeTab === "gastos_fijos" && (
-            <RecurringExpensesManager />
-          )}
 
           {/* TAB: CATEGORÍAS */}
           {activeTab === "categorias" && (

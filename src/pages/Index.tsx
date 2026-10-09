@@ -274,7 +274,7 @@ const Index = () => {
           ? "Este gasto futuro forma parte de una regla de gasto fijo automatizado. Te redirigimos para modificar la regla..."
           : "Este ingreso futuro forma parte de una regla automatizada. Te redirigimos para modificar la regla..."
       );
-      navigate({ to: "/ajustes", search: { tab: "gastos_fijos", editRuleId: ruleId || undefined } });
+      navigate({ to: "/gastos-fijos", search: (ruleId ? { editRuleId: ruleId } : {}) } as any);
       return;
     }
 

@@ -65,8 +65,8 @@ const SearchPage = () => {
       const ruleId = parts.length >= 2 ? parts[1] : null;
       toast.info("Este gasto futuro forma parte de una regla de gasto fijo automatizado. Te redirigimos para modificar la regla...");
       navigate({
-        to: '/ajustes',
-        search: { tab: 'gastos_fijos', ...(ruleId ? { editRuleId: ruleId } : {}) },
+        to: '/gastos-fijos',
+        search: (ruleId ? { editRuleId: ruleId } : {}),
       } as any);
       return;
     }

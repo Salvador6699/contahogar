@@ -18,6 +18,7 @@ import { Route as AppBuscarRouteImport } from './routes/_app.buscar'
 import { Route as AppComparativaRouteImport } from './routes/_app.comparativa'
 import { Route as AppEvolucionRouteImport } from './routes/_app.evolucion'
 import { Route as AppFavoritesRouteImport } from './routes/_app.favorites'
+import { Route as AppGastosFijosRouteImport } from './routes/_app.gastos-fijos'
 import { Route as AppHistorialRouteImport } from './routes/_app.historial'
 import { Route as AppPrestamosRouteImport } from './routes/_app.prestamos'
 import { Route as AppPresupuestosRouteImport } from './routes/_app.presupuestos'
@@ -68,6 +69,11 @@ const AppFavoritesRoute = AppFavoritesRouteImport.update({
   path: '/favorites',
   getParentRoute: () => AppRoute,
 } as any)
+const AppGastosFijosRoute = AppGastosFijosRouteImport.update({
+  id: '/gastos-fijos',
+  path: '/gastos-fijos',
+  getParentRoute: () => AppRoute,
+} as any)
 const AppHistorialRoute = AppHistorialRouteImport.update({
   id: '/historial',
   path: '/historial',
@@ -103,6 +109,7 @@ export interface FileRoutesByFullPath {
   '/comparativa': typeof AppComparativaRoute
   '/evolucion': typeof AppEvolucionRoute
   '/favorites': typeof AppFavoritesRoute
+  '/gastos-fijos': typeof AppGastosFijosRoute
   '/historial': typeof AppHistorialRoute
   '/prestamos': typeof AppPrestamosRoute
   '/presupuestos': typeof AppPresupuestosRoute
@@ -117,6 +124,7 @@ export interface FileRoutesByTo {
   '/comparativa': typeof AppComparativaRoute
   '/evolucion': typeof AppEvolucionRoute
   '/favorites': typeof AppFavoritesRoute
+  '/gastos-fijos': typeof AppGastosFijosRoute
   '/historial': typeof AppHistorialRoute
   '/prestamos': typeof AppPrestamosRoute
   '/presupuestos': typeof AppPresupuestosRoute
@@ -134,6 +142,7 @@ export interface FileRoutesById {
   '/_app/comparativa': typeof AppComparativaRoute
   '/_app/evolucion': typeof AppEvolucionRoute
   '/_app/favorites': typeof AppFavoritesRoute
+  '/_app/gastos-fijos': typeof AppGastosFijosRoute
   '/_app/historial': typeof AppHistorialRoute
   '/_app/prestamos': typeof AppPrestamosRoute
   '/_app/presupuestos': typeof AppPresupuestosRoute
@@ -152,6 +161,7 @@ export interface FileRouteTypes {
     | '/comparativa'
     | '/evolucion'
     | '/favorites'
+    | '/gastos-fijos'
     | '/historial'
     | '/prestamos'
     | '/presupuestos'
@@ -166,6 +176,7 @@ export interface FileRouteTypes {
     | '/comparativa'
     | '/evolucion'
     | '/favorites'
+    | '/gastos-fijos'
     | '/historial'
     | '/prestamos'
     | '/presupuestos'
@@ -182,6 +193,7 @@ export interface FileRouteTypes {
     | '/_app/comparativa'
     | '/_app/evolucion'
     | '/_app/favorites'
+    | '/_app/gastos-fijos'
     | '/_app/historial'
     | '/_app/prestamos'
     | '/_app/presupuestos'
@@ -259,6 +271,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AppFavoritesRouteImport
       parentRoute: typeof AppRoute
     }
+    '/_app/gastos-fijos': {
+      id: '/_app/gastos-fijos'
+      path: '/gastos-fijos'
+      fullPath: '/gastos-fijos'
+      preLoaderRoute: typeof AppGastosFijosRouteImport
+      parentRoute: typeof AppRoute
+    }
     '/_app/historial': {
       id: '/_app/historial'
       path: '/historial'
@@ -305,6 +324,7 @@ interface AppRouteChildren {
   AppComparativaRoute: typeof AppComparativaRoute
   AppEvolucionRoute: typeof AppEvolucionRoute
   AppFavoritesRoute: typeof AppFavoritesRoute
+  AppGastosFijosRoute: typeof AppGastosFijosRoute
   AppHistorialRoute: typeof AppHistorialRoute
   AppPrestamosRoute: typeof AppPrestamosRoute
   AppPresupuestosRoute: typeof AppPresupuestosRoute
@@ -321,6 +341,7 @@ const AppRouteChildren: AppRouteChildren = {
   AppComparativaRoute: AppComparativaRoute,
   AppEvolucionRoute: AppEvolucionRoute,
   AppFavoritesRoute: AppFavoritesRoute,
+  AppGastosFijosRoute: AppGastosFijosRoute,
   AppHistorialRoute: AppHistorialRoute,
   AppPrestamosRoute: AppPrestamosRoute,
   AppPresupuestosRoute: AppPresupuestosRoute,

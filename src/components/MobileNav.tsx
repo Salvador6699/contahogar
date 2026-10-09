@@ -27,6 +27,7 @@ import {
   CheckCircle2,
   MoreHorizontal,
   TrendingUp,
+  Repeat,
 } from 'lucide-react'
 import * as Icons from 'lucide-react'
 import { cn, withKeyboardClose } from '@/lib/utils'
@@ -82,6 +83,7 @@ const MobileNav = () => {
     { icon: PiggyBank, label: 'Presupuestos', path: '/presupuestos' },
     { icon: Target, label: 'Ahorros', path: '/ahorros' },
     { icon: Landmark, label: 'Préstamos', path: '/prestamos' },
+    { icon: Repeat, label: 'Gastos Fijos', path: '/gastos-fijos' },
     { icon: History, label: 'Historial', path: '/historial' },
     { icon: TrendingUp, label: 'Evolución', path: '/evolucion' },
     { icon: Zap, label: 'Botones Rápidos', path: '/favorites' },
