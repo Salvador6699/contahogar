@@ -276,22 +276,12 @@ const SettingsPage = () => {
       });
       toast.success("Categoría actualizada");
     } else {
-      await rqAddCategory(catName);
-      
-      // Wait for queries to invalidate naturally via the hook's onSuccess
-      setTimeout(async () => {
-        const updatedCats = categories; 
-        const newCat = updatedCats.find((c) => c.name === catName);
-        if (newCat) {
-          await rqUpdateCategory({
-            ...newCat,
-            color: catColor,
-            icon: catIcon,
-            customIcon: catCustomIcon,
-          });
-        }
-      }, 300);
-      
+      await rqAddCategory({
+        name: catName,
+        color: catColor,
+        icon: catIcon,
+        customIcon: catCustomIcon,
+      });
       toast.success("Categoría creada");
     }
     setIsCatDialogOpen(false);
@@ -388,11 +378,22 @@ const SettingsPage = () => {
                       >
                         <div className="flex items-center gap-4">
                           {(() => {
+                            if (cat.customIcon) {
+                              return (
+                                <div className="w-12 h-12 rounded-2xl overflow-hidden shadow-sm border border-border/50 shrink-0">
+                                  <img
+                                    src={cat.customIcon}
+                                    alt={cat.name}
+                                    className="w-full h-full object-cover"
+                                  />
+                                </div>
+                              );
+                            }
                             const IconComponent =
                               (Icons as any)[cat.icon || "Tag"] || Icons.Tag;
                             return (
                               <div
-                                className="w-12 h-12 rounded-2xl flex items-center justify-center text-white shadow-sm"
+                                className="w-12 h-12 rounded-2xl flex items-center justify-center text-white shadow-sm shrink-0"
                                 style={{
                                   backgroundColor: cat.color || "#94a3b8",
                                 }}

@@ -8,15 +8,20 @@ export const getCategories = async (): Promise<Category[]> => {
   return data as Category[];
 };
 
-export const addCategory = async (name: string): Promise<void> => {
-  const newCategory = {
+export const addCategory = async (
+  input: string | { name: string; color?: string; icon?: string; customIcon?: string }
+): Promise<Category> => {
+  const isString = typeof input === "string";
+  const newCategory: Category = {
     id: crypto.randomUUID(),
-    name: name.trim(),
-    icon: "Tag",
-    color: "#94a3b8"
+    name: (isString ? input : input.name).trim(),
+    icon: (!isString && input.icon) ? input.icon : "Tag",
+    color: (!isString && input.color) ? input.color : "#94a3b8",
+    ...(!isString && input.customIcon ? { customIcon: input.customIcon } : {}),
   };
-  const { error } = await supabase.from('categories').insert([newCategory]);
+  const { data, error } = await supabase.from('categories').insert([newCategory]).select().single();
   if (error) throw new Error(error.message);
+  return data as Category;
 };
 
 export const updateCategory = async (category: Category): Promise<void> => {

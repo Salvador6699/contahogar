@@ -3,7 +3,7 @@ import { Download, ShieldCheck, FileSpreadsheet, HardDrive, RotateCcw, Calendar 
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Separator } from '@/components/ui/separator';
-import { loadData, migrateData } from '@/lib/storage';
+import { migrateData } from '@/lib/storage';
 import { exportTransactionsToCSV } from '@/lib/exportUtils';
 import { appToast as toast } from "@/lib/swal";
 import { swalSuccess, swalError, swalConfirm, swalLoading, swalClose } from '@/lib/swal';
@@ -11,6 +11,8 @@ import { restoreToSupabase } from '@/lib/supabase-backup'
 
 import { useQueryClient } from '@tanstack/react-query';
 import { useSnapshots } from '@/hooks/useSnapshots';
+import { useAccounts } from '@/hooks/useAccounts';
+import { useTransactions } from '@/hooks/useTransactions';
 import { format, subDays, parseISO, isSameDay, startOfToday } from 'date-fns';
 import { es } from 'date-fns/locale';
 import { cn } from '@/lib/utils';
@@ -19,6 +21,8 @@ import { CloudSnapshotSummary } from '@/api/local/snapshots';
 const BackupPage = () => {
     const queryClient = useQueryClient();
     const { snapshots, isLoading, getSnapshotData, createSnapshot } = useSnapshots();
+    const { accounts } = useAccounts();
+    const { transactions } = useTransactions();
     const [selectedSnapshot, setSelectedSnapshot] = useState<CloudSnapshotSummary | null>(null);
     const [isRestoring, setIsRestoring] = useState(false);
     const [isCreatingBackup, setIsCreatingBackup] = useState(false);
@@ -132,8 +136,7 @@ const BackupPage = () => {
 
     const handleExportCSV = () => {
         try {
-            const data = loadData();
-            exportTransactionsToCSV(data.transactions, data.accounts);
+            exportTransactionsToCSV(transactions, accounts);
             toast.success('Excel (CSV) exportado correctamente');
         } catch (error) {
             console.error('Error exporting CSV:', error);

@@ -329,9 +329,11 @@ const Index = () => {
   const handleVoiceResult = async (result: { type: 'income' | 'expense' | 'transfer', accountId: string, toAccountId?: string, amount: number; description: string }) => {
     if (result.type === 'transfer') {
       const date = new Date().toISOString().split("T")[0];
+      const pairUuid = crypto.randomUUID();
       
       // Gasto en la cuenta origen
       await rqAddTransaction({
+        id: `trf_exp_${pairUuid}`,
         date,
         amount: result.amount,
         category: "Transferencia",
@@ -342,6 +344,7 @@ const Index = () => {
       
       // Ingreso en la cuenta destino
       await rqAddTransaction({
+        id: `trf_inc_${pairUuid}`,
         date,
         amount: result.amount,
         category: "Transferencia",

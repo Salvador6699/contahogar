@@ -9,16 +9,15 @@ import {
 } from 'date-fns'
 import { es } from 'date-fns/locale'
 import {
-  Sparkles,
   TrendingUp,
   TrendingDown,
   ChevronDown,
   ChevronUp,
   ArrowRight,
-  CheckCircle2,
   Clock,
-  Repeat,
   Tag,
+  Calendar,
+  Scale,
 } from 'lucide-react'
 import * as Icons from 'lucide-react'
 import { Badge } from '@/components/ui/badge'
@@ -36,15 +35,17 @@ interface HomeDiagnosisWidgetProps {
 export function HomeDiagnosisWidget({
   transactions,
   categories,
+  accounts = [],
 }: HomeDiagnosisWidgetProps) {
   const navigate = useNavigate()
   const [isExpanded, setIsExpanded] = useState(false)
 
   // Helper for category icon
   const renderCategoryIcon = (catName: string, sizeClass = 'w-3.5 h-3.5') => {
+    const targetKey = catName.trim().toLowerCase()
     const cat = categories.find((c: any) => {
       const name = typeof c === 'string' ? c : c.name
-      return name.toLowerCase() === catName.toLowerCase()
+      return name.trim().toLowerCase() === targetKey
     })
 
     if (cat?.customIcon) {
@@ -72,38 +73,80 @@ export function HomeDiagnosisWidget({
     const daysInPrevMonth = getDaysInMonth(prevMonthDate)
     const targetPrevDay = Math.min(currentDayOfMonth, daysInPrevMonth)
 
-    // Filter valid expense transactions (global across all accounts)
-    const expenseTxs = transactions.filter((t) => {
-      if (t.type !== 'expense') return false
+    const resolveCanonical = (rawName: string) => {
+      const trimmed = rawName.trim()
+      const norm = trimmed.toLowerCase()
+      const found = categories.find((c: any) => {
+        const n = typeof c === 'string' ? c : c.name
+        return n.trim().toLowerCase() === norm
+      })
+      if (found) return typeof found === 'string' ? found.trim() : found.name.trim()
+      return trimmed
+    }
+
+    // Movimientos válidos globales (incluyendo todos los gastos e ingresos futuros no ignorados)
+    const validTxs = transactions.filter((t) => {
       if (isTransfer(t.category)) return false
+      if (t.amount <= 0) return false
       if (t.isPending && t.isIgnored) return false
       return true
     })
 
-    // Current month transactions
-    const curMonthTxs = expenseTxs.filter((t) => t.date.startsWith(currentMonthKey))
-    const prevMonthTxs = expenseTxs.filter((t) => t.date.startsWith(prevMonthKey))
+    const expenseTxs = validTxs.filter((t) => t.type === 'expense')
+    const incomeTxs = validTxs.filter((t) => t.type === 'income')
 
-    // Real and Pending breakdown for current month
+    // Mes actual (ejecutado + gastos futuros del mes) vs Mes anterior cerrado
+    const curMonthTxs = expenseTxs.filter((t) => t.date.startsWith(currentMonthKey))
+    const prevMonthTxs = expenseTxs.filter(
+      (t) => t.date.startsWith(prevMonthKey) && !t.isPending
+    )
+
+    // Ingresos del mes actual (cobrados + ingresos futuros previstos)
+    const curMonthIncomeTxs = incomeTxs.filter((t) => t.date.startsWith(currentMonthKey))
+    const realIncomeAmount = Number(
+      curMonthIncomeTxs
+        .filter((t) => !t.isPending)
+        .reduce((sum, t) => sum + t.amount, 0)
+        .toFixed(2)
+    )
+    const pendingIncomeAmount = Number(
+      curMonthIncomeTxs
+        .filter((t) => t.isPending)
+        .reduce((sum, t) => sum + t.amount, 0)
+        .toFixed(2)
+    )
+    const curMonthIncome = Number((realIncomeAmount + pendingIncomeAmount).toFixed(2))
+
+    // Gastos reales (ejecutados) y futuros (previstos) del mes en curso
     const curRealTxs = curMonthTxs.filter((t) => !t.isPending)
     const curPendingTxs = curMonthTxs.filter((t) => t.isPending)
 
-    const realAmount = curRealTxs.reduce((sum, t) => sum + t.amount, 0)
-    const pendingAmount = curPendingTxs.reduce((sum, t) => sum + t.amount, 0)
-    const expectedTotal = realAmount + pendingAmount
+    const realAmount = Number(curRealTxs.reduce((sum, t) => sum + t.amount, 0).toFixed(2))
+    const pendingAmount = Number(curPendingTxs.reduce((sum, t) => sum + t.amount, 0).toFixed(2))
+    const expectedTotal = Number((realAmount + pendingAmount).toFixed(2))
+    const prevMonthTotal = Number(prevMonthTxs.reduce((sum, t) => sum + t.amount, 0).toFixed(2))
 
-    // MTD (Month to date) calculation up to today
-    const mtdCurTxs = curMonthTxs.filter(
-      (t) => getDate(parseISO(t.date)) <= currentDayOfMonth
-    )
+    // Comparativa principal: Total previsto del mes (Ejecutado + Gastos Futuros) vs Mes anterior completo
+    const fullMonthDiff = Number((expectedTotal - prevMonthTotal).toFixed(2))
+    let fullMonthPercent: number | null = null
+    if (prevMonthTotal > 0) {
+      fullMonthPercent = Number((((expectedTotal - prevMonthTotal) / prevMonthTotal) * 100).toFixed(1))
+    } else if (prevMonthTotal === 0 && expectedTotal > 0) {
+      fullMonthPercent = 100
+    } else if (prevMonthTotal === 0 && expectedTotal === 0) {
+      fullMonthPercent = 0
+    }
+
+    // Balance / Remanente previsto del mes (Ingresos cobrados y futuros - Gastos ejecutados y futuros)
+    const expectedNetBalance = Number((curMonthIncome - expectedTotal).toFixed(2))
+
+    // Dato secundario: Gasto ejecutado a día de hoy vs mismo día del mes anterior
     const mtdPrevTxs = prevMonthTxs.filter(
       (t) => getDate(parseISO(t.date)) <= targetPrevDay
     )
-
-    const mtdCurAmount = mtdCurTxs.reduce((sum, t) => sum + t.amount, 0)
-    const mtdPrevAmount = mtdPrevTxs.reduce((sum, t) => sum + t.amount, 0)
-
-    const mtdDiff = mtdCurAmount - mtdPrevAmount
+    const mtdCurAmount = realAmount
+    const mtdPrevAmount = Number(mtdPrevTxs.reduce((sum, t) => sum + t.amount, 0).toFixed(2))
+    const mtdDiff = Number((mtdCurAmount - mtdPrevAmount).toFixed(2))
     let mtdPercent: number | null = null
     if (mtdPrevAmount > 0) {
       mtdPercent = Number((((mtdCurAmount - mtdPrevAmount) / mtdPrevAmount) * 100).toFixed(1))
@@ -113,24 +156,30 @@ export function HomeDiagnosisWidget({
       mtdPercent = 0
     }
 
-    // Category breakdown differences at day-to-day
+    // Diferencias por categoría usando el TOTAL PREVISTO del mes (Ejecutado + Gastos Futuros) vs mes anterior completo
     const curCatTotals: Record<string, number> = {}
-    mtdCurTxs.forEach((t) => {
-      curCatTotals[t.category] = (curCatTotals[t.category] || 0) + t.amount
-    })
-
     const prevCatTotals: Record<string, number> = {}
-    mtdPrevTxs.forEach((t) => {
-      prevCatTotals[t.category] = (prevCatTotals[t.category] || 0) + t.amount
+    const catDisplayNames: Record<string, string> = {}
+
+    curMonthTxs.forEach((t) => {
+      const norm = t.category.trim().toLowerCase()
+      if (!catDisplayNames[norm]) catDisplayNames[norm] = resolveCanonical(t.category)
+      curCatTotals[norm] = (curCatTotals[norm] || 0) + t.amount
     })
 
-    const allCatNames = Array.from(
+    prevMonthTxs.forEach((t) => {
+      const norm = t.category.trim().toLowerCase()
+      if (!catDisplayNames[norm]) catDisplayNames[norm] = resolveCanonical(t.category)
+      prevCatTotals[norm] = (prevCatTotals[norm] || 0) + t.amount
+    })
+
+    const allCatNorms = Array.from(
       new Set([...Object.keys(curCatTotals), ...Object.keys(prevCatTotals)])
     )
 
-    const catDiffs = allCatNames.map((name) => {
-      const cur = curCatTotals[name] || 0
-      const prev = prevCatTotals[name] || 0
+    const catDiffs = allCatNorms.map((norm) => {
+      const cur = Number((curCatTotals[norm] || 0).toFixed(2))
+      const prev = Number((prevCatTotals[norm] || 0).toFixed(2))
       const diff = Number((cur - prev).toFixed(2))
       let percentageDiff: number | null = null
       if (prev > 0) {
@@ -139,7 +188,7 @@ export function HomeDiagnosisWidget({
         percentageDiff = 100
       }
       return {
-        category: name,
+        category: catDisplayNames[norm] || norm,
         currentAmount: cur,
         prevAmount: prev,
         diff,
@@ -147,23 +196,20 @@ export function HomeDiagnosisWidget({
       }
     })
 
+    // Ordenar por impacto real en euros (€)
     const topIncreases = catDiffs
       .filter((d) => d.diff > 0.01)
       .sort((a, b) => {
-        const pctA = a.percentageDiff ?? 0
-        const pctB = b.percentageDiff ?? 0
-        if (pctB !== pctA) return pctB - pctA
-        return b.diff - a.diff
+        if (b.diff !== a.diff) return b.diff - a.diff
+        return (b.percentageDiff ?? 0) - (a.percentageDiff ?? 0)
       })
       .slice(0, 5)
 
     const topDecreases = catDiffs
       .filter((d) => d.diff < -0.01)
       .sort((a, b) => {
-        const pctA = a.percentageDiff ?? 0
-        const pctB = b.percentageDiff ?? 0
-        if (pctA !== pctB) return pctA - pctB
-        return a.diff - b.diff
+        if (a.diff !== b.diff) return a.diff - b.diff
+        return (a.percentageDiff ?? 0) - (b.percentageDiff ?? 0)
       })
       .slice(0, 5)
 
@@ -172,11 +218,19 @@ export function HomeDiagnosisWidget({
       daysInCurrentMonth,
       daysLeft: Math.max(0, daysInCurrentMonth - currentDayOfMonth),
       currentMonthName: format(now, 'MMMM', { locale: es }),
+      prevMonthName: format(prevMonthDate, 'MMMM', { locale: es }),
       realAmount,
       realTxCount: curRealTxs.length,
       pendingAmount,
       pendingTxCount: curPendingTxs.length,
       expectedTotal,
+      prevMonthTotal,
+      fullMonthDiff,
+      fullMonthPercent,
+      realIncomeAmount,
+      pendingIncomeAmount,
+      curMonthIncome,
+      expectedNetBalance,
       mtdCurAmount,
       mtdPrevAmount,
       mtdDiff,
@@ -184,10 +238,11 @@ export function HomeDiagnosisWidget({
       topIncreases,
       topDecreases,
     }
-  }, [transactions])
+  }, [transactions, accounts, categories])
 
-  const isOverspending = diagnosis.mtdDiff > 0
-  const isHighAlert = isOverspending && (diagnosis.mtdPercent === null || diagnosis.mtdPercent >= 15)
+  const isOverspending = diagnosis.fullMonthDiff > 0
+  const isHighAlert =
+    isOverspending && (diagnosis.fullMonthPercent === null || diagnosis.fullMonthPercent >= 15)
 
   return (
     <div
@@ -200,7 +255,7 @@ export function HomeDiagnosisWidget({
             : 'bg-emerald-500/10 border-emerald-500/30'
       )}
     >
-      {/* Compact Main Bar (Option B) */}
+      {/* Compact Main Bar */}
       <div
         onClick={() => setIsExpanded(!isExpanded)}
         className="px-3.5 py-2.5 sm:px-4 sm:py-3 flex items-center justify-between gap-3 cursor-pointer select-none hover:bg-black/5 dark:hover:bg-white/5 transition-colors"
@@ -226,7 +281,7 @@ export function HomeDiagnosisWidget({
 
           <div className="flex items-center gap-2 flex-wrap min-w-0 text-xs sm:text-sm">
             <span className="font-extrabold text-foreground tracking-tight whitespace-nowrap">
-              A día {diagnosis.currentDayOfMonth}:
+              Previsto {diagnosis.currentMonthName}:
             </span>
             <span
               className={cn(
@@ -240,26 +295,33 @@ export function HomeDiagnosisWidget({
             >
               {isOverspending ? (
                 <>
-                  +{formatCurrency(diagnosis.mtdDiff)}
-                  {diagnosis.mtdPercent !== null && ` (+${diagnosis.mtdPercent}%)`}{' '}
-                  vs mes anterior
+                  +{formatCurrency(diagnosis.fullMonthDiff)}
+                  {diagnosis.fullMonthPercent !== null && ` (+${diagnosis.fullMonthPercent}%)`}{' '}
+                  vs {diagnosis.prevMonthName}
                 </>
               ) : (
                 <>
-                  -{formatCurrency(Math.abs(diagnosis.mtdDiff))}
-                  {diagnosis.mtdPercent !== null && ` (-${Math.abs(diagnosis.mtdPercent)}%)`}{' '}
-                  ahorro vs mes ant.
+                  -{formatCurrency(Math.abs(diagnosis.fullMonthDiff))}
+                  {diagnosis.fullMonthPercent !== null &&
+                    ` (-${Math.abs(diagnosis.fullMonthPercent)}%)`}{' '}
+                  menos vs {diagnosis.prevMonthName}
                 </>
               )}
             </span>
 
-            {/* Pill Cobrado + Previsto */}
+            {/* Pill: Ejecutado + Gastos Futuros */}
             <span className="hidden md:inline-flex items-center gap-1 text-[11px] font-semibold text-muted-foreground bg-background/80 px-2 py-0.5 rounded-lg border border-border/40">
-              <span>Cobrado: {formatCurrency(diagnosis.realAmount)}</span>
-              <span className="opacity-50">+</span>
-              <span className="text-amber-600 dark:text-amber-400">
-                Prev: {formatCurrency(diagnosis.pendingAmount)}
-              </span>
+              <span>Pagado: {formatCurrency(diagnosis.realAmount)}</span>
+              {diagnosis.pendingAmount > 0 && (
+                <>
+                  <span className="opacity-50">+</span>
+                  <span className="text-amber-600 dark:text-amber-400">
+                    Futuros: {formatCurrency(diagnosis.pendingAmount)}
+                  </span>
+                </>
+              )}
+              <span className="opacity-50">=</span>
+              <strong className="text-foreground">{formatCurrency(diagnosis.expectedTotal)}</strong>
             </span>
           </div>
         </div>
@@ -282,40 +344,98 @@ export function HomeDiagnosisWidget({
       {/* Expandable Details Drawer */}
       {isExpanded && (
         <div className="px-4 pb-4 pt-2 border-t border-border/30 bg-background/50 space-y-3 animate-in fade-in slide-in-from-top-1 duration-200 text-xs">
-          {/* Fila 1: Previsión Cierre de Mes */}
-          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 p-2.5 rounded-xl bg-background/80 border border-border/40">
-            <div className="flex items-center gap-2 text-muted-foreground">
-              <Clock className="w-3.5 h-3.5 text-primary shrink-0" />
-              <span>
-                Faltan <strong>{diagnosis.daysLeft} días</strong> para cerrar {diagnosis.currentMonthName}:
-              </span>
+          {/* Fila 1: Gasto Total Previsto (Pagado + Futuros), Ingresos Previstos (Cobrado + Futuros) y Balance del Mes */}
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
+            {/* Tarjeta 1: Gasto Total Previsto vs Mes Anterior */}
+            <div className="p-2.5 rounded-xl bg-background/80 border border-border/40 flex flex-col justify-between gap-1">
+              <div className="flex items-center justify-between text-[10px] font-bold uppercase tracking-wider text-muted-foreground">
+                <span className="flex items-center gap-1">
+                  <Calendar className="w-3 h-3 text-rose-500" />
+                  Gastos (Pagado + Futuros)
+                </span>
+                <span>ant: {formatCurrency(diagnosis.prevMonthTotal)}</span>
+              </div>
+              <div className="flex items-baseline justify-between gap-2 pt-0.5">
+                <span className="font-black text-sm text-foreground">
+                  {formatCurrency(diagnosis.expectedTotal)}
+                </span>
+                <span className="text-[10px] text-muted-foreground">
+                  {formatCurrency(diagnosis.realAmount)} +{' '}
+                  <strong className="text-amber-600 dark:text-amber-400">
+                    {formatCurrency(diagnosis.pendingAmount)} fut.
+                  </strong>
+                </span>
+              </div>
             </div>
-            <div className="flex items-center gap-2 flex-wrap font-semibold text-xs">
-              <span className="text-foreground">
-                Cobrado: <strong>{formatCurrency(diagnosis.realAmount)}</strong>
-              </span>
-              <span className="text-muted-foreground">+</span>
-              <span className="text-amber-600 dark:text-amber-400">
-                Previsto: <strong>{formatCurrency(diagnosis.pendingAmount)}</strong>
-              </span>
-              <span className="text-muted-foreground">=</span>
-              <span className="text-primary font-bold">
-                Total esperado: <strong>{formatCurrency(diagnosis.expectedTotal)}</strong>
-              </span>
+
+            {/* Tarjeta 2: Ingresos Totales Previstos (Cobrado + Futuros) */}
+            <div className="p-2.5 rounded-xl bg-background/80 border border-border/40 flex flex-col justify-between gap-1">
+              <div className="flex items-center justify-between text-[10px] font-bold uppercase tracking-wider text-muted-foreground">
+                <span className="flex items-center gap-1">
+                  <Clock className="w-3 h-3 text-emerald-500" />
+                  Ingresos (Cobrado + Futuros)
+                </span>
+                <span>Faltan {diagnosis.daysLeft}d</span>
+              </div>
+              <div className="flex items-baseline justify-between gap-2 pt-0.5">
+                <span className="font-black text-sm text-emerald-600 dark:text-emerald-400">
+                  {formatCurrency(diagnosis.curMonthIncome)}
+                </span>
+                <span className="text-[10px] text-muted-foreground">
+                  {formatCurrency(diagnosis.realIncomeAmount)} +{' '}
+                  <strong className="text-emerald-600 dark:text-emerald-400">
+                    {formatCurrency(diagnosis.pendingIncomeAmount)} fut.
+                  </strong>
+                </span>
+              </div>
+            </div>
+
+            {/* Tarjeta 3: Balance / Remanente Previsto del Mes (Ingresos - Gastos con futuros) */}
+            <div
+              onClick={() => navigate({ to: '/evolucion', search: { mode: 'balance' } as any })}
+              className="p-2.5 rounded-xl bg-background/80 border border-border/40 hover:border-primary/40 transition-colors cursor-pointer flex flex-col justify-between gap-1"
+              title="Ver evolución de Balance (Ingresos vs Gastos)"
+            >
+              <div className="flex items-center justify-between text-[10px] font-bold uppercase tracking-wider text-muted-foreground">
+                <span className="flex items-center gap-1">
+                  <Scale className="w-3 h-3 text-primary" />
+                  Balance Previsto Mes
+                </span>
+                <span className="text-[10px] text-muted-foreground font-semibold">
+                  Ing. − Gas.
+                </span>
+              </div>
+              <div className="flex items-baseline justify-between gap-2 pt-0.5">
+                <span
+                  className={cn(
+                    'font-black text-sm',
+                    diagnosis.expectedNetBalance >= 0
+                      ? 'text-primary'
+                      : 'text-rose-600 dark:text-rose-400'
+                  )}
+                >
+                  {diagnosis.expectedNetBalance > 0 ? '+' : ''}
+                  {formatCurrency(diagnosis.expectedNetBalance)}
+                </span>
+                <span className="text-[10px] text-muted-foreground">
+                  A día {diagnosis.currentDayOfMonth}:{' '}
+                  <strong>{formatCurrency(diagnosis.mtdCurAmount)}</strong> pagado
+                </span>
+              </div>
             </div>
           </div>
 
-          {/* Fila 2: Top 5 Aumentos y Top 5 Descensos (porcentuales) */}
+          {/* Fila 2: Top 5 Aumentos y Top 5 Descensos (ordenados por impacto real en €) */}
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-3 pt-1">
-            {/* Top 5 que más aumentan (%) */}
+            {/* Top 5 mayor subida en € */}
             <div className="space-y-1.5 p-3 rounded-2xl bg-background/80 border border-border/40">
               <div className="flex items-center justify-between pb-1.5 border-b border-border/30">
                 <span className="text-[11px] font-bold text-rose-600 dark:text-rose-400 uppercase tracking-wider flex items-center gap-1.5">
                   <TrendingUp className="w-3.5 h-3.5" />
-                  Top 5 mayor aumento (%)
+                  Partidas que más suben (€)
                 </span>
                 <span className="text-[10px] text-muted-foreground">
-                  vs día {diagnosis.currentDayOfMonth} mes ant.
+                  vs {diagnosis.prevMonthName} (incl. futuros)
                 </span>
               </div>
 
@@ -328,7 +448,14 @@ export function HomeDiagnosisWidget({
                   {diagnosis.topIncreases.map((item) => (
                     <div
                       key={item.category}
-                      className="p-2 rounded-xl bg-background/90 border border-border/30 flex items-center justify-between gap-2"
+                      onClick={() =>
+                        navigate({
+                          to: '/evolucion',
+                          search: { category: item.category } as any,
+                        })
+                      }
+                      className="p-2 rounded-xl bg-background/90 border border-border/30 hover:border-rose-500/40 transition-colors cursor-pointer flex items-center justify-between gap-2"
+                      title={`Ver evolución de ${item.category}`}
                     >
                       <div className="flex items-center gap-2 min-w-0 pr-1">
                         <div className="w-5 h-5 rounded-md bg-muted flex items-center justify-center shrink-0">
@@ -339,18 +466,23 @@ export function HomeDiagnosisWidget({
                             {item.category}
                           </p>
                           <p className="text-[10px] text-muted-foreground leading-tight">
-                            +{formatCurrency(item.diff)} ({formatCurrency(item.prevAmount)} → {formatCurrency(item.currentAmount)})
+                            {formatCurrency(item.prevAmount)} → {formatCurrency(item.currentAmount)}
                           </p>
                         </div>
                       </div>
 
-                      <div className="shrink-0 text-right">
-                        <Badge
-                          variant="outline"
-                          className="bg-rose-500/10 text-rose-600 dark:text-rose-400 border-rose-500/20 font-extrabold text-[11px] px-1.5 py-0.5"
-                        >
-                          +{item.percentageDiff}%
-                        </Badge>
+                      <div className="shrink-0 flex items-center gap-1.5 text-right">
+                        {item.percentageDiff !== null && (
+                          <Badge
+                            variant="outline"
+                            className="bg-rose-500/10 text-rose-600 dark:text-rose-400 border-rose-500/20 font-bold text-[10px] px-1.5 py-0"
+                          >
+                            +{item.percentageDiff}%
+                          </Badge>
+                        )}
+                        <span className="font-black text-xs text-rose-600 dark:text-rose-400">
+                          +{formatCurrency(item.diff)}
+                        </span>
                       </div>
                     </div>
                   ))}
@@ -358,15 +490,15 @@ export function HomeDiagnosisWidget({
               )}
             </div>
 
-            {/* Top 5 que más disminuyen (%) */}
+            {/* Top 5 menor gasto en € */}
             <div className="space-y-1.5 p-3 rounded-2xl bg-background/80 border border-border/40">
               <div className="flex items-center justify-between pb-1.5 border-b border-border/30">
                 <span className="text-[11px] font-bold text-emerald-600 dark:text-emerald-400 uppercase tracking-wider flex items-center gap-1.5">
                   <TrendingDown className="w-3.5 h-3.5" />
-                  Top 5 mayor descenso / ahorro (%)
+                  Partidas con menor gasto (€)
                 </span>
                 <span className="text-[10px] text-muted-foreground">
-                  vs día {diagnosis.currentDayOfMonth} mes ant.
+                  vs {diagnosis.prevMonthName} (incl. futuros)
                 </span>
               </div>
 
@@ -379,7 +511,14 @@ export function HomeDiagnosisWidget({
                   {diagnosis.topDecreases.map((item) => (
                     <div
                       key={item.category}
-                      className="p-2 rounded-xl bg-background/90 border border-border/30 flex items-center justify-between gap-2"
+                      onClick={() =>
+                        navigate({
+                          to: '/evolucion',
+                          search: { category: item.category } as any,
+                        })
+                      }
+                      className="p-2 rounded-xl bg-background/90 border border-border/30 hover:border-emerald-500/40 transition-colors cursor-pointer flex items-center justify-between gap-2"
+                      title={`Ver evolución de ${item.category}`}
                     >
                       <div className="flex items-center gap-2 min-w-0 pr-1">
                         <div className="w-5 h-5 rounded-md bg-muted flex items-center justify-center shrink-0">
@@ -390,18 +529,23 @@ export function HomeDiagnosisWidget({
                             {item.category}
                           </p>
                           <p className="text-[10px] text-muted-foreground leading-tight">
-                            -{formatCurrency(Math.abs(item.diff))} ({formatCurrency(item.prevAmount)} → {formatCurrency(item.currentAmount)})
+                            {formatCurrency(item.prevAmount)} → {formatCurrency(item.currentAmount)}
                           </p>
                         </div>
                       </div>
 
-                      <div className="shrink-0 text-right">
-                        <Badge
-                          variant="outline"
-                          className="bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border-emerald-500/20 font-extrabold text-[11px] px-1.5 py-0.5"
-                        >
-                          {item.percentageDiff}%
-                        </Badge>
+                      <div className="shrink-0 flex items-center gap-1.5 text-right">
+                        {item.percentageDiff !== null && (
+                          <Badge
+                            variant="outline"
+                            className="bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border-emerald-500/20 font-bold text-[10px] px-1.5 py-0"
+                          >
+                            {item.percentageDiff}%
+                          </Badge>
+                        )}
+                        <span className="font-black text-xs text-emerald-600 dark:text-emerald-400">
+                          -{formatCurrency(Math.abs(item.diff))}
+                        </span>
                       </div>
                     </div>
                   ))}
@@ -410,8 +554,20 @@ export function HomeDiagnosisWidget({
             </div>
           </div>
 
-          {/* Fila 3: Enlace a Evolución */}
-          <div className="flex items-center justify-end pt-1 border-t border-border/30">
+          {/* Fila 3: Enlaces rápidos a Evolución */}
+          <div className="flex items-center justify-between pt-1 border-t border-border/30 flex-wrap gap-2">
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={() =>
+                navigate({ to: '/evolucion', search: { mode: 'balance' } as any })
+              }
+              className="h-8 px-2.5 text-xs font-bold text-emerald-600 dark:text-emerald-400 hover:bg-emerald-500/10 rounded-lg gap-1.5"
+            >
+              <Scale className="w-3.5 h-3.5" />
+              <span>Ver Balance Ingresos vs Gastos</span>
+            </Button>
+
             <Button
               variant="ghost"
               size="sm"

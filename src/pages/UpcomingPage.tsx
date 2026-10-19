@@ -84,10 +84,13 @@ const UpcomingPage = () => {
   };
 
   const handleConfirmTransaction = async (transaction: Transaction) => {
+    const account = accounts.find((a) => a.id === transaction.accountId);
+    const targetAccountId = account?.linkedAccountId || transaction.accountId;
+
     await updateTransaction({
       ...transaction,
       isPending: false,
-      date: new Date().toISOString().split("T")[0], 
+      accountId: targetAccountId,
     });
     toast.success("¡Transacción confirmada!");
   };

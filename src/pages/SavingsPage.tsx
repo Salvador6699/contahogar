@@ -1,4 +1,5 @@
 import { useState, useMemo, useEffect } from 'react';
+import { useNavigate } from '@tanstack/react-router';
 
 import { Account, SavingsGoal, RecurringExpenseRule, isRuleIncludedInSavings } from '@/types/finance';
 import { calculateAccountBalance, formatCurrency } from '@/lib/calculations';
@@ -13,9 +14,10 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { PiggyBank, Plus, Target, CalendarDays, ArrowUpCircle, ArrowDownCircle, Info, Edit2, Trash2, Filter, Eye, EyeOff, Calculator } from 'lucide-react';
 import SavingsGoalModal from '@/components/SavingsGoalModal';
 import { differenceInMonths, parseISO, startOfMonth, addMonths, endOfMonth } from 'date-fns';
-import { appToast as toast } from "@/lib/swal";
+import { appToast as toast, swalConfirm } from "@/lib/swal";
 
 export const SavingsPage = () => {
+    const navigate = useNavigate();
     const { accounts, isLoading: isAccLoading } = useAccounts();
     const { transactions, updateTransaction: rqUpdateTransaction, isLoading: isTxLoading } = useTransactions();
     const { goals, addGoal: rqAddGoal, updateGoal: rqUpdateGoal, deleteGoal: rqDeleteGoal, isGoalsLoading } = usePlanning();
@@ -98,6 +100,12 @@ export const SavingsPage = () => {
     };
 
     const handleDeleteManual = async (id: string) => {
+        const confirmed = await swalConfirm(
+            '¿Eliminar meta de ahorro?',
+            'Esta acción eliminará la meta de tu lista de provisiones.',
+            'Sí, eliminar'
+        );
+        if (!confirmed) return;
         await rqDeleteGoal(id);
         toast.success('Meta eliminada');
     };
@@ -324,7 +332,10 @@ export const SavingsPage = () => {
                                                                 className="h-8 w-8 text-muted-foreground hover:text-primary" 
                                                                 title="Editar gasto fijo y sus opciones de provisión"
                                                                 onClick={() => {
-                                                                    window.location.href = `/gastos-fijos?editRuleId=${goal.ruleId}`;
+                                                                    navigate({
+                                                                        to: '/gastos-fijos',
+                                                                        search: { editRuleId: goal.ruleId },
+                                                                    } as any);
                                                                 }}
                                                             >
                                                                 <Edit2 className="w-3.5 h-3.5" />

@@ -229,13 +229,18 @@ export function VoiceButton({ accounts = [], onResult }: VoiceButtonProps) {
       <AnimatePresence>
         {isListening && (
           <motion.div
-            initial={{ opacity: 0, scale: 0.8 }}
-            animate={{ opacity: 1, scale: 1 }}
-            exit={{ opacity: 0, scale: 0.8 }}
-            className="absolute -top-12 right-0 bg-black/80 text-white text-xs font-bold px-3 py-1.5 rounded-full whitespace-nowrap shadow-lg flex items-center gap-2"
+            initial={{ opacity: 0, scale: 0.9, y: 6 }}
+            animate={{ opacity: 1, scale: 1, y: 0 }}
+            exit={{ opacity: 0, scale: 0.9, y: 6 }}
+            className="absolute bottom-16 right-0 bg-black/90 backdrop-blur-md text-white text-xs px-3.5 py-2.5 rounded-2xl w-64 shadow-xl border border-white/10 space-y-1"
           >
-            <Loader2 className="w-3 h-3 animate-spin" />
-            Escuchando...
+            <div className="font-bold flex items-center gap-2 text-primary-foreground">
+              <Loader2 className="w-3.5 h-3.5 animate-spin text-red-400 shrink-0" />
+              <span>Escuchando comando...</span>
+            </div>
+            <p className="text-[11px] text-white/75 leading-snug">
+              Di por ejemplo: <span className="text-white font-semibold">"Gasto en {accounts[0]?.name || 'Cuenta'} de 25€ en Supermercado"</span>
+            </p>
           </motion.div>
         )}
       </AnimatePresence>

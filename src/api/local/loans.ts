@@ -20,11 +20,72 @@ export const addLoan = async (loan: Omit<Loan, "id">): Promise<Loan> => {
 };
 
 export const updateLoan = async (loan: Loan): Promise<void> => {
+  const { data: oldLoan } = await supabase
+    .from('loans')
+    .select('startDate')
+    .eq('id', loan.id)
+    .maybeSingle();
+
   const { error } = await supabase.from('loans').update(loan).eq('id', loan.id);
   if (error) throw new Error(error.message);
+
+  if (loan.startDate && oldLoan && loan.startDate !== oldLoan.startDate) {
+    const { data: linkedTxs, error: txFetchError } = await supabase
+      .from('transactions')
+      .select('*')
+      .eq('linkedLoanId', loan.id)
+      .eq('type', 'expense');
+
+    if (!txFetchError && linkedTxs) {
+      const installments = linkedTxs
+        .filter((t) => !t.description?.includes('Comisión apertura'))
+        .sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
+
+      const baseStartDate = parseISO(loan.startDate);
+      await Promise.all(
+        installments.map((inst, index) => {
+          const newDateStr = format(addMonths(baseStartDate, index), 'yyyy-MM-dd');
+          return supabase
+            .from('transactions')
+            .update({ date: newDateStr })
+            .eq('id', inst.id);
+        })
+      );
+    }
+  }
 };
 
 export const deleteLoan = async (id: string): Promise<void> => {
+  const { data: loanToDelete } = await supabase
+    .from('loans')
+    .select('*')
+    .eq('id', id)
+    .maybeSingle();
+
+  if (
+    loanToDelete &&
+    loanToDelete.type === 'fractionation' &&
+    loanToDelete.originalTransactionData
+  ) {
+    const origId = loanToDelete.originalTransactionData.id;
+    // No restauramos transacciones recurrentes (rec_); al borrar el placeholder de 0€,
+    // el motor syncRecurringTransactionsToSupabase la regenerará limpia si procede.
+    if (!origId || !origId.startsWith('rec_')) {
+      const restoredTx = {
+        ...loanToDelete.originalTransactionData,
+        id: origId || crypto.randomUUID(),
+      };
+      await supabase.from('transactions').upsert([restoredTx]);
+    }
+  }
+
+  // Eliminar todas las cuotas y transacciones vinculadas al préstamo/fraccionamiento
+  const { error: txDeleteError } = await supabase
+    .from('transactions')
+    .delete()
+    .eq('linkedLoanId', id);
+  if (txDeleteError) throw new Error(txDeleteError.message);
+
   const { error } = await supabase.from('loans').delete().eq('id', id);
   if (error) throw new Error(error.message);
 };

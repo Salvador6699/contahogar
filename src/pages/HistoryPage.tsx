@@ -7,7 +7,6 @@ import { Transaction } from '@/types/finance';
 import { useTransactions } from '@/hooks/useTransactions';
 import { useCategories } from '@/hooks/useCategories';
 import { formatCurrency, isTransfer } from '@/lib/calculations';
-import MobileNav from '@/components/MobileNav';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from 'recharts';
 import { ChartContainer, ChartTooltipContent } from '@/components/ui/chart';
 import { ResponsiveDialog, ResponsiveDialogContent, ResponsiveDialogHeader, ResponsiveDialogTitle } from '@/components/ui/responsive-dialog';
@@ -361,8 +360,6 @@ const HistoryPage = () => {
                     </ResponsiveDialogContent>
                 </ResponsiveDialog>
             )}
-
-            <MobileNav />
         </div>
     );
 };

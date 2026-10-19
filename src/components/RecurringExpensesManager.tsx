@@ -29,7 +29,7 @@ import { es } from "date-fns/locale";
 import { Edit2, Trash2, Calendar, PlusCircle, Search, X, Repeat, CreditCard, Tag, PiggyBank } from "lucide-react";
 import { Switch } from "@/components/ui/switch";
 import { cn, parseAmount } from "@/lib/utils";
-import { appToast as toast } from "@/lib/swal";
+import { appToast as toast, swalConfirm } from "@/lib/swal";
 import { formatCurrency } from "@/lib/calculations";
 
 export const RecurringExpensesManager = () => {
@@ -111,7 +111,12 @@ export const RecurringExpensesManager = () => {
 
   const handleDelete = async (id: string, e?: React.MouseEvent) => {
     if (e) e.stopPropagation();
-    if (confirm("¿Estás seguro de eliminar esta regla recurrente? Se borrarán todos los cobros futuros pendientes generados por ella.")) {
+    const confirmed = await swalConfirm(
+      "¿Eliminar regla recurrente?",
+      "Se borrarán todos los cobros futuros pendientes generados por esta regla.",
+      "Sí, eliminar"
+    );
+    if (confirmed) {
       await deleteRule(id);
       toast.success("Automatización eliminada");
       if (editingRule?.id === id) {

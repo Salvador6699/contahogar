@@ -17,6 +17,7 @@ interface BudgetAssignmentModalProps {
   categoryName: string;
   currentAmount: number;
   spent: number;
+  prevMonthSpent?: number;
   disponibleParaAsignar: number;
   monthLabel: string;
   onSave: (categoryName: string, amount: number) => Promise<void> | void;
@@ -29,6 +30,7 @@ export const BudgetAssignmentModal = ({
   categoryName,
   currentAmount,
   spent,
+  prevMonthSpent = 0,
   disponibleParaAsignar,
   monthLabel,
   onSave,
@@ -46,7 +48,9 @@ export const BudgetAssignmentModal = ({
   }, [isOpen, currentAmount]);
 
   const parsedAmount = parseAmount(amountStr);
-  const resto = Number((parsedAmount - spent).toFixed(2));
+  const totalCommitted = Number(spent.toFixed(2));
+  const prevMonthRoundedUp = prevMonthSpent > 0 ? Math.ceil(prevMonthSpent) : 0;
+  const resto = Number((parsedAmount - totalCommitted).toFixed(2));
 
   // Aplicar un cambio arbitrario (+53, -27, etc.)
   const handleApplyCustomDelta = (isSubtract: boolean) => {
@@ -148,7 +152,7 @@ export const BudgetAssignmentModal = ({
           <div className="grid grid-cols-3 gap-2 mt-4 p-3 rounded-2xl bg-background/60 border border-border/40 text-center">
             <div className="flex flex-col">
               <span className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">Gastado</span>
-              <span className="text-sm font-black text-foreground">{formatCurrency(spent)}</span>
+              <span className="text-sm font-black text-foreground">{formatCurrency(totalCommitted)}</span>
             </div>
             <div className="flex flex-col border-x border-border/40 px-1">
               <span className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">Resto</span>
@@ -261,17 +265,32 @@ export const BudgetAssignmentModal = ({
               Atajos Rápidos
             </span>
             <div className="flex flex-wrap gap-2">
-              {/* Cubrir gasto real si está por debajo */}
-              {spent > 0 && parsedAmount !== spent && (
+              {/* Cubrir gasto total (ejecutado + previsto) */}
+              {totalCommitted > 0 && parsedAmount !== totalCommitted && (
                 <Button
                   type="button"
                   variant="outline"
                   size="sm"
-                  onClick={() => handleSetExact(spent)}
+                  onClick={() => handleSetExact(totalCommitted)}
                   className="rounded-xl text-xs font-bold border-income/30 text-income hover:bg-income/10 gap-1.5 h-9"
                 >
                   <Sparkles className="w-3.5 h-3.5" />
-                  Cubrir gasto ({formatCurrency(spent)})
+                  Cubrir gasto ({formatCurrency(totalCommitted)})
+                </Button>
+              )}
+
+              {/* Igualar al gasto real del mes anterior (redondeado al euro superior) */}
+              {prevMonthRoundedUp > 0 && parsedAmount !== prevMonthRoundedUp && (
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  onClick={() => handleSetExact(prevMonthRoundedUp)}
+                  className="rounded-xl text-xs font-bold border-blue-500/30 text-blue-600 dark:text-blue-400 hover:bg-blue-500/10 gap-1.5 h-9"
+                  title={`Gasto exacto mes anterior: ${formatCurrency(prevMonthSpent)}`}
+                >
+                  <Sparkles className="w-3.5 h-3.5" />
+                  Gasto mes ant. ({formatCurrency(prevMonthRoundedUp)})
                 </Button>
               )}
 

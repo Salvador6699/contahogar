@@ -5,7 +5,7 @@ import { parseAmount } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
 import { Progress } from '@/components/ui/progress';
 import { Input } from '@/components/ui/input';
-import { appToast as toast } from "@/lib/swal";
+import { appToast as toast, swalConfirm } from "@/lib/swal";
 import LoanModal from '@/components/LoanModal';
 import { format, parseISO } from 'date-fns';
 import { es } from 'date-fns/locale';
@@ -60,7 +60,12 @@ const LoansPage = () => {
       toast.error(`No puedes eliminar "${name}" porque ya tiene cuotas pagadas. Si necesitas borrarlo, deshace primero los pagos marcándolos como pendientes.`);
       return;
     }
-    if (confirm(`¿Estás seguro de que quieres eliminar "${name}" y TODAS sus transacciones asociadas?`)) {
+    const confirmed = await swalConfirm(
+      '¿Eliminar financiación?',
+      `Se eliminará "${name}" y todas sus cuotas asociadas.`,
+      'Sí, eliminar'
+    );
+    if (confirmed) {
       await deleteLoan(id);
       toast.success('Financiación eliminada');
     }
@@ -193,7 +198,7 @@ const LoanCard = ({ loan, onDelete, onUpdateTx, onUpdateLoan }: { loan: any, onD
                 <Button
                   variant="ghost"
                   size="icon"
-                  className="text-muted-foreground hover:text-primary opacity-0 group-hover:opacity-100 transition-opacity"
+                  className="text-muted-foreground hover:text-primary opacity-100 sm:opacity-0 sm:group-hover:opacity-100 transition-opacity"
                   onClick={() => setIsEditingLoan(!isEditingLoan)}
                 >
                   <Edit2 className="w-4 h-4" />
@@ -201,7 +206,7 @@ const LoanCard = ({ loan, onDelete, onUpdateTx, onUpdateLoan }: { loan: any, onD
                 <Button 
                   variant="ghost" 
                   size="icon" 
-                  className="text-muted-foreground hover:text-destructive opacity-0 group-hover:opacity-100 transition-opacity"
+                  className="text-muted-foreground hover:text-destructive opacity-100 sm:opacity-0 sm:group-hover:opacity-100 transition-opacity"
                   onClick={onDelete}
                 >
                   <Trash2 className="w-4 h-4" />
@@ -343,7 +348,7 @@ const EditableTransactionRow = ({ tx, index, onSave }: { tx: any, index: number,
         <Button 
             size="icon" 
             variant="ghost" 
-            className="h-6 w-6 opacity-0 group-hover:opacity-100 text-muted-foreground transition-opacity" 
+            className="h-6 w-6 opacity-100 sm:opacity-0 sm:group-hover:opacity-100 text-muted-foreground transition-opacity" 
             onClick={() => setIsEditing(true)}
           >
             <Edit2 className="w-3 h-3" />

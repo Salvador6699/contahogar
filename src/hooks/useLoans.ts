@@ -21,6 +21,7 @@ export const useLoans = () => {
     mutationFn: updateLoan,
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['loans'] });
+      queryClient.invalidateQueries({ queryKey: ['transactions'] });
     },
   });
 

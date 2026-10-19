@@ -73,84 +73,93 @@ const CategoryBreakdown = ({
       ? (baseDate.getFullYear() + '-' + String(baseDate.getMonth() + 1).padStart(2, '0'))
       : (new Date().getFullYear() + '-' + String(new Date().getMonth() + 1).padStart(2, '0'));
 
+    const budgetedKeys = new Set<string>();
+    budgets.forEach(b => {
+      if (b.month === viewedMonthStr && b.amount > 0) {
+        budgetedKeys.add(b.category.trim().toLowerCase());
+      }
+    });
+
     const map = new Map<string, number>();
     transactions.forEach(t => {
-      if (!t.isPending && t.type === 'expense' && t.category !== 'Transferencia' && t.date.startsWith(viewedMonthStr)) {
-        const catKey = t.category.toLowerCase();
+      if (!t.isIgnored && t.type === 'expense' && t.category !== 'Transferencia' && t.date.startsWith(viewedMonthStr)) {
+        const catKey = t.category.trim().toLowerCase();
+        // Si la categoría ya tiene presupuesto (> 0), su gasto previsto es el presupuesto,
+        // por lo que solo descuenta los gastos ejecutados (!t.isPending).
+        // Si no tiene presupuesto (0), cualquier gasto (previsto o ejecutado) cuenta como sobrepasado.
+        if (budgetedKeys.has(catKey) && t.isPending) return;
         map.set(catKey, (map.get(catKey) || 0) + t.amount);
       }
     });
     return map;
-  }, [transactions, baseDate, type]);
+  }, [transactions, budgets, baseDate, type]);
 
   // Pre-sort categories based on envelope available amount
   const sortedCategories = useMemo(() => {
-    if (type !== 'expense' || budgets.length === 0) return categories;
-    
     const viewedMonthStr = baseDate ? (baseDate.getFullYear() + '-' + String(baseDate.getMonth() + 1).padStart(2, '0')) : (new Date().getFullYear() + '-' + String(new Date().getMonth() + 1).padStart(2, '0'));
+    const monthHasBudgets = budgets.some(bg => bg.month === viewedMonthStr && bg.amount > 0);
+    if (type !== 'expense' || !monthHasBudgets) return categories;
     
     return [...categories].sort((a, b) => {
-      const aBudget = budgets.find(bg => bg.category === a.category && bg.month === viewedMonthStr);
-      const bBudget = budgets.find(bg => bg.category === b.category && bg.month === viewedMonthStr);
+      const aNorm = a.category.trim().toLowerCase();
+      const bNorm = b.category.trim().toLowerCase();
+      const aBudget = budgets.find(bg => bg.category.trim().toLowerCase() === aNorm && bg.month === viewedMonthStr);
+      const bBudget = budgets.find(bg => bg.category.trim().toLowerCase() === bNorm && bg.month === viewedMonthStr);
       
-      const aSpent = totalSpentAllAccountsMap.get(a.category.toLowerCase()) || 0;
-      const bSpent = totalSpentAllAccountsMap.get(b.category.toLowerCase()) || 0;
+      const aSpent = totalSpentAllAccountsMap.get(aNorm) || 0;
+      const bSpent = totalSpentAllAccountsMap.get(bNorm) || 0;
 
-      const aAvailable = aBudget ? aBudget.amount - aSpent : null;
-      const bAvailable = bBudget ? bBudget.amount - bSpent : null;
+      const aAvailable = (aBudget ? aBudget.amount : 0) - aSpent;
+      const bAvailable = (bBudget ? bBudget.amount : 0) - bSpent;
       
-      if (aAvailable !== null && bAvailable !== null) {
-        const groupA = aAvailable < 0 ? 0 : aAvailable > 0 ? 1 : 2;
-        const groupB = bAvailable < 0 ? 0 : bAvailable > 0 ? 1 : 2;
+      const groupA = aAvailable < 0 ? 0 : aAvailable > 0 ? 1 : 2;
+      const groupB = bAvailable < 0 ? 0 : bAvailable > 0 ? 1 : 2;
 
-        if (groupA !== groupB) {
-            return groupA - groupB;
-        }
-
-        if (groupA === 0) return aAvailable - bAvailable;
-        if (groupA === 1) return bAvailable - aAvailable;
-        
-        return a.category.localeCompare(b.category);
+      if (groupA !== groupB) {
+          return groupA - groupB;
       }
+
+      if (groupA === 0) return aAvailable - bAvailable;
+      if (groupA === 1) return bAvailable - aAvailable;
       
-      if (aAvailable !== null) return -1;
-      if (bAvailable !== null) return 1;
-      return b.total - a.total; // Both no budget, sort by highest total
+      return a.category.localeCompare(b.category);
     });
   }, [categories, budgets, type, baseDate, totalSpentAllAccountsMap]);
 
   const { paginatedCategories, totalPages } = useMemo(() => {
     const viewedMonthStr = baseDate ? (baseDate.getFullYear() + '-' + String(baseDate.getMonth() + 1).padStart(2, '0')) : (new Date().getFullYear() + '-' + String(new Date().getMonth() + 1).padStart(2, '0'));
+    const monthHasBudgets = budgets.some(bg => bg.month === viewedMonthStr && bg.amount > 0);
     
-    // Separamos los items que tienen presupuesto asignado activo (positivo o negativo) de los que están a cero
+    // Separamos los items que tienen saldo de sobre distinto de cero (positivo o negativo) de los cumplidos a cero
     const activeEnvItems = sortedCategories.filter(c => {
-      if (type !== 'expense') return false;
-      const b = budgets.find(bg => bg.category === c.category && bg.month === viewedMonthStr);
-      if (!b) return false;
-      const spent = totalSpentAllAccountsMap.get(c.category.toLowerCase()) || 0;
-      return Number((b.amount - spent).toFixed(2)) !== 0;
+      if (type !== 'expense' || !monthHasBudgets) return false;
+      const cNorm = c.category.trim().toLowerCase();
+      const b = budgets.find(bg => bg.category.trim().toLowerCase() === cNorm && bg.month === viewedMonthStr);
+      const assigned = b ? b.amount : 0;
+      const spent = totalSpentAllAccountsMap.get(cNorm) || 0;
+      return Number((assigned - spent).toFixed(2)) !== 0;
     });
     
     const zeroEnvItems = sortedCategories.filter(c => {
-      if (type !== 'expense') return false;
-      const b = budgets.find(bg => bg.category === c.category && bg.month === viewedMonthStr);
-      if (!b) return false;
-      const spent = totalSpentAllAccountsMap.get(c.category.toLowerCase()) || 0;
-      return Number((b.amount - spent).toFixed(2)) === 0;
+      if (type !== 'expense' || !monthHasBudgets) return false;
+      const cNorm = c.category.trim().toLowerCase();
+      const b = budgets.find(bg => bg.category.trim().toLowerCase() === cNorm && bg.month === viewedMonthStr);
+      const assigned = b ? b.amount : 0;
+      const spent = totalSpentAllAccountsMap.get(cNorm) || 0;
+      return Number((assigned - spent).toFixed(2)) === 0;
     });
 
-    const nonEnvItems = sortedCategories.filter(c => type !== 'expense' || !budgets.some(bg => bg.category === c.category && bg.month === viewedMonthStr));
+    const nonEnvItems = sortedCategories.filter(() => {
+      if (type !== 'expense' || !monthHasBudgets) return true;
+      return false;
+    });
 
     const chunkItems = (items: CategorySummary[]) => {
       if (items.length === 0) return [];
-      const numPages = Math.max(1, Math.floor(items.length / ITEMS_PER_PAGE));
+      const numPages = Math.max(1, Math.ceil(items.length / ITEMS_PER_PAGE));
       const chunks = [];
       for (let i = 0; i < numPages; i++) {
-        if (i === numPages - 1) {
-          chunks.push(items.slice(i * ITEMS_PER_PAGE));
-        } else {
-          chunks.push(items.slice(i * ITEMS_PER_PAGE, (i + 1) * ITEMS_PER_PAGE));
-        }
+        chunks.push(items.slice(i * ITEMS_PER_PAGE, (i + 1) * ITEMS_PER_PAGE));
       }
       return chunks;
     };
@@ -441,11 +450,16 @@ const CategoryBreakdown = ({
                       if (type !== 'expense' || budgets.length === 0) return null;
                       
                       const viewedMonthStr = baseDate ? (baseDate.getFullYear() + '-' + String(baseDate.getMonth() + 1).padStart(2, '0')) : (new Date().getFullYear() + '-' + String(new Date().getMonth() + 1).padStart(2, '0'));
-                      const totalAssigned = budgets.filter(b => b.category === category.category && b.month === viewedMonthStr).reduce((sum, b) => sum + b.amount, 0);
+                      const monthHasBudgets = budgets.some(b => b.month === viewedMonthStr && b.amount > 0);
+                      if (!monthHasBudgets) return null;
+
+                      const cNorm = category.category.trim().toLowerCase();
+                      const matchedBudget = budgets.find(b => b.category.trim().toLowerCase() === cNorm && b.month === viewedMonthStr);
+                      const totalAssigned = matchedBudget ? matchedBudget.amount : 0;
+                      const totalSpentAllAccounts = totalSpentAllAccountsMap.get(cNorm) || 0;
                       
-                      if (totalAssigned === 0) return null; // No budget assigned for this month
+                      if (totalAssigned === 0 && totalSpentAllAccounts === 0) return null;
                       
-                      const totalSpentAllAccounts = totalSpentAllAccountsMap.get(category.category.toLowerCase()) || 0;
                       const available = totalAssigned - totalSpentAllAccounts;
                       const availableRounded = Number(available.toFixed(2));
                       
@@ -473,7 +487,10 @@ const CategoryBreakdown = ({
                       className="h-8 w-8 text-muted-foreground hover:text-primary hover:bg-primary/10 shrink-0"
                       onClick={(e) => {
                         e.stopPropagation();
-                        navigate({ to: '/presupuestos', search: { category: category.category } });
+                        const viewedMonthStr = baseDate
+                          ? (baseDate.getFullYear() + '-' + String(baseDate.getMonth() + 1).padStart(2, '0'))
+                          : (new Date().getFullYear() + '-' + String(new Date().getMonth() + 1).padStart(2, '0'));
+                        navigate({ to: '/presupuestos', search: { category: category.category, month: viewedMonthStr } });
                       }}
                       title="Modificar sobre en presupuestos"
                     >

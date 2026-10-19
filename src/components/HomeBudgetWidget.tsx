@@ -1,4 +1,4 @@
-import { useState, useMemo } from 'react'
+import { useState, useMemo, useEffect } from 'react'
 import { useNavigate } from '@tanstack/react-router'
 import {
   format,
@@ -19,7 +19,6 @@ import {
   Wallet,
   Tag,
   AlertTriangle,
-  Repeat,
 } from 'lucide-react'
 import * as Icons from 'lucide-react'
 import { Badge } from '@/components/ui/badge'
@@ -31,6 +30,9 @@ import {
   calculatePendingImpact,
   isTransfer,
 } from '@/lib/calculations'
+import { calculateSavingsProvisions } from '@/lib/savingsCalculations'
+import { usePlanning } from '@/hooks/usePlanning'
+import { useRecurringRules } from '@/hooks/useRecurringRules'
 import { cn } from '@/lib/utils'
 
 interface HomeBudgetWidgetProps {
@@ -48,12 +50,42 @@ export function HomeBudgetWidget({
 }: HomeBudgetWidgetProps) {
   const navigate = useNavigate()
   const [isExpanded, setIsExpanded] = useState(false)
+  const { goals } = usePlanning()
+  const { rules: recurringRules } = useRecurringRules()
+
+  const [savingsTimeframe, setSavingsTimeframe] = useState(() => {
+    return localStorage.getItem('savingsTimeframe') || '13'
+  })
+
+  const [excludedNextMonthIds, setExcludedNextMonthIds] = useState<string[]>(() => {
+    try {
+      const raw = localStorage.getItem('excludedNextMonthProvisionIds')
+      return raw ? JSON.parse(raw) : []
+    } catch {
+      return []
+    }
+  })
+
+  useEffect(() => {
+    const handleStorageChange = () => {
+      setSavingsTimeframe(localStorage.getItem('savingsTimeframe') || '13')
+      try {
+        const raw = localStorage.getItem('excludedNextMonthProvisionIds')
+        setExcludedNextMonthIds(raw ? JSON.parse(raw) : [])
+      } catch {
+        // ignore parse errors
+      }
+    }
+    window.addEventListener('storage', handleStorageChange)
+    return () => window.removeEventListener('storage', handleStorageChange)
+  }, [])
 
   // Helper for category icon
   const renderCategoryIcon = (catName: string, sizeClass = 'w-3.5 h-3.5') => {
+    const targetKey = catName.trim().toLowerCase()
     const cat = categories.find((c: any) => {
       const name = typeof c === 'string' ? c : c.name
-      return name.toLowerCase() === catName.toLowerCase()
+      return name.trim().toLowerCase() === targetKey
     })
 
     if (cat?.customIcon) {
@@ -82,21 +114,31 @@ export function HomeBudgetWidget({
     const nextMonthKey = format(nextMonthDate, 'yyyy-MM')
     const nextMonthName = format(nextMonthDate, 'MMMM', { locale: es })
 
+    const excludedSet = new Set(excludedNextMonthIds)
     const nextMonthExpenses = transactions.filter(
       (t) =>
         t.type === 'expense' &&
         t.date.startsWith(nextMonthKey) &&
         !isTransfer(t.category) &&
-        !t.isIgnored
+        t.amount > 0 &&
+        !excludedSet.has(t.id)
     )
     const nextMonthBudgetsTotal = Number(
       nextMonthExpenses.reduce((acc, t) => acc + t.amount, 0).toFixed(2)
     )
 
-    // Current month active budget envelopes
-    const activeBudgets = budgets.filter(
-      (b) => b.month === currentMonthKey && !isTransfer(b.category)
-    )
+    // Current month active budget envelopes (deduplicated case-insensitively, manual priority)
+    const budgetMap = new Map<string, Budget>()
+    budgets.forEach((b) => {
+      if (b.month === currentMonthKey && !isTransfer(b.category) && b.amount > 0) {
+        const normKey = b.category.trim().toLowerCase()
+        const existing = budgetMap.get(normKey)
+        if (!existing || (existing.isAuto && !b.isAuto)) {
+          budgetMap.set(normKey, b)
+        }
+      }
+    })
+    const activeBudgets = Array.from(budgetMap.values())
 
     // Filter valid expense transactions for current month (global across all accounts)
     const curMonthExpenses = transactions.filter((t) => {
@@ -107,45 +149,74 @@ export function HomeBudgetWidget({
       return true
     })
 
-    // Group expenses by category separating real (paid) from pending
+    // Group expenses by normalized category key separating real (paid) from pending
     const catRealTotals: Record<string, number> = {}
     const catPendingTotals: Record<string, number> = {}
+    const catDisplayNames: Record<string, string> = {}
 
     curMonthExpenses.forEach((t) => {
+      const normKey = t.category.trim().toLowerCase()
+      if (!catDisplayNames[normKey]) {
+        catDisplayNames[normKey] = t.category.trim()
+      }
       if (t.isPending) {
-        catPendingTotals[t.category] = (catPendingTotals[t.category] || 0) + t.amount
+        catPendingTotals[normKey] = (catPendingTotals[normKey] || 0) + t.amount
       } else {
-        catRealTotals[t.category] = (catRealTotals[t.category] || 0) + t.amount
+        catRealTotals[normKey] = (catRealTotals[normKey] || 0) + t.amount
       }
     })
 
-    // Compute status per budgeted envelope
-    const envelopes = activeBudgets.map((b) => {
-      const realSpent = Number((catRealTotals[b.category] || 0).toFixed(2))
-      const pendingSpent = Number((catPendingTotals[b.category] || 0).toFixed(2))
+    // Si el mes tiene presupuestos, cualquier gasto previsto o ejecutado de una categoría no presupuestada
+    // genera automáticamente su sobre con presupuesto 0 € y gasto sobrepasado
+    const allEnvelopeEntries: { category: string; amount: number }[] = activeBudgets.map((b) => ({
+      category: b.category,
+      amount: b.amount,
+    }))
+
+    if (activeBudgets.length > 0) {
+      Object.keys(catDisplayNames).forEach((normKey) => {
+        if (!budgetMap.has(normKey)) {
+          const totalSpent = Number(((catRealTotals[normKey] || 0) + (catPendingTotals[normKey] || 0)).toFixed(2))
+          if (totalSpent > 0) {
+            allEnvelopeEntries.push({
+              category: catDisplayNames[normKey],
+              amount: 0,
+            })
+          }
+        }
+      })
+    }
+
+    // Compute status per envelope
+    const envelopes = allEnvelopeEntries.map((b) => {
+      const normKey = b.category.trim().toLowerCase()
+      const realSpent = Number((catRealTotals[normKey] || 0).toFixed(2))
+      const pendingSpent = Number((catPendingTotals[normKey] || 0).toFixed(2))
+      const totalSpent = Number((realSpent + pendingSpent).toFixed(2))
       const budgetAmount = b.amount
       
-      // Dinero restante en el sobre para seguir gastando
-      const remaining = Number((budgetAmount - realSpent).toFixed(2))
-      const percent = budgetAmount > 0 ? Number(((realSpent / budgetAmount) * 100).toFixed(1)) : 0
+      // Si la categoría está presupuestada (> 0), su gasto previsto ya es el presupuesto,
+      // por lo que solo descuenta los gastos ejecutados reales. Si no está presupuestada (0),
+      // cualquier gasto (previsto o ejecutado) genera el sobre excedido.
+      const effectiveSpent = budgetAmount > 0 ? realSpent : totalSpent
+      const remaining = Number((budgetAmount - effectiveSpent).toFixed(2))
+      const percent = budgetAmount > 0 ? Number(((effectiveSpent / budgetAmount) * 100).toFixed(1)) : (effectiveSpent > 0 ? 100 : 0)
       
-      // ¿Está cubierto el gasto previsto pendiente?
-      const isPendingCovered = remaining >= pendingSpent
       const isOverbudget = remaining < -0.005
       
-      // Los sobres al 100% (sin dinero restante y sin sobregasto) NO deben aparecer
+      // Los sobres al 100% (sin dinero restante y sin sobregasto) NO deben aparecer en el resumen rápido
       const isExact100 = !isOverbudget && remaining <= 0.005
       
-      // Todavía queda dinero en el sobre para gastar o pendiente
+      // Todavía queda dinero libre en el sobre
       const hasMoneyLeft = remaining > 0.005
       
-      // En peligro: está sobrepasado O (tiene dinero pero le queda menos del 20% / al 80% o más O no cubre lo previsto)
-      const isDanger = isOverbudget || (hasMoneyLeft && (percent >= 80 || (!isPendingCovered && pendingSpent > 0)))
+      // En peligro: está sobrepasado O tiene dinero pero ya consumió >= 80%
+      const isDanger = isOverbudget || (hasMoneyLeft && percent >= 80)
 
       return {
         category: b.category,
         budgetAmount,
-        realSpent,
+        realSpent: effectiveSpent,
         pendingSpent,
         remaining,
         percent,
@@ -153,8 +224,6 @@ export function HomeBudgetWidget({
         isExact100,
         isDanger,
         hasMoneyLeft,
-        isPendingCovered,
-        isExclusivelyPending: realSpent === 0 && pendingSpent > 0,
       }
     })
 
@@ -178,8 +247,25 @@ export function HomeBudgetWidget({
       const baseBudgets = Number(
         activeBudgets.reduce((sum, b) => sum + b.amount, 0).toFixed(2)
       )
+      const savingsProvisionsAmount =
+        savingsTimeframe === 'none'
+          ? 0
+          : calculateSavingsProvisions(
+              accounts,
+              transactions,
+              goals || [],
+              recurringRules || [],
+              savingsTimeframe
+            ).totalSuggestedMonthly
+
       disponibleParaAsignar = Number(
-        (baseCapital + baseGastos - baseBudgets - nextMonthBudgetsTotal).toFixed(2)
+        (
+          baseCapital +
+          baseGastos -
+          baseBudgets -
+          nextMonthBudgetsTotal -
+          savingsProvisionsAmount
+        ).toFixed(2)
       )
     }
 
@@ -196,7 +282,7 @@ export function HomeBudgetWidget({
         // 1. Excedidos primero
         if (a.isOverbudget && !b.isOverbudget) return -1
         if (!a.isOverbudget && b.isOverbudget) return 1
-        // 2. En peligro primero (ej: >= 80% con poco margen restante)
+        // 2. En peligro primero (ej: >= 80% con poco margen restante o recibo no cubierto)
         if (a.isDanger && !b.isDanger) return -1
         if (!a.isDanger && b.isDanger) return 1
         // 3. Con dinero restante por mayor saldo
@@ -219,7 +305,7 @@ export function HomeBudgetWidget({
       hasOverbudget,
       overbudgetEnvelopes,
     }
-  }, [transactions, budgets, accounts])
+  }, [transactions, budgets, accounts, goals, recurringRules, savingsTimeframe, excludedNextMonthIds])
 
   // Empty state if no budgets and no next month provision
   if (!analysis.hasBudgets && analysis.nextMonthBudgetsTotal === 0) {
@@ -289,6 +375,10 @@ export function HomeBudgetWidget({
             ) : analysis.hasOverbudget ? (
               <span className="font-extrabold text-rose-600 dark:text-rose-400 tracking-tight">
                 ⚠️ {analysis.overbudgetEnvelopes[0].category} excedido en +{formatCurrency(Math.abs(analysis.overbudgetEnvelopes[0].remaining))}
+              </span>
+            ) : analysis.visibleEnvelopes.length === 0 ? (
+              <span className="font-extrabold text-emerald-700 dark:text-emerald-400 tracking-tight">
+                ✅ Todos los sobres cumplidos
               </span>
             ) : (
               <span className="font-extrabold text-emerald-700 dark:text-emerald-400 tracking-tight">
@@ -428,7 +518,8 @@ export function HomeBudgetWidget({
                 {analysis.visibleEnvelopes.map((env) => (
                   <div
                     key={env.category}
-                    className="px-3 py-2 rounded-xl bg-background/80 border border-border/40 hover:bg-background transition-colors"
+                    onClick={() => navigate({ to: '/presupuestos', search: { category: env.category } })}
+                    className="px-3 py-2 rounded-xl bg-background/80 border border-border/40 hover:bg-background transition-colors cursor-pointer"
                   >
                     <div className="flex items-center justify-between gap-2">
                       <div className="flex items-center gap-2 min-w-0">
@@ -448,11 +539,6 @@ export function HomeBudgetWidget({
                             <span className="text-[10px] font-bold px-1.5 py-0.2 rounded bg-amber-500/15 text-amber-600 dark:text-amber-400 shrink-0">
                               Al {env.percent}%
                             </span>
-                          ) : env.isExclusivelyPending ? (
-                            <span className="text-[10px] font-medium px-1.5 py-0.2 rounded bg-blue-500/15 text-blue-600 dark:text-blue-400 shrink-0 flex items-center gap-1">
-                              <Repeat className="w-2.5 h-2.5" />
-                              <span>Cobro pend.</span>
-                            </span>
                           ) : null}
                         </div>
                       </div>
@@ -461,10 +547,6 @@ export function HomeBudgetWidget({
                         {env.isOverbudget ? (
                           <span className="font-extrabold text-xs text-rose-600 dark:text-rose-400">
                             +{formatCurrency(Math.abs(env.remaining))}
-                          </span>
-                        ) : env.isExclusivelyPending ? (
-                          <span className="font-extrabold text-xs text-blue-600 dark:text-blue-400">
-                            {formatCurrency(env.pendingSpent)} reserv.
                           </span>
                         ) : (
                           <div className="flex items-baseline gap-1">
@@ -489,17 +571,12 @@ export function HomeBudgetWidget({
                           'h-full rounded-full transition-all duration-300',
                           env.isOverbudget
                             ? 'bg-rose-500'
-                            : env.isExclusivelyPending
-                              ? 'bg-blue-500'
-                              : env.percent >= 80
-                                ? 'bg-amber-500'
-                                : 'bg-emerald-500'
+                            : env.percent >= 80
+                              ? 'bg-amber-500'
+                              : 'bg-emerald-500'
                         )}
                         style={{
-                          width: `${Math.min(
-                            env.isExclusivelyPending ? 100 : env.percent,
-                            100
-                          )}%`,
+                          width: `${Math.min(env.percent, 100)}%`,
                         }}
                       />
                     </div>

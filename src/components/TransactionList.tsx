@@ -58,11 +58,10 @@ const TransactionList = ({ transactions, onEdit, onDelete }: TransactionListProp
   }, [sortedTransactions, searchQuery]);
 
   // Pagination
-  const totalPages = Math.max(1, Math.floor(filteredTransactions.length / ITEMS_PER_PAGE));
+  const totalPages = Math.max(1, Math.ceil(filteredTransactions.length / ITEMS_PER_PAGE));
   const safeCurrentPage = Math.min(currentPage, totalPages);
   const startIndex = (safeCurrentPage - 1) * ITEMS_PER_PAGE;
-  const isLastPage = safeCurrentPage === totalPages;
-  const endIndex = isLastPage ? filteredTransactions.length : startIndex + ITEMS_PER_PAGE;
+  const endIndex = startIndex + ITEMS_PER_PAGE;
   const paginatedTransactions = filteredTransactions.slice(startIndex, endIndex);
 
   // Reset to page 1 when search changes

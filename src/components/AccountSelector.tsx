@@ -17,7 +17,9 @@ const AccountSelector = ({
   accounts,
   accountBalances,
 }: AccountSelectorProps) => {
-  const totalBalance = accountBalances.reduce((sum, ab) => sum + ab.balance, 0);
+  const totalBalance = accountBalances
+    .filter((ab) => !ab.account.excludeFromTotals)
+    .reduce((sum, ab) => sum + ab.balance, 0);
 
   return (
     <div className="flex flex-col sm:flex-row w-full gap-3">

@@ -2,16 +2,14 @@ import React from 'react'
 import {
   TrendingUp,
   TrendingDown,
-  Minus,
-  AlertCircle,
   Clock,
   Sparkles,
   Receipt,
   Calendar,
-  Layers,
   ArrowRight,
   HelpCircle,
   Repeat,
+  Scale,
 } from 'lucide-react'
 import { Card, CardContent } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
@@ -40,8 +38,17 @@ export interface MonthEvolutionData {
   pendingAmount: number
   prevAmount: number | null
   prevRealAmount: number | null
+  fullMonthPrevAmount?: number | null
+  fullMonthPercentageChange?: number | null
+  fullMonthAbsoluteChange?: number | null
   percentageChange: number | null
   absoluteChange: number | null
+  // Balance mode fields
+  incomeAmount?: number
+  expenseAmount?: number
+  netAmount?: number
+  prevNetAmount?: number | null
+  savingsRate?: number | null
   txCount: number
   realTxCount: number
   pendingTxCount: number
@@ -70,7 +77,7 @@ export interface MonthEvolutionData {
 
 interface EvolutionMonthDiagnosisProps {
   data: MonthEvolutionData
-  movementType: 'expense' | 'income'
+  movementType: 'expense' | 'income' | 'balance'
   selectedCategory: string
   categories: Category[]
   accounts: Account[]
@@ -87,14 +94,14 @@ export function EvolutionMonthDiagnosis({
   data,
   movementType,
   selectedCategory,
-  categories,
   accounts,
   renderCategoryIcon,
   renderVariationBadge,
   onViewTransactions,
 }: EvolutionMonthDiagnosisProps) {
   const isExpense = movementType === 'expense'
-  const isAllCategories = selectedCategory === 'all'
+  const isBalance = movementType === 'balance'
+  const isAllCategories = selectedCategory === 'all' || isBalance
 
   // Max diff for relative impact bars
   const maxDiff = Math.max(
@@ -103,9 +110,11 @@ export function EvolutionMonthDiagnosis({
     1
   )
 
-  const isFavorableChange = isExpense
-    ? (data.absoluteChange || 0) < 0
-    : (data.absoluteChange || 0) > 0
+  const isFavorableChange = isBalance
+    ? (data.netAmount ?? data.amount) >= 0
+    : isExpense
+      ? (data.absoluteChange || 0) <= 0
+      : (data.absoluteChange || 0) >= 0
 
   return (
     <div className="space-y-4 pt-1 pb-2">
@@ -113,7 +122,7 @@ export function EvolutionMonthDiagnosis({
       <div
         className={cn(
           'p-4 rounded-2xl border transition-all text-sm leading-relaxed',
-          data.absoluteChange === null
+          data.absoluteChange === null && !isBalance
             ? 'bg-muted/40 border-border/60 text-foreground'
             : isFavorableChange
               ? 'bg-emerald-500/10 border-emerald-500/30 text-emerald-950 dark:text-emerald-100'
@@ -124,14 +133,16 @@ export function EvolutionMonthDiagnosis({
           <div
             className={cn(
               'p-2 rounded-xl shrink-0 mt-0.5 shadow-xs',
-              data.absoluteChange === null
+              data.absoluteChange === null && !isBalance
                 ? 'bg-muted text-muted-foreground'
                 : isFavorableChange
                   ? 'bg-emerald-500 text-white'
                   : 'bg-rose-500 text-white'
             )}
           >
-            {data.absoluteChange === null ? (
+            {isBalance ? (
+              <Scale className="w-4 h-4" />
+            ) : data.absoluteChange === null ? (
               <Calendar className="w-4 h-4" />
             ) : isFavorableChange ? (
               <TrendingDown className="w-4 h-4" />
@@ -155,8 +166,51 @@ export function EvolutionMonthDiagnosis({
         </div>
       </div>
 
-      {/* 2. Banner informativo para el Mes en Curso (Aviso de mes abierto + comparativa MTD) */}
-      {data.isCurrentMonth && (
+      {/* 1B. Resumen de Balance (Ingresos vs Gastos) si estamos en modo Balance */}
+      {isBalance && (
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-2.5">
+          <div className="p-3 rounded-xl bg-emerald-500/10 border border-emerald-500/20 space-y-0.5">
+            <span className="text-[10px] uppercase font-bold text-emerald-700 dark:text-emerald-300 block">
+              Ingresos del mes
+            </span>
+            <span className="text-base font-black text-emerald-600 dark:text-emerald-400">
+              {formatCurrency(data.incomeAmount || 0)}
+            </span>
+          </div>
+          <div className="p-3 rounded-xl bg-rose-500/10 border border-rose-500/20 space-y-0.5">
+            <span className="text-[10px] uppercase font-bold text-rose-700 dark:text-rose-300 block">
+              Gastos del mes
+            </span>
+            <span className="text-base font-black text-rose-600 dark:text-rose-400">
+              {formatCurrency(data.expenseAmount || 0)}
+            </span>
+          </div>
+          <div
+            className={cn(
+              'p-3 rounded-xl border space-y-0.5',
+              (data.netAmount || 0) >= 0
+                ? 'bg-primary/10 border-primary/20'
+                : 'bg-rose-500/15 border-rose-500/30'
+            )}
+          >
+            <span className="text-[10px] uppercase font-bold text-muted-foreground block">
+              {data.isCurrentMonth ? 'Balance Previsto' : 'Balance Neto'} ({data.savingsRate !== null && data.savingsRate !== undefined ? `${data.savingsRate}%` : '0%'})
+            </span>
+            <span
+              className={cn(
+                'text-base font-black',
+                (data.netAmount || 0) >= 0 ? 'text-primary' : 'text-rose-600 dark:text-rose-400'
+              )}
+            >
+              {(data.netAmount || 0) > 0 ? '+' : ''}
+              {formatCurrency(data.netAmount || 0)}
+            </span>
+          </div>
+        </div>
+      )}
+
+      {/* 2. Banner informativo para el Mes en Curso (Doble comparativa: a día de hoy + cierre previsto) */}
+      {data.isCurrentMonth && !isBalance && (
         <Card className="border border-amber-500/30 bg-amber-500/5 dark:bg-amber-950/20 rounded-2xl overflow-hidden shadow-xs">
           <CardContent className="p-4 space-y-3">
             <div className="flex items-center justify-between gap-2 flex-wrap">
@@ -185,13 +239,13 @@ export function EvolutionMonthDiagnosis({
             <div className="grid grid-cols-1 sm:grid-cols-3 gap-2.5 pt-1">
               <div className="p-2.5 rounded-xl bg-background/80 border border-border/40 space-y-0.5">
                 <span className="text-[10px] uppercase font-bold text-muted-foreground block">
-                  Cobrado hasta hoy
+                  Ejecutado hasta hoy
                 </span>
                 <span className="text-sm sm:text-base font-extrabold text-foreground">
                   {formatCurrency(data.realAmount)}
                 </span>
                 <span className="text-[10px] text-muted-foreground block">
-                  {data.realTxCount} {isExpense ? 'gastos cobrados' : 'ingresos cobrados'}
+                  {data.realTxCount} {isExpense ? 'gastos pagados' : 'ingresos cobrados'}
                 </span>
               </div>
 
@@ -204,40 +258,59 @@ export function EvolutionMonthDiagnosis({
                   {formatCurrency(data.pendingAmount)}
                 </span>
                 <span className="text-[10px] text-muted-foreground block">
-                  {data.pendingTxCount} {isExpense ? 'recibos/hipoteca pend.' : 'pendientes'}
+                  {data.pendingTxCount} {isExpense ? 'recibos pendientes' : 'pendientes'}
                 </span>
               </div>
 
               <div className="p-2.5 rounded-xl bg-primary/10 border border-primary/20 space-y-0.5">
                 <span className="text-[10px] uppercase font-bold text-primary block">
-                  Total esperado (fin de mes)
+                  Total esperado (cierre mes)
                 </span>
                 <span className="text-sm sm:text-base font-black text-primary">
                   {formatCurrency(data.amount)}
                 </span>
                 <span className="text-[10px] text-primary/80 block">
-                  Cobrado ({formatCurrency(data.realAmount)}) + Prev ({formatCurrency(data.pendingAmount)})
+                  Ejecutado ({formatCurrency(data.realAmount)}) + Prev ({formatCurrency(data.pendingAmount)})
                 </span>
               </div>
             </div>
 
-            {/* Comparativa Homogénea a día equivalente */}
-            {data.mtdPrevAmount !== null && (
-              <div className="flex items-center justify-between p-2.5 rounded-xl bg-background/60 border border-border/30 text-xs flex-wrap gap-2">
-                <div className="flex items-center gap-2 text-muted-foreground">
-                  <HelpCircle className="w-3.5 h-3.5 text-primary shrink-0" />
-                  <span>
-                    El mes anterior a <strong>día {data.currentDayOfMonth}</strong> llevabas:{' '}
-                    <strong className="text-foreground">{formatCurrency(data.mtdPrevAmount)}</strong>
-                    {' '}(este mes llevas <strong className="text-foreground">{formatCurrency(data.mtdCurrentAmount)}</strong>)
-                  </span>
+            {/* Doble Comparativa Homogénea: 1) A día equivalente y 2) Proyección cierre mes vs cierre mes anterior */}
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 pt-0.5">
+              {data.mtdPrevAmount !== null && (
+                <div className="flex items-center justify-between p-2.5 rounded-xl bg-background/60 border border-border/30 text-xs gap-2">
+                  <div className="flex items-center gap-2 text-muted-foreground min-w-0">
+                    <HelpCircle className="w-3.5 h-3.5 text-primary shrink-0" />
+                    <span className="truncate">
+                      <strong>A día {data.currentDayOfMonth}</strong>: {formatCurrency(data.mtdCurrentAmount)} vs{' '}
+                      <strong>{formatCurrency(data.mtdPrevAmount)}</strong>
+                    </span>
+                  </div>
+                  <div className="shrink-0">
+                    {renderVariationBadge(data.mtdPercentageChange, data.mtdAbsoluteChange, true)}
+                  </div>
                 </div>
-                <div className="flex items-center gap-1.5 font-bold">
-                  <span className="text-[11px] text-muted-foreground">Variación a día {data.currentDayOfMonth}:</span>
-                  {renderVariationBadge(data.percentageChange, data.absoluteChange, true)}
+              )}
+
+              {data.fullMonthPrevAmount !== null && data.fullMonthPrevAmount !== undefined && (
+                <div className="flex items-center justify-between p-2.5 rounded-xl bg-background/60 border border-border/30 text-xs gap-2">
+                  <div className="flex items-center gap-2 text-muted-foreground min-w-0">
+                    <Calendar className="w-3.5 h-3.5 text-primary shrink-0" />
+                    <span className="truncate">
+                      <strong>Cierre previsto</strong>: {formatCurrency(data.amount)} vs{' '}
+                      <strong>{formatCurrency(data.fullMonthPrevAmount)}</strong>
+                    </span>
+                  </div>
+                  <div className="shrink-0">
+                    {renderVariationBadge(
+                      data.fullMonthPercentageChange ?? null,
+                      data.fullMonthAbsoluteChange ?? null,
+                      true
+                    )}
+                  </div>
                 </div>
-              </div>
-            )}
+              )}
+            </div>
           </CardContent>
         </Card>
       )}
@@ -245,22 +318,26 @@ export function EvolutionMonthDiagnosis({
       {/* 3. Desglose de Causas: Todas las categorías vs Categoría individual */}
       {isAllCategories ? (
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-          {/* Factores al Alza */}
+          {/* Factores al Alza (ordenados por impacto en €) */}
           <Card className="border border-border/50 rounded-2xl bg-card/60 shadow-xs">
             <CardContent className="p-4 space-y-3">
               <div className="flex items-center justify-between border-b border-border/40 pb-2">
                 <span
                   className={cn(
                     'font-bold text-xs uppercase tracking-wider flex items-center gap-1.5',
-                    isExpense ? 'text-rose-600 dark:text-rose-400' : 'text-emerald-600 dark:text-emerald-400'
+                    isExpense || isBalance
+                      ? 'text-rose-600 dark:text-rose-400'
+                      : 'text-emerald-600 dark:text-emerald-400'
                   )}
                 >
                   <TrendingUp className="w-4 h-4" />
-                  {isExpense ? 'Partidas que más subieron' : 'Ingresos que aumentaron'}
+                  {isExpense || isBalance
+                    ? 'Partidas con mayor subida (€)'
+                    : 'Ingresos con mayor subida (€)'}
                 </span>
                 <span className="text-[10px] font-semibold text-muted-foreground">
                   {data.isCurrentMonth
-                    ? `vs día ${data.currentDayOfMonth} mes anterior`
+                    ? 'previsto vs mes anterior'
                     : 'vs mes anterior'}
                 </span>
               </div>
@@ -294,7 +371,7 @@ export function EvolutionMonthDiagnosis({
                                   variant="outline"
                                   className={cn(
                                     'font-bold text-[10px] px-1.5 py-0',
-                                    isExpense
+                                    isExpense || isBalance
                                       ? 'bg-rose-500/10 text-rose-600 dark:text-rose-400 border-rose-500/20'
                                       : 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border-emerald-500/20'
                                   )}
@@ -305,7 +382,9 @@ export function EvolutionMonthDiagnosis({
                               <span
                                 className={cn(
                                   'font-black text-xs',
-                                  isExpense ? 'text-rose-600 dark:text-rose-400' : 'text-emerald-600 dark:text-emerald-400'
+                                  isExpense || isBalance
+                                    ? 'text-rose-600 dark:text-rose-400'
+                                    : 'text-emerald-600 dark:text-emerald-400'
                                 )}
                               >
                                 +{formatCurrency(item.diff)}
@@ -319,7 +398,7 @@ export function EvolutionMonthDiagnosis({
                           <div
                             className={cn(
                               'h-full rounded-full transition-all duration-300',
-                              isExpense ? 'bg-rose-500' : 'bg-emerald-500'
+                              isExpense || isBalance ? 'bg-rose-500' : 'bg-emerald-500'
                             )}
                             style={{ width: `${Math.max(pctBar, 4)}%` }}
                           />
@@ -332,22 +411,26 @@ export function EvolutionMonthDiagnosis({
             </CardContent>
           </Card>
 
-          {/* Factores a la Baja (Ahorros o descensos) */}
+          {/* Factores a la Baja (ordenados por impacto en €) */}
           <Card className="border border-border/50 rounded-2xl bg-card/60 shadow-xs">
             <CardContent className="p-4 space-y-3">
               <div className="flex items-center justify-between border-b border-border/40 pb-2">
                 <span
                   className={cn(
                     'font-bold text-xs uppercase tracking-wider flex items-center gap-1.5',
-                    isExpense ? 'text-emerald-600 dark:text-emerald-400' : 'text-rose-600 dark:text-rose-400'
+                    isExpense || isBalance
+                      ? 'text-emerald-600 dark:text-emerald-400'
+                      : 'text-rose-600 dark:text-rose-400'
                   )}
                 >
                   <TrendingDown className="w-4 h-4" />
-                  {isExpense ? 'Top 5 mayor descenso / ahorro (%)' : 'Ingresos que disminuyeron (%)'}
+                  {isExpense || isBalance
+                    ? 'Partidas con mayor ahorro / bajada (€)'
+                    : 'Ingresos que disminuyeron (€)'}
                 </span>
                 <span className="text-[10px] font-semibold text-muted-foreground">
                   {data.isCurrentMonth
-                    ? `vs día ${data.currentDayOfMonth} mes anterior`
+                    ? 'previsto vs mes anterior'
                     : 'vs mes anterior'}
                 </span>
               </div>
@@ -381,7 +464,7 @@ export function EvolutionMonthDiagnosis({
                                   variant="outline"
                                   className={cn(
                                     'font-bold text-[10px] px-1.5 py-0',
-                                    isExpense
+                                    isExpense || isBalance
                                       ? 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border-emerald-500/20'
                                       : 'bg-rose-500/10 text-rose-600 dark:text-rose-400 border-rose-500/20'
                                   )}
@@ -392,7 +475,9 @@ export function EvolutionMonthDiagnosis({
                               <span
                                 className={cn(
                                   'font-black text-xs',
-                                  isExpense ? 'text-emerald-600 dark:text-emerald-400' : 'text-rose-600 dark:text-rose-400'
+                                  isExpense || isBalance
+                                    ? 'text-emerald-600 dark:text-emerald-400'
+                                    : 'text-rose-600 dark:text-rose-400'
                                 )}
                               >
                                 -{formatCurrency(Math.abs(item.diff))}
@@ -406,7 +491,7 @@ export function EvolutionMonthDiagnosis({
                           <div
                             className={cn(
                               'h-full rounded-full transition-all duration-300',
-                              isExpense ? 'bg-emerald-500' : 'bg-rose-500'
+                              isExpense || isBalance ? 'bg-emerald-500' : 'bg-rose-500'
                             )}
                             style={{ width: `${Math.max(pctBar, 4)}%` }}
                           />
@@ -488,7 +573,7 @@ export function EvolutionMonthDiagnosis({
             <div className="flex items-center justify-between border-b border-border/40 pb-2">
               <span className="font-bold text-xs uppercase tracking-wider text-muted-foreground flex items-center gap-1.5">
                 <Receipt className="w-3.5 h-3.5" />
-                Mayores desembolsos registrados en {data.monthLabel}
+                Mayores movimientos registrados en {data.monthLabel}
               </span>
               {onViewTransactions && (
                 <button
@@ -538,10 +623,10 @@ export function EvolutionMonthDiagnosis({
                     <div
                       className={cn(
                         'font-black text-sm shrink-0',
-                        isExpense ? 'text-foreground' : 'text-emerald-600 dark:text-emerald-400'
+                        tx.type === 'expense' ? 'text-foreground' : 'text-emerald-600 dark:text-emerald-400'
                       )}
                     >
-                      {isExpense ? '' : '+'}
+                      {tx.type === 'expense' ? '-' : '+'}
                       {formatCurrency(tx.amount)}
                     </div>
                   </div>

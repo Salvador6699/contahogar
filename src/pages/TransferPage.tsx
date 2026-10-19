@@ -14,7 +14,7 @@ import {
 } from '@/components/ui/select';
 import { Transaction } from '@/types/finance';
 import { formatCurrency, calculateAccountBalance } from '@/lib/calculations';
-import { appToast as toast } from "@/lib/swal";
+import { appToast as toast, swalConfirm } from "@/lib/swal";
 import { useScrollOnFocus } from '@/hooks/useScrollOnFocus';
 import { withKeyboardClose, parseAmount } from '@/lib/utils';
 import { SmartPagination } from '@/components/SmartPagination';
@@ -22,6 +22,24 @@ import { useAccounts } from '@/hooks/useAccounts';
 import { useTransactions } from '@/hooks/useTransactions';
 
 const ITEMS_PER_PAGE = 5;
+
+const findMatchingIncomeTransfer = (
+    expenseTransfer: Transaction,
+    allTransfers: Transaction[]
+): Transaction | undefined => {
+    if (expenseTransfer.id.startsWith('trf_exp_')) {
+        const expectedIncomeId = expenseTransfer.id.replace('trf_exp_', 'trf_inc_');
+        const exactMatch = allTransfers.find(t => t.id === expectedIncomeId);
+        if (exactMatch) return exactMatch;
+    }
+    return allTransfers.find(
+        t =>
+            t.type === 'income' &&
+            t.amount === expenseTransfer.amount &&
+            t.date === expenseTransfer.date &&
+            t.id !== expenseTransfer.id
+    );
+};
 
 const TransferPage = () => {
     const navigate = useNavigate();
@@ -63,19 +81,17 @@ const TransferPage = () => {
 
     const handleTransfer = async () => {
         const amountNum = parseAmount(amount);
-        if (isNaN(amountNum) || amountNum <= 0 || amountNum > maxAmount || !fromAccountId || !toAccountId) return;
+        if (isNaN(amountNum) || amountNum <= 0 || (amountNum > maxAmount && !editingTransferId) || !fromAccountId || !toAccountId) return;
 
         setIsSaving(true);
         try {
+            let transferDate = new Date().toISOString().split('T')[0];
+
             if (editingTransferId) {
                 const expensePart = transferPairs.find(t => t.id === editingTransferId);
                 if (expensePart) {
-                    const incomePart = transferTransactions.find(
-                        t => t.type === 'income' &&
-                            t.amount === expensePart.amount &&
-                            t.date === expensePart.date &&
-                            t.id !== expensePart.id
-                    );
+                    transferDate = expensePart.date;
+                    const incomePart = findMatchingIncomeTransfer(expensePart, transferTransactions);
     
                     await deleteTransaction(expensePart.id);
                     if (incomePart) {
@@ -84,23 +100,29 @@ const TransferPage = () => {
                 }
             }
     
-            const today = new Date().toISOString().split('T')[0];
+            const pairUuid = crypto.randomUUID();
+            const fromAccName = accounts.find(a => a.id === fromAccountId)?.name || '';
+            const toAccName = accounts.find(a => a.id === toAccountId)?.name || '';
     
-            const expenseTransaction: Omit<Transaction, "id"> = {
-                date: today,
+            const expenseTransaction: Omit<Transaction, "id"> & { id?: string } = {
+                id: `trf_exp_${pairUuid}`,
+                date: transferDate,
                 amount: amountNum,
                 category: 'Transferencia',
                 type: 'expense',
                 accountId: fromAccountId,
+                description: toAccName ? `A ${toAccName}` : 'Transferencia enviada',
                 isPending: false,
             };
     
-            const incomeTransaction: Omit<Transaction, "id"> = {
-                date: today,
+            const incomeTransaction: Omit<Transaction, "id"> & { id?: string } = {
+                id: `trf_inc_${pairUuid}`,
+                date: transferDate,
                 amount: amountNum,
                 category: 'Transferencia',
                 type: 'income',
                 accountId: toAccountId,
+                description: fromAccName ? `De ${fromAccName}` : 'Transferencia recibida',
                 isPending: false,
             };
     
@@ -122,12 +144,7 @@ const TransferPage = () => {
         setAmount(transfer.amount.toString());
         setFromAccountId(transfer.accountId);
         
-        const matchingIncome = transferTransactions.find(
-            t => t.type === 'income' &&
-                t.amount === transfer.amount &&
-                t.date === transfer.date &&
-                t.id !== transfer.id
-        );
+        const matchingIncome = findMatchingIncomeTransfer(transfer, transferTransactions);
         if (matchingIncome) {
             setToAccountId(matchingIncome.accountId);
         }
@@ -142,12 +159,14 @@ const TransferPage = () => {
     };
 
     const handleDeleteTransferPair = async (expenseTransfer: Transaction) => {
-        const matchingIncome = transferTransactions.find(
-            t => t.type === 'income' &&
-                t.amount === expenseTransfer.amount &&
-                t.date === expenseTransfer.date &&
-                t.id !== expenseTransfer.id
+        const confirmed = await swalConfirm(
+            '¿Eliminar transferencia?',
+            `Se eliminará el traspaso de ${formatCurrency(expenseTransfer.amount)} en ambas cuentas.`,
+            'Sí, eliminar'
         );
+        if (!confirmed) return;
+
+        const matchingIncome = findMatchingIncomeTransfer(expenseTransfer, transferTransactions);
 
         setIsSaving(true);
         try {
@@ -167,8 +186,7 @@ const TransferPage = () => {
     const totalPages = Math.max(1, Math.ceil(transferPairs.length / ITEMS_PER_PAGE));
     const safeCurrentPage = Math.min(currentPage, totalPages);
     const startIndex = (safeCurrentPage - 1) * ITEMS_PER_PAGE;
-    const isLastPage = safeCurrentPage === totalPages;
-    const endIndex = isLastPage ? transferPairs.length : startIndex + ITEMS_PER_PAGE;
+    const endIndex = Math.min(transferPairs.length, startIndex + ITEMS_PER_PAGE);
     const paginatedPairs = transferPairs.slice(startIndex, endIndex);
 
     if (accountsLoading || transactionsLoading) {
@@ -288,12 +306,7 @@ const TransferPage = () => {
                         ) : (
                             <div className="space-y-3">
                                 {paginatedPairs.map((transfer) => {
-                                    const matchingIncome = transferTransactions.find(
-                                        t => t.type === 'income' &&
-                                            t.amount === transfer.amount &&
-                                            t.date === transfer.date &&
-                                            t.id !== transfer.id
-                                    );
+                                    const matchingIncome = findMatchingIncomeTransfer(transfer, transferTransactions);
                                     const fromAccountRef = accounts.find(a => a.id === transfer.accountId);
                                     const toAccountRef = matchingIncome ? accounts.find(a => a.id === matchingIncome.accountId) : null;
 
