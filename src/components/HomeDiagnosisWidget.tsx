@@ -80,7 +80,7 @@ export function HomeDiagnosisWidget({
         const n = typeof c === 'string' ? c : c.name
         return n.trim().toLowerCase() === norm
       })
-      if (found) return typeof found === 'string' ? found.trim() : found.name.trim()
+      if (found) return typeof found === 'string' ? (found as any).trim() : (found as any).name.trim()
       return trimmed
     }
 

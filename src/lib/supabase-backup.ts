@@ -52,15 +52,19 @@ export const restoreToSupabase = async (data: AnyData): Promise<void> => {
 
   const insert = async (table: string, payload: AnyData[]) => {
     if (!payload?.length) return
-    const { error } = await supabase.from(table).insert(payload)
-    if (error) {
-      if (table === 'recurring_rules' && (error.message.includes('includeInSavings') || error.message.includes('column'))) {
-        const stripped = payload.map(({ includeInSavings, ...rest }: AnyData) => rest)
-        const { error: err2 } = await supabase.from(table).insert(stripped)
-        if (err2) throw new Error(`Error insertando en tabla ${table}: ${err2.message}`)
-        return
+    const chunkSize = 500
+    for (let i = 0; i < payload.length; i += chunkSize) {
+      const chunk = payload.slice(i, i + chunkSize)
+      const { error } = await supabase.from(table).insert(chunk)
+      if (error) {
+        if (table === 'recurring_rules' && (error.message.includes('includeInSavings') || error.message.includes('column'))) {
+          const stripped = chunk.map(({ includeInSavings, ...rest }: AnyData) => rest)
+          const { error: err2 } = await supabase.from(table).insert(stripped)
+          if (err2) throw new Error(`Error insertando en tabla ${table}: ${err2.message}`)
+        } else {
+          throw new Error(`Error insertando en tabla ${table}: ${error.message}`)
+        }
       }
-      throw new Error(`Error insertando en tabla ${table}: ${error.message}`)
     }
   }
 
@@ -79,15 +83,19 @@ export const restoreToSupabase = async (data: AnyData): Promise<void> => {
 export const uploadToSupabase = async (data: AnyData): Promise<void> => {
   const upsert = async (table: string, payload: AnyData[]) => {
     if (!payload?.length) return
-    const { error } = await supabase.from(table).upsert(payload)
-    if (error) {
-      if (table === 'recurring_rules' && (error.message.includes('includeInSavings') || error.message.includes('column'))) {
-        const stripped = payload.map(({ includeInSavings, ...rest }: AnyData) => rest)
-        const { error: err2 } = await supabase.from(table).upsert(stripped)
-        if (err2) throw new Error(`Error en tabla ${table}: ${err2.message}`)
-        return
+    const chunkSize = 500
+    for (let i = 0; i < payload.length; i += chunkSize) {
+      const chunk = payload.slice(i, i + chunkSize)
+      const { error } = await supabase.from(table).upsert(chunk)
+      if (error) {
+        if (table === 'recurring_rules' && (error.message.includes('includeInSavings') || error.message.includes('column'))) {
+          const stripped = chunk.map(({ includeInSavings, ...rest }: AnyData) => rest)
+          const { error: err2 } = await supabase.from(table).upsert(stripped)
+          if (err2) throw new Error(`Error en tabla ${table}: ${err2.message}`)
+        } else {
+          throw new Error(`Error en tabla ${table}: ${error.message}`)
+        }
       }
-      throw new Error(`Error en tabla ${table}: ${error.message}`)
     }
   }
 

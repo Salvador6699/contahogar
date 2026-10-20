@@ -1,5 +1,6 @@
 import { supabase } from '@/lib/supabase';
 import { FinanceData } from '@/types/finance';
+import { getTransactions } from './transactions';
 
 export interface CloudSnapshot {
   id: string;
@@ -83,10 +84,19 @@ export const createSnapshot = async (financeData: FinanceData): Promise<CloudSna
 };
 
 export const getFullCloudData = async (): Promise<FinanceData> => {
-  const responses = await Promise.all([
+  const [
+    transactions,
+    accountsRes,
+    categoriesRes,
+    budgetsRes,
+    favoritesRes,
+    savingsGoalsRes,
+    recurringRulesRes,
+    loansRes,
+  ] = await Promise.all([
+    getTransactions(),
     supabase.from('accounts').select('*'),
     supabase.from('categories').select('*'),
-    supabase.from('transactions').select('*'),
     supabase.from('budgets').select('*'),
     supabase.from('favorites').select('*'),
     supabase.from('savings_goals').select('*'),
@@ -94,22 +104,19 @@ export const getFullCloudData = async (): Promise<FinanceData> => {
     supabase.from('loans').select('*'),
   ]);
 
-  const errorResponse = responses.find(r => r.error);
+  const errorResponse = [accountsRes, categoriesRes, budgetsRes, favoritesRes, savingsGoalsRes, recurringRulesRes, loansRes].find(r => r.error);
   if (errorResponse) {
     console.error('Error fetching cloud data for snapshot:', errorResponse.error);
     throw new Error('Fallo al obtener datos de la nube para el backup.');
   }
 
-  const [
-    { data: accounts },
-    { data: categories },
-    { data: transactions },
-    { data: budgets },
-    { data: favorites },
-    { data: savingsGoals },
-    { data: recurringRules },
-    { data: loans },
-  ] = responses;
+  const { data: accounts } = accountsRes;
+  const { data: categories } = categoriesRes;
+  const { data: budgets } = budgetsRes;
+  const { data: favorites } = favoritesRes;
+  const { data: savingsGoals } = savingsGoalsRes;
+  const { data: recurringRules } = recurringRulesRes;
+  const { data: loans } = loansRes;
 
   return {
     accounts: (accounts || []).map(a => ({ ...a, initialBalance: Number(a.initialBalance) })),

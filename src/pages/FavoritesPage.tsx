@@ -157,7 +157,7 @@ const FavoritesPage = () => {
       description: description.trim(),
       type: 'expense' as const,
       icon,
-      customIcon: customIcon || null,
+      customIcon: customIcon || undefined,
     };
 
     if (editingId) {

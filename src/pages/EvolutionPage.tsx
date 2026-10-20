@@ -127,7 +127,7 @@ export default function EvolutionPage() {
         return normalizeCatKey(name) === targetKey
       })
       if (match) {
-        return typeof match === 'string' ? match.trim() : match.name.trim()
+        return typeof match === 'string' ? (match as any).trim() : (match as any).name.trim()
       }
       return trimmed
     },

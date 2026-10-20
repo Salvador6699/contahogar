@@ -2,13 +2,28 @@ import { Transaction } from "@/types/finance";
 import { supabase } from "@/lib/supabase";
 
 export const getTransactions = async (): Promise<Transaction[]> => {
-  const { data, error } = await supabase
-    .from('transactions')
-    .select('*')
-    .order('date', { ascending: false })
-    .order('created_at', { ascending: false });
-  if (error) throw new Error(error.message);
-  return data as Transaction[];
+  const pageSize = 1000;
+  let from = 0;
+  const allTransactions: Transaction[] = [];
+
+  while (true) {
+    const { data, error } = await supabase
+      .from('transactions')
+      .select('*')
+      .order('date', { ascending: false })
+      .order('created_at', { ascending: false })
+      .range(from, from + pageSize - 1);
+
+    if (error) throw new Error(error.message);
+    if (!data || data.length === 0) break;
+
+    allTransactions.push(...(data as Transaction[]));
+
+    if (data.length < pageSize) break;
+    from += pageSize;
+  }
+
+  return allTransactions;
 };
 
 export const addTransaction = async (transaction: Omit<Transaction, "id"> & { id?: string }): Promise<void> => {
