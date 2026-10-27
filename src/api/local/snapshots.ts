@@ -11,7 +11,42 @@ export interface CloudSnapshot {
 export interface CloudSnapshotSummary {
   id: string;
   created_at: string;
+  skipped?: boolean;
 }
+
+const MAX_SNAPSHOTS = 10;
+
+const normalizeCollection = <T extends { id?: string }>(items: T[] = []): string => {
+  const sorted = [...items].sort((a, b) => String(a.id ?? '').localeCompare(String(b.id ?? '')));
+  const canonical = sorted.map(item => {
+    const clean: Record<string, unknown> = {};
+    Object.keys(item as Record<string, unknown>)
+      .filter(k => k !== 'created_at' && k !== 'createdAt' && k !== 'updated_at')
+      .sort()
+      .forEach(k => {
+        const val = (item as Record<string, unknown>)[k];
+        if (val !== undefined && val !== null) {
+          clean[k] = val;
+        }
+      });
+    return clean;
+  });
+  return JSON.stringify(canonical);
+};
+
+export const isFinanceDataIdentical = (a?: FinanceData | null, b?: FinanceData | null): boolean => {
+  if (!a || !b) return false;
+  return (
+    normalizeCollection(a.accounts) === normalizeCollection(b.accounts) &&
+    normalizeCollection(a.transactions) === normalizeCollection(b.transactions) &&
+    normalizeCollection(a.categories) === normalizeCollection(b.categories) &&
+    normalizeCollection(a.budgets) === normalizeCollection(b.budgets) &&
+    normalizeCollection(a.favorites) === normalizeCollection(b.favorites) &&
+    normalizeCollection(a.savingsGoals) === normalizeCollection(b.savingsGoals) &&
+    normalizeCollection(a.recurringRules) === normalizeCollection(b.recurringRules) &&
+    normalizeCollection(a.loans) === normalizeCollection(b.loans)
+  );
+};
 
 export const getSnapshots = async (): Promise<CloudSnapshotSummary[]> => {
   const { data, error } = await supabase
@@ -23,7 +58,22 @@ export const getSnapshots = async (): Promise<CloudSnapshotSummary[]> => {
     console.error('Error fetching snapshots:', error);
     throw error;
   }
-  return data || [];
+
+  const all = data || [];
+  if (all.length > MAX_SNAPSHOTS) {
+    const toDelete = all.slice(MAX_SNAPSHOTS);
+    const idsToDelete = toDelete.map(s => s.id);
+    supabase
+      .from('cloud_snapshots')
+      .delete()
+      .in('id', idsToDelete)
+      .then(({ error: delError }) => {
+        if (delError) console.error('Error cleaning up old snapshots:', delError);
+      });
+    return all.slice(0, MAX_SNAPSHOTS);
+  }
+
+  return all;
 };
 
 export const getSnapshotData = async (id: string): Promise<FinanceData> => {
@@ -41,7 +91,21 @@ export const getSnapshotData = async (id: string): Promise<FinanceData> => {
 };
 
 export const createSnapshot = async (financeData: FinanceData): Promise<CloudSnapshotSummary> => {
-  // Sustituir la copia de hoy si ya existe (mantener 1 por día)
+  // Comprobar si los datos son idénticos a la última copia guardada para evitar copias duplicadas
+  try {
+    const existingSnapshots = await getSnapshots();
+    if (existingSnapshots.length > 0) {
+      const latest = existingSnapshots[0];
+      const latestData = await getSnapshotData(latest.id);
+      if (isFinanceDataIdentical(financeData, latestData)) {
+        return { ...latest, skipped: true };
+      }
+    }
+  } catch (e) {
+    console.error('Error comparando con la última copia:', e);
+  }
+
+  // Sustituir la copia de hoy si ya existe (mantener máx. 1 por día)
   const todayString = new Date().toISOString().split('T')[0];
   try {
     const { data: todaySnapshots } = await supabase
@@ -68,14 +132,9 @@ export const createSnapshot = async (financeData: FinanceData): Promise<CloudSna
     throw error;
   }
 
-  // Enforce max 100 snapshots
+  // Mantener como máximo las últimas 10 copias
   try {
-    const all = await getSnapshots();
-    if (all.length > 100) {
-      const toDelete = all.slice(100);
-      const idsToDelete = toDelete.map(s => s.id);
-      await supabase.from('cloud_snapshots').delete().in('id', idsToDelete);
-    }
+    await getSnapshots();
   } catch (cleanupError) {
     console.error('Error cleaning up old snapshots:', cleanupError);
   }

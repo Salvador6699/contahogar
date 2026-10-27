@@ -32,13 +32,21 @@ const BackupPage = () => {
     const fileInputRef = useRef<HTMLInputElement>(null);
 
     const pastDays = useMemo(() => {
-        const days = [];
+        const days: Date[] = [];
         const today = startOfToday();
-        for (let i = 0; i < 30; i++) {
+        for (let i = 0; i < 10; i++) {
             days.push(subDays(today, i));
         }
+        // Si alguna de las (máx. 10) copias guardadas es anterior a los últimos 10 días
+        // (por no haber habido cambios en días recientes), la incluimos para que siga accesible.
+        snapshots.slice(0, 10).forEach(s => {
+            const snapDate = parseISO(s.created_at);
+            if (!days.some(d => isSameDay(d, snapDate))) {
+                days.push(snapDate);
+            }
+        });
         return days;
-    }, []);
+    }, [snapshots]);
 
     const handleRestore = async () => {
         if (!selectedSnapshot) return;
@@ -74,10 +82,14 @@ const BackupPage = () => {
 
     const handleManualBackup = async () => {
         setIsCreatingBackup(true);
-        swalLoading('Forzando copia de seguridad en la nube...');
+        swalLoading('Comprobando y guardando copia en la nube...');
         try {
-            await createSnapshot();
-            await swalSuccess('¡Copia creada!', 'La copia de hoy ha sido actualizada con el estado actual de tus datos.');
+            const result = await createSnapshot();
+            if (result?.skipped) {
+                await swalSuccess('¡Ya estás al día!', 'Tus datos actuales son idénticos a la última copia guardada. No se ha creado una copia duplicada.');
+            } else {
+                await swalSuccess('¡Copia creada!', 'La copia de hoy ha sido actualizada con el estado actual de tus datos.');
+            }
         } catch (error) {
             console.error('Error creating manual backup:', error);
             swalClose();
@@ -168,7 +180,7 @@ const BackupPage = () => {
                                     <CardTitle className="text-base font-black uppercase tracking-wider">Máquina del Tiempo (Nube)</CardTitle>
                                 </div>
                                 <CardDescription className="text-xs font-medium max-w-[80%]">
-                                    Tus datos se guardan automáticamente cada día que abres la app. 
+                                    Se guardan hasta 10 copias automáticas solo cuando hay cambios en tus datos. 
                                     Selecciona un día en verde para volver en el tiempo.
                                 </CardDescription>
                             </CardHeader>

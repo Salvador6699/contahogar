@@ -47,13 +47,20 @@ export const calculatePendingImpact = (
   monthKey: string,
   accountId?: string
 ): number => {
+  const now = new Date();
+  const currentMonthKey = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
+
   return Number(transactions
-    .filter(t =>
-      t.isPending &&
-      !t.isIgnored &&
-      t.date.startsWith(monthKey) &&
-      (!accountId || t.accountId === accountId)
-    )
+    .filter(t => {
+      if (!t.isPending || t.isIgnored) return false;
+      if (accountId && t.accountId !== accountId) return false;
+
+      const txMonth = t.date.substring(0, 7);
+      if (monthKey > currentMonthKey) {
+        return txMonth >= currentMonthKey && txMonth <= monthKey;
+      }
+      return txMonth === monthKey;
+    })
     .reduce((sum, t) => t.type === 'income' ? sum + t.amount : sum - t.amount, 0)
     .toFixed(2));
 };
