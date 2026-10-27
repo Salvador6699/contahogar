@@ -50,35 +50,8 @@ export function HomeBudgetWidget({
 }: HomeBudgetWidgetProps) {
   const navigate = useNavigate()
   const [isExpanded, setIsExpanded] = useState(false)
-  const { goals } = usePlanning()
+  const { goals, savingsTimeframe, excludedNextMonthIds } = usePlanning()
   const { rules: recurringRules } = useRecurringRules()
-
-  const [savingsTimeframe, setSavingsTimeframe] = useState(() => {
-    return localStorage.getItem('savingsTimeframe') || '13'
-  })
-
-  const [excludedNextMonthIds, setExcludedNextMonthIds] = useState<string[]>(() => {
-    try {
-      const raw = localStorage.getItem('excludedNextMonthProvisionIds')
-      return raw ? JSON.parse(raw) : []
-    } catch {
-      return []
-    }
-  })
-
-  useEffect(() => {
-    const handleStorageChange = () => {
-      setSavingsTimeframe(localStorage.getItem('savingsTimeframe') || '13')
-      try {
-        const raw = localStorage.getItem('excludedNextMonthProvisionIds')
-        setExcludedNextMonthIds(raw ? JSON.parse(raw) : [])
-      } catch {
-        // ignore parse errors
-      }
-    }
-    window.addEventListener('storage', handleStorageChange)
-    return () => window.removeEventListener('storage', handleStorageChange)
-  }, [])
 
   // Helper for category icon
   const renderCategoryIcon = (catName: string, sizeClass = 'w-3.5 h-3.5') => {

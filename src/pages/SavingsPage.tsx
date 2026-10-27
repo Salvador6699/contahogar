@@ -20,7 +20,15 @@ export const SavingsPage = () => {
     const navigate = useNavigate();
     const { accounts, isLoading: isAccLoading } = useAccounts();
     const { transactions, updateTransaction: rqUpdateTransaction, isLoading: isTxLoading } = useTransactions();
-    const { goals, addGoal: rqAddGoal, updateGoal: rqUpdateGoal, deleteGoal: rqDeleteGoal, isGoalsLoading } = usePlanning();
+    const {
+        goals,
+        savingsTimeframe: timeframeMonths,
+        updateSavingsTimeframe,
+        addGoal: rqAddGoal,
+        updateGoal: rqUpdateGoal,
+        deleteGoal: rqDeleteGoal,
+        isGoalsLoading
+    } = usePlanning();
     const { rules: recurringRules, updateRule: rqUpdateRule, isLoading: isRulesLoading } = useRecurringRules();
     
     const data = useMemo(() => ({
@@ -32,13 +40,9 @@ export const SavingsPage = () => {
 
     const [isModalOpen, setIsModalOpen] = useState(false);
     const [editingGoal, setEditingGoal] = useState<SavingsGoal | null>(null);
-    const [timeframeMonths, setTimeframeMonths] = useState(() => {
-        return localStorage.getItem('savingsTimeframe') || '13';
-    });
-
-    useEffect(() => {
-        localStorage.setItem('savingsTimeframe', timeframeMonths);
-    }, [timeframeMonths]);
+    const setTimeframeMonths = (val: string) => {
+        updateSavingsTimeframe(val).catch(console.error);
+    };
 
 
 

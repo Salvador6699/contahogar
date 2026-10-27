@@ -3,6 +3,9 @@ import { supabase } from "@/lib/supabase";
 
 
 
+export const SETTING_SAVINGS_TIMEFRAME_ID = '__setting_savings_timeframe__';
+export const SETTING_EXCLUDED_NEXT_MONTH_ID = '__setting_excluded_next_month_ids__';
+
 // Helper to normalize category key per month
 const getBudgetKey = (month: string, category: string) =>
   `${month.trim()}::${category.trim().toLowerCase()}`;
@@ -11,6 +14,10 @@ const deduplicateBudgets = (items: Budget[]): Budget[] => {
   const map = new Map<string, Budget>();
   for (const item of items) {
     if (!item.month || !item.category) continue;
+    if (item.id?.startsWith('__setting_') || item.month.startsWith('__setting_')) {
+      map.set(item.id, item);
+      continue;
+    }
     const key = getBudgetKey(item.month, item.category);
     const existing = map.get(key);
     // Prefer manual envelopes (!isAuto) over auto envelopes if duplicates exist
@@ -22,6 +29,24 @@ const deduplicateBudgets = (items: Budget[]): Budget[] => {
     }
   }
   return Array.from(map.values());
+};
+
+export const savePlanningSetting = async (settingId: string, value: string): Promise<void> => {
+  const { error } = await supabase
+    .from('budgets')
+    .upsert(
+      [
+        {
+          id: settingId,
+          month: settingId,
+          category: value,
+          amount: 0,
+          isAuto: false,
+        },
+      ],
+      { onConflict: 'id' }
+    );
+  if (error) throw new Error(error.message);
 };
 
 // Budgets

@@ -68,6 +68,16 @@ export interface MonthEvolutionData {
   categoryDiffs: CategoryDiff[]
   topIncreases: CategoryDiff[]
   topDecreases: CategoryDiff[]
+  comparableCurrentTotal: number
+  comparablePrevTotal: number
+  comparableDiff: number
+  comparablePercentageDiff: number | null
+  extrasCurrentTotal: number
+  extrasPrevTotal: number
+  extrasDiff: number
+  extrasPercentageDiff: number | null
+  currentExtras: CategoryDiff[]
+  prevExtras: CategoryDiff[]
   topTransactions: Transaction[]
   summaryExplanation: string
   // If specific category
@@ -103,10 +113,10 @@ export function EvolutionMonthDiagnosis({
   const isBalance = movementType === 'balance'
   const isAllCategories = selectedCategory === 'all' || isBalance
 
-  // Max diff for relative impact bars
-  const maxDiff = Math.max(
-    ...data.topIncreases.map((i) => Math.abs(i.diff)),
-    ...data.topDecreases.map((d) => Math.abs(d.diff)),
+  // Max percentage diff for relative impact bars
+  const maxPct = Math.max(
+    ...data.topIncreases.map((i) => Math.abs(i.percentageDiff ?? 0)),
+    ...data.topDecreases.map((d) => Math.abs(d.percentageDiff ?? 0)),
     1
   )
 
@@ -317,192 +327,360 @@ export function EvolutionMonthDiagnosis({
 
       {/* 3. Desglose de Causas: Todas las categorías vs Categoría individual */}
       {isAllCategories ? (
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-          {/* Factores al Alza (ordenados por impacto en €) */}
-          <Card className="border border-border/50 rounded-2xl bg-card/60 shadow-xs">
-            <CardContent className="p-4 space-y-3">
-              <div className="flex items-center justify-between border-b border-border/40 pb-2">
-                <span
-                  className={cn(
-                    'font-bold text-xs uppercase tracking-wider flex items-center gap-1.5',
-                    isExpense || isBalance
-                      ? 'text-rose-600 dark:text-rose-400'
-                      : 'text-emerald-600 dark:text-emerald-400'
-                  )}
-                >
-                  <TrendingUp className="w-4 h-4" />
+        <div className="space-y-4">
+          {/* Resumen de Gastos/Ingresos Habituales (presentes en ambos meses) */}
+          {(data.comparablePrevTotal > 0 || data.comparableCurrentTotal > 0) && (
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 px-3.5 py-2.5 rounded-xl bg-muted/40 border border-border/50 text-xs">
+              <div className="flex items-center gap-2">
+                <Repeat className="w-3.5 h-3.5 text-primary shrink-0" />
+                <span className="font-bold text-foreground">
                   {isExpense || isBalance
-                    ? 'Partidas con mayor subida (€)'
-                    : 'Ingresos con mayor subida (€)'}
+                    ? 'Partidas habituales (en ambos meses):'
+                    : 'Ingresos habituales (en ambos meses):'}
                 </span>
-                <span className="text-[10px] font-semibold text-muted-foreground">
-                  {data.isCurrentMonth
-                    ? 'previsto vs mes anterior'
-                    : 'vs mes anterior'}
+                <span className="text-muted-foreground">
+                  {formatCurrency(data.comparablePrevTotal)} →{' '}
+                  <strong className="text-foreground">
+                    {formatCurrency(data.comparableCurrentTotal)}
+                  </strong>
                 </span>
               </div>
-
-              {data.topIncreases.length === 0 ? (
-                <p className="text-xs text-muted-foreground italic py-3 text-center">
-                  Ninguna categoría registró aumento este mes.
-                </p>
-              ) : (
-                <div className="space-y-3">
-                  {data.topIncreases.map((item) => {
-                    const pctBar = maxDiff > 0 ? (Math.abs(item.diff) / maxDiff) * 100 : 0
-                    return (
-                      <div key={item.category} className="space-y-1">
-                        <div className="flex items-center justify-between text-xs">
-                          <div className="flex items-center gap-2 truncate pr-2">
-                            <div className="w-5 h-5 rounded-md bg-muted flex items-center justify-center shrink-0">
-                              {renderCategoryIcon(item.category, 'w-3 h-3')}
-                            </div>
-                            <span className="font-semibold text-foreground capitalize truncate">
-                              {item.category}
-                            </span>
-                          </div>
-                          <div className="flex items-center gap-1.5 shrink-0 text-right">
-                            <span className="text-[11px] text-muted-foreground hidden sm:inline">
-                              {formatCurrency(item.prevAmount)} → {formatCurrency(item.currentAmount)}
-                            </span>
-                            <div className="flex items-center gap-1">
-                              {item.percentageDiff !== null && (
-                                <Badge
-                                  variant="outline"
-                                  className={cn(
-                                    'font-bold text-[10px] px-1.5 py-0',
-                                    isExpense || isBalance
-                                      ? 'bg-rose-500/10 text-rose-600 dark:text-rose-400 border-rose-500/20'
-                                      : 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border-emerald-500/20'
-                                  )}
-                                >
-                                  +{item.percentageDiff}%
-                                </Badge>
-                              )}
-                              <span
-                                className={cn(
-                                  'font-black text-xs',
-                                  isExpense || isBalance
-                                    ? 'text-rose-600 dark:text-rose-400'
-                                    : 'text-emerald-600 dark:text-emerald-400'
-                                )}
-                              >
-                                +{formatCurrency(item.diff)}
-                              </span>
-                            </div>
-                          </div>
-                        </div>
-
-                        {/* Barra visual de impacto */}
-                        <div className="w-full h-1.5 bg-muted/60 rounded-full overflow-hidden">
-                          <div
-                            className={cn(
-                              'h-full rounded-full transition-all duration-300',
-                              isExpense || isBalance ? 'bg-rose-500' : 'bg-emerald-500'
-                            )}
-                            style={{ width: `${Math.max(pctBar, 4)}%` }}
-                          />
-                        </div>
-                      </div>
-                    )
-                  })}
-                </div>
-              )}
-            </CardContent>
-          </Card>
-
-          {/* Factores a la Baja (ordenados por impacto en €) */}
-          <Card className="border border-border/50 rounded-2xl bg-card/60 shadow-xs">
-            <CardContent className="p-4 space-y-3">
-              <div className="flex items-center justify-between border-b border-border/40 pb-2">
-                <span
-                  className={cn(
-                    'font-bold text-xs uppercase tracking-wider flex items-center gap-1.5',
-                    isExpense || isBalance
-                      ? 'text-emerald-600 dark:text-emerald-400'
-                      : 'text-rose-600 dark:text-rose-400'
-                  )}
-                >
-                  <TrendingDown className="w-4 h-4" />
-                  {isExpense || isBalance
-                    ? 'Partidas con mayor ahorro / bajada (€)'
-                    : 'Ingresos que disminuyeron (€)'}
-                </span>
-                <span className="text-[10px] font-semibold text-muted-foreground">
-                  {data.isCurrentMonth
-                    ? 'previsto vs mes anterior'
-                    : 'vs mes anterior'}
-                </span>
+              <div className="flex items-center gap-2">
+                {renderVariationBadge(data.comparablePercentageDiff, data.comparableDiff)}
               </div>
+            </div>
+          )}
 
-              {data.topDecreases.length === 0 ? (
-                <p className="text-xs text-muted-foreground italic py-3 text-center">
-                  Ninguna categoría registró reducción este mes.
-                </p>
-              ) : (
-                <div className="space-y-3">
-                  {data.topDecreases.map((item) => {
-                    const pctBar = maxDiff > 0 ? (Math.abs(item.diff) / maxDiff) * 100 : 0
-                    return (
-                      <div key={item.category} className="space-y-1">
-                        <div className="flex items-center justify-between text-xs">
-                          <div className="flex items-center gap-2 truncate pr-2">
-                            <div className="w-5 h-5 rounded-md bg-muted flex items-center justify-center shrink-0">
-                              {renderCategoryIcon(item.category, 'w-3 h-3')}
-                            </div>
-                            <span className="font-semibold text-foreground capitalize truncate">
-                              {item.category}
-                            </span>
-                          </div>
-                          <div className="flex items-center gap-1.5 shrink-0 text-right">
-                            <span className="text-[11px] text-muted-foreground hidden sm:inline">
-                              {formatCurrency(item.prevAmount)} → {formatCurrency(item.currentAmount)}
-                            </span>
-                            <div className="flex items-center gap-1">
-                              {item.percentageDiff !== null && (
-                                <Badge
-                                  variant="outline"
-                                  className={cn(
-                                    'font-bold text-[10px] px-1.5 py-0',
-                                    isExpense || isBalance
-                                      ? 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border-emerald-500/20'
-                                      : 'bg-rose-500/10 text-rose-600 dark:text-rose-400 border-rose-500/20'
-                                  )}
-                                >
-                                  {item.percentageDiff}%
-                                </Badge>
-                              )}
-                              <span
-                                className={cn(
-                                  'font-black text-xs',
-                                  isExpense || isBalance
-                                    ? 'text-emerald-600 dark:text-emerald-400'
-                                    : 'text-rose-600 dark:text-rose-400'
-                                )}
-                              >
-                                -{formatCurrency(Math.abs(item.diff))}
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+            {/* Factores al Alza en Habituales (ordenados por impacto en €) */}
+            <Card className="border border-border/50 rounded-2xl bg-card/60 shadow-xs">
+              <CardContent className="p-4 space-y-3">
+                <div className="flex items-center justify-between border-b border-border/40 pb-2">
+                  <span
+                    className={cn(
+                      'font-bold text-xs uppercase tracking-wider flex items-center gap-1.5',
+                      isExpense || isBalance
+                        ? 'text-rose-600 dark:text-rose-400'
+                        : 'text-emerald-600 dark:text-emerald-400'
+                    )}
+                  >
+                    <TrendingUp className="w-4 h-4" />
+                    {isExpense || isBalance
+                      ? 'Habituales con mayor subida (%)'
+                      : 'Habituales con mayor subida (%)'}
+                  </span>
+                  <span className="text-[10px] font-semibold text-muted-foreground">
+                    en ambos meses
+                  </span>
+                </div>
+
+                {data.topIncreases.length === 0 ? (
+                  <p className="text-xs text-muted-foreground italic py-3 text-center">
+                    Ninguna categoría habitual subió este mes.
+                  </p>
+                ) : (
+                  <div className="space-y-3">
+                    {data.topIncreases.map((item) => {
+                      const pctBar = maxPct > 0 ? (Math.abs(item.percentageDiff ?? 0) / maxPct) * 100 : 0
+                      return (
+                        <div key={item.category} className="space-y-1">
+                          <div className="flex items-center justify-between text-xs">
+                            <div className="flex items-center gap-2 truncate pr-2">
+                              <div className="w-5 h-5 rounded-md bg-muted flex items-center justify-center shrink-0">
+                                {renderCategoryIcon(item.category, 'w-3 h-3')}
+                              </div>
+                              <span className="font-semibold text-foreground capitalize truncate">
+                                {item.category}
                               </span>
                             </div>
+                            <div className="flex items-center gap-1.5 shrink-0 text-right">
+                              <span className="text-[11px] text-muted-foreground hidden sm:inline">
+                                {formatCurrency(item.prevAmount)} → {formatCurrency(item.currentAmount)}
+                              </span>
+                              <div className="flex items-center gap-1">
+                                {item.percentageDiff !== null && (
+                                  <Badge
+                                    variant="outline"
+                                    className={cn(
+                                      'font-bold text-[10px] px-1.5 py-0',
+                                      isExpense || isBalance
+                                        ? 'bg-rose-500/10 text-rose-600 dark:text-rose-400 border-rose-500/20'
+                                        : 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border-emerald-500/20'
+                                    )}
+                                  >
+                                    +{item.percentageDiff}%
+                                  </Badge>
+                                )}
+                                <span
+                                  className={cn(
+                                    'font-black text-xs',
+                                    isExpense || isBalance
+                                      ? 'text-rose-600 dark:text-rose-400'
+                                      : 'text-emerald-600 dark:text-emerald-400'
+                                  )}
+                                >
+                                  +{formatCurrency(item.diff)}
+                                </span>
+                              </div>
+                            </div>
+                          </div>
+
+                          {/* Barra visual de impacto */}
+                          <div className="w-full h-1.5 bg-muted/60 rounded-full overflow-hidden">
+                            <div
+                              className={cn(
+                                'h-full rounded-full transition-all duration-300',
+                                isExpense || isBalance ? 'bg-rose-500' : 'bg-emerald-500'
+                              )}
+                              style={{ width: `${Math.max(pctBar, 4)}%` }}
+                            />
                           </div>
                         </div>
+                      )
+                    })}
+                  </div>
+                )}
+              </CardContent>
+            </Card>
 
-                        {/* Barra visual de impacto */}
-                        <div className="w-full h-1.5 bg-muted/60 rounded-full overflow-hidden">
-                          <div
-                            className={cn(
-                              'h-full rounded-full transition-all duration-300',
-                              isExpense || isBalance ? 'bg-emerald-500' : 'bg-rose-500'
-                            )}
-                            style={{ width: `${Math.max(pctBar, 4)}%` }}
-                          />
-                        </div>
-                      </div>
-                    )
-                  })}
+            {/* Factores a la Baja en Habituales (ordenados por impacto en €) */}
+            <Card className="border border-border/50 rounded-2xl bg-card/60 shadow-xs">
+              <CardContent className="p-4 space-y-3">
+                <div className="flex items-center justify-between border-b border-border/40 pb-2">
+                  <span
+                    className={cn(
+                      'font-bold text-xs uppercase tracking-wider flex items-center gap-1.5',
+                      isExpense || isBalance
+                        ? 'text-emerald-600 dark:text-emerald-400'
+                        : 'text-rose-600 dark:text-rose-400'
+                    )}
+                  >
+                    <TrendingDown className="w-4 h-4" />
+                    {isExpense || isBalance
+                      ? 'Habituales con mayor ahorro (%)'
+                      : 'Habituales que disminuyeron (%)'}
+                  </span>
+                  <span className="text-[10px] font-semibold text-muted-foreground">
+                    en ambos meses
+                  </span>
                 </div>
-              )}
-            </CardContent>
-          </Card>
+
+                {data.topDecreases.length === 0 ? (
+                  <p className="text-xs text-muted-foreground italic py-3 text-center">
+                    Ninguna categoría habitual bajó este mes.
+                  </p>
+                ) : (
+                  <div className="space-y-3">
+                    {data.topDecreases.map((item) => {
+                      const pctBar = maxPct > 0 ? (Math.abs(item.percentageDiff ?? 0) / maxPct) * 100 : 0
+                      return (
+                        <div key={item.category} className="space-y-1">
+                          <div className="flex items-center justify-between text-xs">
+                            <div className="flex items-center gap-2 truncate pr-2">
+                              <div className="w-5 h-5 rounded-md bg-muted flex items-center justify-center shrink-0">
+                                {renderCategoryIcon(item.category, 'w-3 h-3')}
+                              </div>
+                              <span className="font-semibold text-foreground capitalize truncate">
+                                {item.category}
+                              </span>
+                            </div>
+                            <div className="flex items-center gap-1.5 shrink-0 text-right">
+                              <span className="text-[11px] text-muted-foreground hidden sm:inline">
+                                {formatCurrency(item.prevAmount)} → {formatCurrency(item.currentAmount)}
+                              </span>
+                              <div className="flex items-center gap-1">
+                                {item.percentageDiff !== null && (
+                                  <Badge
+                                    variant="outline"
+                                    className={cn(
+                                      'font-bold text-[10px] px-1.5 py-0',
+                                      isExpense || isBalance
+                                        ? 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border-emerald-500/20'
+                                        : 'bg-rose-500/10 text-rose-600 dark:text-rose-400 border-rose-500/20'
+                                    )}
+                                  >
+                                    {item.percentageDiff}%
+                                  </Badge>
+                                )}
+                                <span
+                                  className={cn(
+                                    'font-black text-xs',
+                                    isExpense || isBalance
+                                      ? 'text-emerald-600 dark:text-emerald-400'
+                                      : 'text-rose-600 dark:text-rose-400'
+                                  )}
+                                >
+                                  -{formatCurrency(Math.abs(item.diff))}
+                                </span>
+                              </div>
+                            </div>
+                          </div>
+
+                          {/* Barra visual de impacto */}
+                          <div className="w-full h-1.5 bg-muted/60 rounded-full overflow-hidden">
+                            <div
+                              className={cn(
+                                'h-full rounded-full transition-all duration-300',
+                                isExpense || isBalance ? 'bg-emerald-500' : 'bg-rose-500'
+                              )}
+                              style={{ width: `${Math.max(pctBar, 4)}%` }}
+                            />
+                          </div>
+                        </div>
+                      )
+                    })}
+                  </div>
+                )}
+              </CardContent>
+            </Card>
+          </div>
+
+          {/* 3B. Gastos / Ingresos Extras / Puntuales (solo presentes en uno de los dos meses) */}
+          {(data.currentExtras.length > 0 || data.prevExtras.length > 0) && (
+            <Card className="border border-border/50 rounded-2xl bg-card/60 shadow-xs">
+              <CardContent className="p-4 space-y-3.5">
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-border/40 pb-2.5">
+                  <div className="flex items-center gap-2">
+                    <Sparkles className="w-4 h-4 text-amber-500 shrink-0" />
+                    <span className="font-bold text-xs uppercase tracking-wider text-foreground">
+                      {isExpense || isBalance
+                        ? 'Gastos Extras / Puntuales (Solo en uno de los meses)'
+                        : 'Ingresos Extras / Puntuales (Solo en uno de los meses)'}
+                    </span>
+                  </div>
+                  <div className="flex items-center gap-2 text-xs flex-wrap">
+                    <span className="text-muted-foreground">
+                      Mes ant.: <strong>{formatCurrency(data.extrasPrevTotal)}</strong> → Este mes:{' '}
+                      <strong className="text-foreground">
+                        {formatCurrency(data.extrasCurrentTotal)}
+                      </strong>
+                    </span>
+                    {renderVariationBadge(data.extrasPercentageDiff, data.extrasDiff)}
+                  </div>
+                </div>
+
+                {/* Alerta inteligente cuando el ahorro en habituales es compensado por los extras o viceversa */}
+                {(isExpense || isBalance) &&
+                  data.comparableDiff < -0.01 &&
+                  data.extrasDiff > 0.01 && (
+                    <div className="px-3 py-2 rounded-xl bg-amber-500/10 border border-amber-500/25 text-xs text-amber-900 dark:text-amber-200 font-medium">
+                      💡 En tus gastos habituales ahorraste{' '}
+                      <strong>{formatCurrency(Math.abs(data.comparableDiff))}</strong>, pero los
+                      gastos extras subieron{' '}
+                      <strong>+{formatCurrency(data.extrasDiff)}</strong>{' '}
+                      {data.extrasDiff > Math.abs(data.comparableDiff)
+                        ? '(comiéndose el ahorro de este mes).'
+                        : '(reduciendo parte de ese ahorro).'}
+                    </div>
+                  )}
+
+                {(isExpense || isBalance) &&
+                  data.comparableDiff > 0.01 &&
+                  data.extrasDiff < -0.01 && (
+                    <div className="px-3 py-2 rounded-xl bg-amber-500/10 border border-amber-500/25 text-xs text-amber-900 dark:text-amber-200 font-medium">
+                      💡 Este mes bajaron los gastos extras en{' '}
+                      <strong>-{formatCurrency(Math.abs(data.extrasDiff))}</strong>, pero tus
+                      gastos habituales subieron{' '}
+                      <strong>+{formatCurrency(data.comparableDiff)}</strong>.
+                    </div>
+                  )}
+
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  {/* Extras de este mes (no estaban el mes pasado) */}
+                  <div className="p-3 rounded-xl bg-background/70 border border-border/40 space-y-2">
+                    <div className="flex items-center justify-between text-xs border-b border-border/30 pb-1.5">
+                      <span className="font-bold text-muted-foreground uppercase text-[10px] tracking-wider">
+                        Nuevos este mes ({data.currentExtras.length})
+                      </span>
+                      <span
+                        className={cn(
+                          'font-black',
+                          isExpense || isBalance
+                            ? 'text-rose-600 dark:text-rose-400'
+                            : 'text-emerald-600 dark:text-emerald-400'
+                        )}
+                      >
+                        {formatCurrency(data.extrasCurrentTotal)}
+                      </span>
+                    </div>
+
+                    {data.currentExtras.length === 0 ? (
+                      <p className="text-[11px] text-muted-foreground italic py-1">
+                        Sin {isExpense || isBalance ? 'gastos' : 'ingresos'} puntuales nuevos este mes.
+                      </p>
+                    ) : (
+                      <div className="space-y-1.5">
+                        {data.currentExtras.map((item) => (
+                          <div
+                            key={item.category}
+                            className="flex items-center justify-between text-xs py-0.5"
+                          >
+                            <div className="flex items-center gap-2 truncate pr-2">
+                              <div className="w-5 h-5 rounded-md bg-muted flex items-center justify-center shrink-0">
+                                {renderCategoryIcon(item.category, 'w-3 h-3')}
+                              </div>
+                              <span className="font-medium text-foreground capitalize truncate">
+                                {item.category}
+                              </span>
+                            </div>
+                            <span
+                              className={cn(
+                                'font-bold shrink-0',
+                                isExpense || isBalance
+                                  ? 'text-rose-600 dark:text-rose-400'
+                                  : 'text-emerald-600 dark:text-emerald-400'
+                              )}
+                            >
+                              {formatCurrency(item.currentAmount)}
+                            </span>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+
+                  {/* Extras del mes anterior (este mes no están) */}
+                  <div className="p-3 rounded-xl bg-background/70 border border-border/40 space-y-2">
+                    <div className="flex items-center justify-between text-xs border-b border-border/30 pb-1.5">
+                      <span className="font-bold text-muted-foreground uppercase text-[10px] tracking-wider">
+                        Solo el mes anterior ({data.prevExtras.length})
+                      </span>
+                      <span className="font-black text-muted-foreground">
+                        {formatCurrency(data.extrasPrevTotal)}
+                      </span>
+                    </div>
+
+                    {data.prevExtras.length === 0 ? (
+                      <p className="text-[11px] text-muted-foreground italic py-1">
+                        Todas las partidas del mes anterior se repitieron este mes.
+                      </p>
+                    ) : (
+                      <div className="space-y-1.5">
+                        {data.prevExtras.map((item) => (
+                          <div
+                            key={item.category}
+                            className="flex items-center justify-between text-xs py-0.5"
+                          >
+                            <div className="flex items-center gap-2 truncate pr-2">
+                              <div className="w-5 h-5 rounded-md bg-muted flex items-center justify-center shrink-0">
+                                {renderCategoryIcon(item.category, 'w-3 h-3')}
+                              </div>
+                              <span className="font-medium text-muted-foreground capitalize truncate">
+                                {item.category}
+                              </span>
+                            </div>
+                            <span className="font-bold text-muted-foreground shrink-0">
+                              {formatCurrency(item.prevAmount)}
+                            </span>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+          )}
         </div>
       ) : (
         /* Categoría específica seleccionada: Diagnóstico de Frecuencia vs Ticket Medio */

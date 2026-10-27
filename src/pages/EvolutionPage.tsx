@@ -383,14 +383,22 @@ export default function EvolutionPage() {
       // Full-month comparison vs previous closed month (always available)
       const fullMonthAbsoluteChange = Number((amount - prevAmount).toFixed(2))
       let fullMonthPercentageChange: number | null = null
-      if (Math.abs(prevAmount) > 0) {
-        fullMonthPercentageChange = Number(
-          (((amount - prevAmount) / Math.abs(prevAmount)) * 100).toFixed(1)
-        )
-      } else if (prevAmount === 0 && amount !== 0) {
-        fullMonthPercentageChange = amount > 0 ? 100 : -100
-      } else if (prevAmount === 0 && amount === 0) {
-        fullMonthPercentageChange = 0
+      if (isBalance) {
+        if (Math.abs(prevAmount) > 0) {
+          fullMonthPercentageChange = Number(
+            (((amount - prevAmount) / Math.abs(prevAmount)) * 100).toFixed(1)
+          )
+        } else if (prevAmount === 0 && amount === 0) {
+          fullMonthPercentageChange = 0
+        }
+      } else {
+        if (prevAmount > 0 && amount > 0) {
+          fullMonthPercentageChange = Number(
+            (((amount - prevAmount) / prevAmount) * 100).toFixed(1)
+          )
+        } else if (prevAmount === 0 && amount === 0) {
+          fullMonthPercentageChange = 0
+        }
       }
 
       // Dato secundario de referencia: Ejecutado hasta hoy vs mismo día del mes anterior
@@ -416,12 +424,18 @@ export default function EvolutionPage() {
 
       const mtdAbsoluteChange = mtdCurrentAmount - mtdPrevAmount
       let mtdPercentageChange: number | null = null
-      if (Math.abs(mtdPrevAmount) > 0) {
-        mtdPercentageChange = ((mtdCurrentAmount - mtdPrevAmount) / Math.abs(mtdPrevAmount)) * 100
-      } else if (mtdPrevAmount === 0 && mtdCurrentAmount !== 0) {
-        mtdPercentageChange = mtdCurrentAmount > 0 ? 100 : -100
-      } else if (mtdPrevAmount === 0 && mtdCurrentAmount === 0) {
-        mtdPercentageChange = 0
+      if (isBalance) {
+        if (Math.abs(mtdPrevAmount) > 0) {
+          mtdPercentageChange = ((mtdCurrentAmount - mtdPrevAmount) / Math.abs(mtdPrevAmount)) * 100
+        } else if (mtdPrevAmount === 0 && mtdCurrentAmount === 0) {
+          mtdPercentageChange = 0
+        }
+      } else {
+        if (mtdPrevAmount > 0 && mtdCurrentAmount > 0) {
+          mtdPercentageChange = ((mtdCurrentAmount - mtdPrevAmount) / mtdPrevAmount) * 100
+        } else if (mtdPrevAmount === 0 && mtdCurrentAmount === 0) {
+          mtdPercentageChange = 0
+        }
       }
 
       // Comparativa principal: siempre usa el Total Previsto del mes (Ejecutado + Gastos/Ingresos Futuros) vs Mes anterior completo
@@ -461,10 +475,9 @@ export default function EvolutionPage() {
         const prev = Number((prevCatTotals[norm] || 0).toFixed(2))
         const diff = Number((cur - prev).toFixed(2))
         let percentageDiff: number | null = null
-        if (prev > 0) {
+        // Solo calcular % si estuvo presente en ambos meses (evitar falsos +100% / -100%)
+        if (prev > 0 && cur > 0) {
           percentageDiff = Number((((cur - prev) / prev) * 100).toFixed(1))
-        } else if (prev === 0 && cur > 0) {
-          percentageDiff = 100
         }
         return {
           category: catDisplayNames[norm] || norm,
@@ -475,20 +488,61 @@ export default function EvolutionPage() {
         }
       })
 
-      // Ordenar por impacto real en EUROS (Math.abs(diff)) en lugar de %
-      const topIncreases = categoryDiffs
+      // Separar categorías Habituales (en ambos meses) vs Extras/Puntuales (solo en un mes)
+      const comparableCategories = categoryDiffs.filter(
+        (d) => d.prevAmount > 0 && d.currentAmount > 0
+      )
+      const currentExtras = categoryDiffs
+        .filter((d) => d.prevAmount === 0 && d.currentAmount > 0)
+        .sort((a, b) => b.currentAmount - a.currentAmount)
+      const prevExtras = categoryDiffs
+        .filter((d) => d.prevAmount > 0 && d.currentAmount === 0)
+        .sort((a, b) => b.prevAmount - a.prevAmount)
+
+      const comparableCurrentTotal = Number(
+        comparableCategories.reduce((s, d) => s + d.currentAmount, 0).toFixed(2)
+      )
+      const comparablePrevTotal = Number(
+        comparableCategories.reduce((s, d) => s + d.prevAmount, 0).toFixed(2)
+      )
+      const comparableDiff = Number((comparableCurrentTotal - comparablePrevTotal).toFixed(2))
+      const comparablePercentageDiff =
+        comparablePrevTotal > 0 && comparableCurrentTotal > 0
+          ? Number((((comparableCurrentTotal - comparablePrevTotal) / comparablePrevTotal) * 100).toFixed(1))
+          : comparablePrevTotal === 0 && comparableCurrentTotal === 0
+            ? 0
+            : null
+
+      const extrasCurrentTotal = Number(
+        currentExtras.reduce((s, d) => s + d.currentAmount, 0).toFixed(2)
+      )
+      const extrasPrevTotal = Number(
+        prevExtras.reduce((s, d) => s + d.prevAmount, 0).toFixed(2)
+      )
+      const extrasDiff = Number((extrasCurrentTotal - extrasPrevTotal).toFixed(2))
+      const extrasPercentageDiff =
+        extrasPrevTotal > 0 && extrasCurrentTotal > 0
+          ? Number((((extrasCurrentTotal - extrasPrevTotal) / extrasPrevTotal) * 100).toFixed(1))
+          : extrasPrevTotal === 0 && extrasCurrentTotal === 0
+            ? 0
+            : null
+
+      // Ordenar habituales por porcentaje (%) de mayor subida / mayor ahorro
+      const topIncreases = comparableCategories
         .filter((d) => d.diff > 0.01)
         .sort((a, b) => {
-          if (b.diff !== a.diff) return b.diff - a.diff
-          return (b.percentageDiff ?? 0) - (a.percentageDiff ?? 0)
+          const pctDiff = (b.percentageDiff ?? 0) - (a.percentageDiff ?? 0)
+          if (pctDiff !== 0) return pctDiff
+          return b.diff - a.diff
         })
         .slice(0, 5)
 
-      const topDecreases = categoryDiffs
+      const topDecreases = comparableCategories
         .filter((d) => d.diff < -0.01)
         .sort((a, b) => {
-          if (a.diff !== b.diff) return a.diff - b.diff
-          return (a.percentageDiff ?? 0) - (b.percentageDiff ?? 0)
+          const pctDiff = (a.percentageDiff ?? 0) - (b.percentageDiff ?? 0)
+          if (pctDiff !== 0) return pctDiff
+          return a.diff - b.diff
         })
         .slice(0, 5)
 
@@ -509,13 +563,18 @@ export default function EvolutionPage() {
             ? -100
             : 0
 
-      // Build narrative explanation
+      // Build narrative explanation priorizando categorías habituales (comparables) y desglosando extras
       let summaryExplanation = ''
+      const extrasSummarySentence =
+        extrasCurrentTotal > 0 || extrasPrevTotal > 0
+          ? ` En ${isExpense ? 'gastos' : 'ingresos'} extras/puntuales pasaste de ${formatCurrency(extrasPrevTotal)} a ${formatCurrency(extrasCurrentTotal)} (${extrasDiff >= 0 ? '+' : '-'}${formatCurrency(Math.abs(extrasDiff))}).`
+          : ''
+
       if (isBalance) {
         const netSign = current.netAmount >= 0 ? 'balance previsto positivo' : 'déficit mensual'
         summaryExplanation = `En ${current.fullMonthName} registras un ${netSign} de ${formatCurrency(current.netAmount)} contando cobros y pagos futuros (Ingresos: ${formatCurrency(current.incomeAmount)} vs Gastos: ${formatCurrency(current.expenseAmount)}).`
         if (topIncreases.length > 0) {
-          summaryExplanation += ` Mayor incremento de gasto en ${topIncreases[0].category} (+${formatCurrency(topIncreases[0].diff)}).`
+          summaryExplanation += ` Mayor incremento en habituales: ${topIncreases[0].category} (+${formatCurrency(topIncreases[0].diff)}).`
         }
       } else if (selectedCategory === 'all') {
         if (isCurrentMonth) {
@@ -526,13 +585,23 @@ export default function EvolutionPage() {
               .slice(0, 2)
               .map((c) => `${c.category} (+${formatCurrency(c.diff)})`)
               .join(' y ')
-            summaryExplanation = `Contando los movimientos ejecutados (${formatCurrency(realAmount)}) y los ${isExpense ? 'gastos futuros' : 'ingresos futuros'} (${formatCurrency(pendingAmount)}), el total previsto de ${current.fullMonthName} (${formatCurrency(amount)}) sube un ${Math.abs(percentageChange || 0)}% (+${formatCurrency(absoluteChange)}) frente a ${previous.fullMonthName} (${formatCurrency(prevAmount)}).${causes ? ` Principales subidas en €: ${causes}.` : ''}`
+            const pctText = percentageChange !== null ? `un ${Math.abs(percentageChange)}% ` : ''
+            summaryExplanation = `El total previsto de ${current.fullMonthName} (${formatCurrency(amount)}) sube ${pctText}(+${formatCurrency(absoluteChange)}) frente a ${previous.fullMonthName} (${formatCurrency(prevAmount)}).`
+            if (comparablePrevTotal > 0 || comparableCurrentTotal > 0) {
+              summaryExplanation += ` En habituales: ${comparableDiff >= 0 ? '+' : '-'}${formatCurrency(Math.abs(comparableDiff))}${causes ? ` (destacando ${causes})` : ''}.`
+            }
+            summaryExplanation += extrasSummarySentence
           } else if (absoluteChange < 0) {
             const relief = topDecreases
               .slice(0, 2)
               .map((c) => `${c.category} (-${formatCurrency(Math.abs(c.diff))})`)
               .join(' y ')
-            summaryExplanation = `Contando los movimientos ejecutados (${formatCurrency(realAmount)}) y los ${isExpense ? 'gastos futuros' : 'ingresos futuros'} (${formatCurrency(pendingAmount)}), el total previsto de ${current.fullMonthName} (${formatCurrency(amount)}) es un ${Math.abs(percentageChange || 0)}% menor (-${formatCurrency(Math.abs(absoluteChange))}) que el cierre de ${previous.fullMonthName} (${formatCurrency(prevAmount)}).${relief ? ` Menor gasto registrado en: ${relief}.` : ''}`
+            const pctText = percentageChange !== null ? `un ${Math.abs(percentageChange)}% ` : ''
+            summaryExplanation = `El total previsto de ${current.fullMonthName} (${formatCurrency(amount)}) baja ${pctText}(-${formatCurrency(Math.abs(absoluteChange))}) frente a ${previous.fullMonthName} (${formatCurrency(prevAmount)}).`
+            if (comparablePrevTotal > 0 || comparableCurrentTotal > 0) {
+              summaryExplanation += ` En habituales: ${comparableDiff >= 0 ? '+' : '-'}${formatCurrency(Math.abs(comparableDiff))}${relief ? ` (mayor ahorro en ${relief})` : ''}.`
+            }
+            summaryExplanation += extrasSummarySentence
           } else {
             summaryExplanation = `El total previsto de ${current.fullMonthName} (${formatCurrency(amount)}) coincide exactamente con el de ${previous.fullMonthName}.`
           }
@@ -544,19 +613,23 @@ export default function EvolutionPage() {
               .slice(0, 2)
               .map((c) => `${c.category} (+${formatCurrency(c.diff)})`)
               .join(' y ')
-            summaryExplanation = `En ${current.fullMonthName}, el ${isExpense ? 'gasto' : 'ingreso'} subió un ${Math.abs(percentageChange || 0).toFixed(1)}% (+${formatCurrency(absoluteChange)}) respecto a ${previous.fullMonthName}.${causes ? ` Las partidas con mayor subida en € fueron: ${causes}.` : ''}`
-            if (topDecreases.length > 0) {
-              summaryExplanation += ` Compensado parcialmente por ${topDecreases[0].category} (-${formatCurrency(Math.abs(topDecreases[0].diff))}).`
+            const pctText = percentageChange !== null ? `un ${Math.abs(percentageChange).toFixed(1)}% ` : ''
+            summaryExplanation = `En ${current.fullMonthName}, el ${isExpense ? 'gasto' : 'ingreso'} subió ${pctText}(+${formatCurrency(absoluteChange)}) respecto a ${previous.fullMonthName}.`
+            if (comparablePrevTotal > 0 || comparableCurrentTotal > 0) {
+              summaryExplanation += ` En partidas habituales la variación fue de ${comparableDiff >= 0 ? '+' : '-'}${formatCurrency(Math.abs(comparableDiff))}${causes ? ` (mayor subida en ${causes})` : ''}.`
             }
+            summaryExplanation += extrasSummarySentence
           } else if (absoluteChange < 0) {
             const relief = topDecreases
               .slice(0, 2)
               .map((c) => `${c.category} (-${formatCurrency(Math.abs(c.diff))})`)
               .join(' y ')
-            summaryExplanation = `En ${current.fullMonthName} ${isExpense ? 'gastaste' : 'ingresaste'} un ${Math.abs(percentageChange || 0).toFixed(1)}% menos (-${formatCurrency(Math.abs(absoluteChange))}) que en ${previous.fullMonthName}.${relief ? ` La mayor bajada en € se registró en: ${relief}.` : ''}`
-            if (topIncreases.length > 0) {
-              summaryExplanation += ` Aunque subió ${topIncreases[0].category} (+${formatCurrency(topIncreases[0].diff)}).`
+            const pctText = percentageChange !== null ? `un ${Math.abs(percentageChange).toFixed(1)}% ` : ''
+            summaryExplanation = `En ${current.fullMonthName} ${isExpense ? 'gastaste' : 'ingresaste'} ${pctText}menos (-${formatCurrency(Math.abs(absoluteChange))}) que en ${previous.fullMonthName}.`
+            if (comparablePrevTotal > 0 || comparableCurrentTotal > 0) {
+              summaryExplanation += ` En partidas habituales la variación fue de ${comparableDiff >= 0 ? '+' : '-'}${formatCurrency(Math.abs(comparableDiff))}${relief ? ` (mayor ahorro en ${relief})` : ''}.`
             }
+            summaryExplanation += extrasSummarySentence
           } else {
             summaryExplanation = `Volumen de ${isExpense ? 'gastos' : 'ingresos'} idéntico al mes anterior (${formatCurrency(amount)}).`
           }
@@ -564,13 +637,17 @@ export default function EvolutionPage() {
       } else {
         if (isCurrentMonth) {
           const isUp = absoluteChange >= 0
-          summaryExplanation = `En ${selectedCategory}, contando ejecutado y futuros (${formatCurrency(amount)}), el ${isExpense ? 'gasto' : 'ingreso'} ${isUp ? 'sube' : 'baja'} ${formatCurrency(Math.abs(absoluteChange))} (${Math.abs(percentageChange || 0)}%) frente a ${previous.fullMonthName} (${formatCurrency(prevAmount)}).`
+          const pctPart = percentageChange !== null ? ` (${Math.abs(percentageChange)}%)` : ''
+          summaryExplanation = `En ${selectedCategory}, contando ejecutado y futuros (${formatCurrency(amount)}), el ${isExpense ? 'gasto' : 'ingreso'} ${isUp ? 'sube' : 'baja'} ${formatCurrency(Math.abs(absoluteChange))}${pctPart} frente a ${previous.fullMonthName} (${formatCurrency(prevAmount)}).`
         } else {
           if (prevAmount === 0 && amount > 0) {
-            summaryExplanation = `Primer mes con movimientos en ${selectedCategory}: total de ${formatCurrency(amount)} en ${current.txCount} movimiento(s).`
+            summaryExplanation = `En ${selectedCategory} no hubo movimientos el mes anterior; este mes registraste ${formatCurrency(amount)} en ${current.txCount} movimiento(s).`
+          } else if (prevAmount > 0 && amount === 0) {
+            summaryExplanation = `En ${selectedCategory} no registraste movimientos este mes (mes anterior: ${formatCurrency(prevAmount)}).`
           } else {
             const isUp = absoluteChange >= 0
-            summaryExplanation = `En ${selectedCategory}, el ${isExpense ? 'gasto' : 'ingreso'} ${isUp ? 'subió' : 'bajó'} ${formatCurrency(Math.abs(absoluteChange))} (${Math.abs(percentageChange || 0).toFixed(1)}%). Registraste ${current.txCount} movimiento(s) (ticket medio de ${formatCurrency(avgTicket)}) frente a ${previous.txCount} del mes previo (${formatCurrency(prevAvgTicket || 0)}).`
+            const pctPart = percentageChange !== null ? ` (${Math.abs(percentageChange).toFixed(1)}%)` : ''
+            summaryExplanation = `En ${selectedCategory}, el ${isExpense ? 'gasto' : 'ingreso'} ${isUp ? 'subió' : 'bajó'} ${formatCurrency(Math.abs(absoluteChange))}${pctPart}. Registraste ${current.txCount} movimiento(s) (ticket medio de ${formatCurrency(avgTicket)}) frente a ${previous.txCount} del mes previo (${formatCurrency(prevAvgTicket || 0)}).`
           }
         }
       }
@@ -613,6 +690,16 @@ export default function EvolutionPage() {
         categoryDiffs,
         topIncreases,
         topDecreases,
+        comparableCurrentTotal,
+        comparablePrevTotal,
+        comparableDiff,
+        comparablePercentageDiff,
+        extrasCurrentTotal,
+        extrasPrevTotal,
+        extrasDiff,
+        extrasPercentageDiff,
+        currentExtras,
+        prevExtras,
         topTransactions,
         summaryExplanation,
         avgTicket: Number(avgTicket.toFixed(2)),
@@ -746,14 +833,42 @@ export default function EvolutionPage() {
     absDiff?: number | null,
     isCompact = false
   ) => {
+    // Si no hay porcentaje válido (p.ej. de 0 € a X € o de X € a 0 €), mostrar solo el importe
     if (percent === null) {
+      if (absDiff !== undefined && absDiff !== null && Math.abs(absDiff) > 0.005) {
+        const isIncrease = absDiff > 0
+        const isFavorable = movementType === 'expense' ? !isIncrease : isIncrease
+        const colorClass = isFavorable
+          ? 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border-emerald-500/20'
+          : 'bg-rose-500/10 text-rose-600 dark:text-rose-400 border-rose-500/20'
+
+        return (
+          <span
+            className={cn(
+              'inline-flex items-center gap-1 font-bold rounded-lg border px-2 py-0.5 text-xs transition-colors',
+              colorClass
+            )}
+          >
+            {isIncrease ? (
+              <TrendingUp className="w-3.5 h-3.5 shrink-0" />
+            ) : (
+              <TrendingDown className="w-3.5 h-3.5 shrink-0" />
+            )}
+            <span>
+              {isIncrease ? '+' : ''}
+              {formatCurrency(absDiff)}
+            </span>
+          </span>
+        )
+      }
+
       return (
         <Badge
           variant="outline"
           className="font-semibold text-xs text-muted-foreground bg-muted/40"
         >
           <Minus className="w-3 h-3 mr-1" />
-          Base
+          0%
         </Badge>
       )
     }

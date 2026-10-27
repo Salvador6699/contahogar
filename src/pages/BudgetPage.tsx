@@ -40,7 +40,16 @@ const BudgetPage = () => {
     const { accounts, isLoading: isAccLoading } = useAccounts();
     const { transactions, isLoading: isTxLoading } = useTransactions();
     const { categories, isLoading: isCatLoading } = useCategories();
-    const { budgets, goals, saveBudgets, isBudgetsLoading: isBudLoading } = usePlanning();
+    const {
+      budgets,
+      goals,
+      saveBudgets,
+      savingsTimeframe,
+      excludedNextMonthIds,
+      updateSavingsTimeframe,
+      updateExcludedNextMonthIds,
+      isBudgetsLoading: isBudLoading,
+    } = usePlanning();
     const { rules: recurringRules, isLoading: isRulesLoading } = useRecurringRules();
 
     const [searchParams] = useSearchParams();
@@ -100,51 +109,16 @@ const BudgetPage = () => {
         [categories]
     );
 
-    // Shared savings timeframe selector (synchronized with Ahorros y Provisiones)
-    const [savingsTimeframe, setSavingsTimeframe] = useState(() => {
-        return localStorage.getItem('savingsTimeframe') || '13';
-    });
-
-    // IDs de gastos previstos del próximo mes ocultos exclusivamente en la tarjeta "Reservado para..."
-    // (independiente de t.isIgnored para no alterar lo que se ve en el Inicio del mes siguiente)
-    const [excludedNextMonthIds, setExcludedNextMonthIds] = useState<string[]>(() => {
-        try {
-            const raw = localStorage.getItem('excludedNextMonthProvisionIds');
-            return raw ? JSON.parse(raw) : [];
-        } catch {
-            return [];
-        }
-    });
-
-    useEffect(() => {
-        const handleStorageChange = () => {
-            const current = localStorage.getItem('savingsTimeframe') || '13';
-            setSavingsTimeframe(current);
-            try {
-                const raw = localStorage.getItem('excludedNextMonthProvisionIds');
-                setExcludedNextMonthIds(raw ? JSON.parse(raw) : []);
-            } catch {
-                // ignore parse errors
-            }
-        };
-        window.addEventListener('storage', handleStorageChange);
-        return () => window.removeEventListener('storage', handleStorageChange);
-    }, []);
-
     const handleSavingsTimeframeChange = (val: string) => {
-        setSavingsTimeframe(val);
-        localStorage.setItem('savingsTimeframe', val);
-        window.dispatchEvent(new Event('storage'));
+        updateSavingsTimeframe(val).catch(console.error);
     };
 
     const handleToggleNextMonthExpense = (txId: string) => {
-        setExcludedNextMonthIds((prev) => {
-            const exists = prev.includes(txId);
-            const next = exists ? prev.filter((id) => id !== txId) : [...prev, txId];
-            localStorage.setItem('excludedNextMonthProvisionIds', JSON.stringify(next));
-            window.dispatchEvent(new Event('storage'));
-            return next;
-        });
+        const exists = excludedNextMonthIds.includes(txId);
+        const next = exists
+            ? excludedNextMonthIds.filter((id) => id !== txId)
+            : [...excludedNextMonthIds, txId];
+        updateExcludedNextMonthIds(next).catch(console.error);
     };
 
     const savingsCalculation = useMemo(() => {
@@ -571,9 +545,7 @@ const BudgetPage = () => {
         const next = allVisible
             ? Array.from(new Set([...excludedNextMonthIds, ...allIds]))
             : excludedNextMonthIds.filter(id => !allIds.includes(id));
-        setExcludedNextMonthIds(next);
-        localStorage.setItem('excludedNextMonthProvisionIds', JSON.stringify(next));
-        window.dispatchEvent(new Event('storage'));
+        updateExcludedNextMonthIds(next).catch(console.error);
     };
 
     const sumTotalBudgets = Number(
