@@ -62,7 +62,11 @@ export async function sendWebPushToSubscriptions(
               auth: sub.auth,
             },
           },
-          serialized
+          serialized,
+          {
+            urgency: 'high',
+            TTL: 43200,
+          }
         );
         sent += 1;
       } catch (err: unknown) {
