@@ -50,6 +50,8 @@ import {
 import { Button } from '@/components/ui/button'
 import { useFavorites } from '@/hooks/useFavorites'
 import { useCategories } from '@/hooks/useCategories'
+import { useFeatureFlags } from '@/hooks/useFeatureFlags'
+import { getNavPillars, findActivePillar, NavPillar } from '@/lib/navigationV2'
 import { calculateCategorySummaries } from '@/lib/calculations'
 import { FavoriteExpense, Category } from '@/types/finance'
 import { format } from 'date-fns'
@@ -60,6 +62,33 @@ const MobileNav = () => {
 
   const { favorites } = useFavorites()
   const { categories } = useCategories()
+  const { flags } = useFeatureFlags()
+
+  const [openDesktopPillar, setOpenDesktopPillar] = useState<NavPillar['id'] | null>(null)
+  const [activeSheetPillarId, setActiveSheetPillarId] = useState<NavPillar['id'] | null>(null)
+
+  const pillars = useMemo(
+    () => getNavPillars(flags.exp_cashflow_lab),
+    [flags.exp_cashflow_lab]
+  )
+  const activePillar = useMemo(
+    () => findActivePillar(location.pathname, pillars),
+    [location.pathname, pillars]
+  )
+
+  useEffect(() => {
+    setOpenDesktopPillar(null)
+    setActiveSheetPillarId(null)
+  }, [location.pathname])
+
+  useEffect(() => {
+    if (!openDesktopPillar) return
+    const onKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') setOpenDesktopPillar(null)
+    }
+    window.addEventListener('keydown', onKeyDown)
+    return () => window.removeEventListener('keydown', onKeyDown)
+  }, [openDesktopPillar])
 
   interface NavItem {
     icon: any
@@ -83,6 +112,9 @@ const MobileNav = () => {
     { icon: Target, label: 'Ahorros', path: '/ahorros' },
     { icon: Landmark, label: 'Préstamos', path: '/prestamos' },
     { icon: Repeat, label: 'Gastos Fijos', path: '/gastos-fijos' },
+    ...(flags.exp_cashflow_lab
+      ? [{ icon: Calendar, label: 'Simulador', path: '/simulador' }]
+      : []),
     { icon: History, label: 'Historial', path: '/historial' },
     { icon: TrendingUp, label: 'Evolución', path: '/evolucion' },
     { icon: Zap, label: 'Botones Rápidos', path: '/favorites' },
@@ -99,6 +131,11 @@ const MobileNav = () => {
     const item = allDrawerNavItems.find((nav) => isActive(nav.path, nav.exact))
     if (item) return { title: item.label, icon: <item.icon className="w-5 h-5 text-primary" /> }
 
+    if (location.pathname.startsWith('/simulador'))
+      return { title: 'Simulador', icon: <Calendar className="w-5 h-5 text-primary" /> }
+    if (location.pathname.startsWith('/proximos'))
+      return { title: 'Próximos', icon: <Calendar className="w-5 h-5 text-primary" /> }
+
     // Match specific paths that aren't in the drawer
     if (location.pathname.includes('/transferir'))
       return { title: 'Transferir', icon: <ArrowLeftRight className="w-5 h-5 text-primary" /> }
@@ -111,6 +148,169 @@ const MobileNav = () => {
   const primaryNavPaths = ['/', '/presupuestos', '/comparativa', '/historial']
   const primaryNavItems = allDrawerNavItems.filter((item) => primaryNavPaths.includes(item.path))
   const secondaryNavItems = allDrawerNavItems.filter((item) => !primaryNavPaths.includes(item.path))
+
+  const desktopActionButtons = (
+    <div className="flex items-center gap-3">
+      {favorites.length > 0 && (
+        <div className="relative group/quick">
+          <button className="flex items-center gap-2 bg-primary/10 hover:bg-primary/20 text-primary px-4 py-2.5 rounded-xl font-bold transition-all duration-300 text-sm shadow-sm">
+            <Zap className="w-5 h-5 stroke-[2.5px]" /> Rápidos
+          </button>
+          <div className="absolute top-full right-0 pt-2 w-64 z-50 opacity-0 translate-y-2 pointer-events-none group-hover/quick:opacity-100 group-hover/quick:translate-y-0 group-hover/quick:pointer-events-auto transition-all duration-300">
+            <div className="bg-background/95 backdrop-blur-xl border border-border/50 rounded-2xl shadow-2xl p-2 grid gap-1 max-h-[400px] overflow-y-auto custom-scrollbar">
+              {favorites.map((fav) => {
+                const cat = categories.find((c) => c.name === fav.category)
+                const IconComponent =
+                  (Icons as any)[fav.icon || cat?.icon || 'Tag'] || Icons.Tag
+                const hasImage = Boolean(fav.customIcon || (!fav.icon && cat?.customIcon))
+                const imageSrc = fav.customIcon || (!fav.icon ? cat?.customIcon : undefined)
+
+                return (
+                  <button
+                    key={fav.id}
+                    onClick={() =>
+                      navigate({
+                        to: '/' as any,
+                        search: { action: 'quick-expense', id: fav.id } as any,
+                      })
+                    }
+                    className="flex items-center gap-3 px-3 py-2 rounded-xl text-sm font-bold transition-all text-left group/item hover:bg-muted"
+                  >
+                    <div
+                      className="w-8 h-8 rounded-lg flex items-center justify-center overflow-hidden shrink-0 shadow-sm border border-border/50 text-white"
+                      style={{ backgroundColor: hasImage ? 'transparent' : (cat?.color || '#3b82f6') }}
+                    >
+                      {hasImage ? (
+                        <img src={imageSrc} alt={fav.name} className="w-full h-full object-cover" />
+                      ) : (
+                        <IconComponent className="w-4 h-4" />
+                      )}
+                    </div>
+                    <span className="truncate flex-1 text-muted-foreground group-hover/item:text-foreground">
+                      {fav.name}
+                    </span>
+                  </button>
+                )
+              })}
+            </div>
+          </div>
+        </div>
+      )}
+      <button
+        onClick={() => navigate({ to: '/' as any, search: { action: 'add-income' } as any })}
+        className="flex items-center gap-2 bg-income/10 hover:bg-income hover:text-white text-income px-5 py-2.5 rounded-xl font-bold transition-all duration-300 text-sm shadow-sm active:scale-95"
+      >
+        <ArrowUpCircle className="w-5 h-5 stroke-[2.5px]" /> Ingreso
+      </button>
+      <button
+        onClick={() => navigate({ to: '/' as any, search: { action: 'add-expense' } as any })}
+        className="flex items-center gap-2 bg-expense/10 hover:bg-expense hover:text-white text-expense px-5 py-2.5 rounded-xl font-bold transition-all duration-300 text-sm shadow-sm active:scale-95"
+      >
+        <ArrowDownCircle className="w-5 h-5 stroke-[2.5px]" /> Gasto
+      </button>
+    </div>
+  )
+
+  const mobileFabDrawer = (
+    <Drawer>
+      <DrawerTrigger asChild>
+        <div className="flex flex-col items-center justify-center h-full -mt-6">
+          <button
+            aria-label="Añadir movimiento"
+            className="bg-primary text-primary-foreground rounded-full p-4 shadow-xl shadow-primary/30 active:scale-95 transition-transform"
+          >
+            <Plus className="w-8 h-8 stroke-[3px]" />
+          </button>
+        </div>
+      </DrawerTrigger>
+      <DrawerContent>
+        <DrawerHeader className="relative">
+          <DrawerTitle className="text-center text-xl">¿Qué quieres añadir?</DrawerTitle>
+          <DrawerClose asChild>
+            <Button
+              variant="ghost"
+              size="icon"
+              className="absolute right-4 top-4 h-8 w-8 rounded-full bg-muted/50 hover:bg-muted"
+            >
+              <X className="h-4 w-4" />
+            </Button>
+          </DrawerClose>
+        </DrawerHeader>
+        <div className="p-4 flex gap-4">
+          <button
+            onClick={() => {
+              document.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape' }))
+              navigate({ to: '/' as any, search: { action: 'add-expense' } as any })
+            }}
+            className="flex-1 bg-expense/10 hover:bg-expense/20 border-2 border-expense/20 rounded-2xl p-6 flex flex-col items-center gap-3 transition-colors active:scale-95"
+          >
+            <ArrowDownCircle className="w-12 h-12 text-expense stroke-[2px]" />
+            <span className="font-bold text-expense text-lg">Gasto</span>
+          </button>
+          <button
+            onClick={() => {
+              document.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape' }))
+              navigate({ to: '/' as any, search: { action: 'add-income' } as any })
+            }}
+            className="flex-1 bg-income/10 hover:bg-income/20 border-2 border-income/20 rounded-2xl p-6 flex flex-col items-center gap-3 transition-colors active:scale-95"
+          >
+            <ArrowUpCircle className="w-12 h-12 text-income stroke-[2px]" />
+            <span className="font-bold text-income text-lg">Ingreso</span>
+          </button>
+        </div>
+        <div className="px-4 pb-12 max-h-[40vh] overflow-y-auto custom-scrollbar">
+          {favorites.length > 0 && (
+            <>
+              <div className="flex items-center justify-between mb-4 mt-2 border-t border-border/10 pt-4">
+                <h4 className="text-sm font-bold text-muted-foreground flex items-center gap-2">
+                  <Zap className="w-4 h-4 text-primary" /> Gastos Rápidos
+                </h4>
+              </div>
+              <div className="grid grid-cols-3 gap-3">
+                {favorites.map((fav) => {
+                  const cat = categories.find((c) => c.name === fav.category)
+                  const IconComponent =
+                    (Icons as any)[fav.icon || cat?.icon || 'Tag'] || Icons.Tag
+                  const hasImage = Boolean(fav.customIcon || (!fav.icon && cat?.customIcon))
+                  const imageSrc = fav.customIcon || (!fav.icon ? cat?.customIcon : undefined)
+
+                  return (
+                    <DrawerClose asChild key={fav.id}>
+                      <button
+                        onClick={() =>
+                          navigate({
+                            to: '/' as any,
+                            search: { action: 'quick-expense', id: fav.id } as any,
+                          })
+                        }
+                        className="flex flex-col items-center gap-2 p-3 rounded-2xl border border-border/50 hover:bg-muted/50 active:scale-95 transition-all"
+                      >
+                        <div
+                          className="w-12 h-12 rounded-2xl flex items-center justify-center text-white overflow-hidden shadow-sm border border-border/40 shrink-0"
+                          style={{ backgroundColor: hasImage ? 'transparent' : (cat?.color || '#3b82f6') }}
+                        >
+                          {hasImage ? (
+                            <img src={imageSrc} alt={fav.name} className="w-full h-full object-cover" />
+                          ) : (
+                            <IconComponent className="w-6 h-6" />
+                          )}
+                        </div>
+                        <span className="text-[11px] font-bold text-center leading-tight truncate max-w-full">
+                          {fav.name}
+                        </span>
+                      </button>
+                    </DrawerClose>
+                  )
+                })}
+              </div>
+            </>
+          )}
+        </div>
+      </DrawerContent>
+    </Drawer>
+  )
+
+  const mobileSheetPillar = pillars.find((p) => p.id === activeSheetPillarId) ?? null
 
   return (
     <>
@@ -138,347 +338,441 @@ const MobileNav = () => {
         </div>
 
         {/* Main Navigation */}
-        <nav className="flex items-center gap-1.5">
-          {primaryNavItems.map((item) => {
-            const active = isActive(item.path, item.exact)
-            return (
-              <button
-                key={item.path}
-                onClick={() => navigate({ to: item.path } as any)}
-                className={cn(
-                  'px-4 py-2.5 rounded-xl font-bold transition-all duration-300 flex items-center gap-2 text-sm',
-                  active
-                    ? 'bg-primary text-primary-foreground shadow-md'
-                    : 'text-muted-foreground hover:bg-muted hover:text-foreground'
-                )}
-              >
-                <item.icon className="w-4 h-4" />
-                {item.label}
-              </button>
-            )
-          })}
+        {flags.exp_nav_v2 ? (
+          <nav className="flex items-center gap-1.5 relative">
+            {openDesktopPillar && (
+              <div
+                className="fixed inset-0 z-40"
+                onClick={() => setOpenDesktopPillar(null)}
+                aria-hidden="true"
+              />
+            )}
+            {pillars.map((pillar) => {
+              const isCurrentPillar = activePillar?.id === pillar.id
+              const isOpen = openDesktopPillar === pillar.id
 
-          {/* Desktop "Más" Dropdown */}
-          <div className="relative group/more">
-            <button className="px-4 py-2.5 rounded-xl font-bold transition-all duration-300 flex items-center gap-2 text-sm text-muted-foreground hover:bg-muted hover:text-foreground">
-              <MoreHorizontal className="w-4 h-4" />
-              Más
-              <ChevronDown className="w-3 h-3 opacity-50 group-hover/more:rotate-180 transition-transform" />
-            </button>
-            <div className="absolute top-full left-0 pt-2 w-56 z-50 opacity-0 translate-y-2 pointer-events-none group-hover/more:opacity-100 group-hover/more:translate-y-0 group-hover/more:pointer-events-auto transition-all duration-300">
-              <div className="bg-background/95 backdrop-blur-xl border border-border/50 rounded-2xl shadow-2xl p-2 grid gap-1">
-                {secondaryNavItems.map((item) => {
-                  const active = isActive(item.path, item.exact)
-                  return (
-                    <button
-                      key={item.path}
-                      onClick={() => navigate({ to: item.path } as any)}
+              if (pillar.path) {
+                return (
+                  <button
+                    key={pillar.id}
+                    type="button"
+                    onClick={() => {
+                      setOpenDesktopPillar(null)
+                      navigate({ to: pillar.path } as any)
+                    }}
+                    className={cn(
+                      'relative z-50 px-4 py-2.5 rounded-xl font-bold transition-all duration-300 flex items-center gap-2 text-sm',
+                      isCurrentPillar
+                        ? 'bg-primary text-primary-foreground shadow-md'
+                        : 'text-muted-foreground hover:bg-muted hover:text-foreground'
+                    )}
+                  >
+                    <pillar.icon className="w-4 h-4" />
+                    {pillar.label}
+                  </button>
+                )
+              }
+
+              return (
+                <div key={pillar.id} className="relative z-50">
+                  <button
+                    type="button"
+                    aria-expanded={isOpen}
+                    onClick={() =>
+                      setOpenDesktopPillar((prev) => (prev === pillar.id ? null : pillar.id))
+                    }
+                    className={cn(
+                      'px-4 py-2.5 rounded-xl font-bold transition-all duration-300 flex items-center gap-2 text-sm',
+                      isCurrentPillar
+                        ? 'bg-primary text-primary-foreground shadow-md'
+                        : isOpen
+                          ? 'bg-muted text-foreground'
+                          : 'text-muted-foreground hover:bg-muted hover:text-foreground'
+                    )}
+                  >
+                    <pillar.icon className="w-4 h-4" />
+                    {pillar.label}
+                    <ChevronDown
                       className={cn(
-                        'flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-bold transition-all text-left',
-                        active
-                          ? 'bg-primary/10 text-primary'
-                          : 'hover:bg-muted text-muted-foreground hover:text-foreground'
+                        'w-3 h-3 opacity-70 transition-transform duration-200',
+                        isOpen && 'rotate-180'
                       )}
-                    >
-                      <item.icon className="w-4 h-4" />
-                      {item.label}
-                    </button>
-                  )
-                })}
-              </div>
-            </div>
-          </div>
-        </nav>
+                    />
+                  </button>
+                  {isOpen && (
+                    <div className="absolute top-full left-0 pt-2 w-64 z-50">
+                      <div className="bg-background/95 backdrop-blur-xl border border-border/50 rounded-2xl shadow-2xl p-2 grid gap-1">
+                        {pillar.items.map((item) => {
+                          const active = isActive(item.path, item.exact)
+                          return (
+                            <button
+                              key={item.path}
+                              type="button"
+                              onClick={() => {
+                                setOpenDesktopPillar(null)
+                                navigate({ to: item.path } as any)
+                              }}
+                              className={cn(
+                                'flex items-start gap-3 px-3 py-2.5 rounded-xl text-left transition-all',
+                                active
+                                  ? 'bg-primary/10 text-primary'
+                                  : 'hover:bg-muted text-foreground/90'
+                              )}
+                            >
+                              <item.icon className="w-4 h-4 mt-0.5 shrink-0" />
+                              <div className="min-w-0">
+                                <div className="text-sm font-bold leading-tight">{item.label}</div>
+                                {item.description && (
+                                  <div className="text-[11px] text-muted-foreground leading-snug mt-0.5">
+                                    {item.description}
+                                  </div>
+                                )}
+                              </div>
+                            </button>
+                          )
+                        })}
+                      </div>
+                    </div>
+                  )}
+                </div>
+              )
+            })}
+          </nav>
+        ) : (
+          <nav className="flex items-center gap-1.5">
+            {primaryNavItems.map((item) => {
+              const active = isActive(item.path, item.exact)
+              return (
+                <button
+                  key={item.path}
+                  onClick={() => navigate({ to: item.path } as any)}
+                  className={cn(
+                    'px-4 py-2.5 rounded-xl font-bold transition-all duration-300 flex items-center gap-2 text-sm',
+                    active
+                      ? 'bg-primary text-primary-foreground shadow-md'
+                      : 'text-muted-foreground hover:bg-muted hover:text-foreground'
+                  )}
+                >
+                  <item.icon className="w-4 h-4" />
+                  {item.label}
+                </button>
+              )
+            })}
 
-        {/* Action Buttons */}
-        <div className="flex items-center gap-3">
-          {favorites.length > 0 && (
-            <div className="relative group/quick">
-              <button className="flex items-center gap-2 bg-primary/10 hover:bg-primary/20 text-primary px-4 py-2.5 rounded-xl font-bold transition-all duration-300 text-sm shadow-sm">
-                <Zap className="w-5 h-5 stroke-[2.5px]" /> Rápidos
+            {/* Desktop "Más" Dropdown */}
+            <div className="relative group/more">
+              <button className="px-4 py-2.5 rounded-xl font-bold transition-all duration-300 flex items-center gap-2 text-sm text-muted-foreground hover:bg-muted hover:text-foreground">
+                <MoreHorizontal className="w-4 h-4" />
+                Más
+                <ChevronDown className="w-3 h-3 opacity-50 group-hover/more:rotate-180 transition-transform" />
               </button>
-              <div className="absolute top-full right-0 pt-2 w-64 z-50 opacity-0 translate-y-2 pointer-events-none group-hover/quick:opacity-100 group-hover/quick:translate-y-0 group-hover/quick:pointer-events-auto transition-all duration-300">
-                <div className="bg-background/95 backdrop-blur-xl border border-border/50 rounded-2xl shadow-2xl p-2 grid gap-1 max-h-[400px] overflow-y-auto custom-scrollbar">
-                  {favorites.map((fav) => {
-                    const cat = categories.find((c) => c.name === fav.category)
-                    const IconComponent =
-                      (Icons as any)[fav.icon || cat?.icon || 'Tag'] || Icons.Tag
-                    const hasImage = Boolean(fav.customIcon || (!fav.icon && cat?.customIcon))
-                    const imageSrc = fav.customIcon || (!fav.icon ? cat?.customIcon : undefined)
-
+              <div className="absolute top-full left-0 pt-2 w-56 z-50 opacity-0 translate-y-2 pointer-events-none group-hover/more:opacity-100 group-hover/more:translate-y-0 group-hover/more:pointer-events-auto transition-all duration-300">
+                <div className="bg-background/95 backdrop-blur-xl border border-border/50 rounded-2xl shadow-2xl p-2 grid gap-1">
+                  {secondaryNavItems.map((item) => {
+                    const active = isActive(item.path, item.exact)
                     return (
                       <button
-                        key={fav.id}
-                        onClick={() =>
-                          navigate({
-                            to: '/' as any,
-                            search: { action: 'quick-expense', id: fav.id } as any,
-                          })
-                        }
-                        className="flex items-center gap-3 px-3 py-2 rounded-xl text-sm font-bold transition-all text-left group/item hover:bg-muted"
+                        key={item.path}
+                        onClick={() => navigate({ to: item.path } as any)}
+                        className={cn(
+                          'flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-bold transition-all text-left',
+                          active
+                            ? 'bg-primary/10 text-primary'
+                            : 'hover:bg-muted text-muted-foreground hover:text-foreground'
+                        )}
                       >
-                        <div
-                          className="w-8 h-8 rounded-lg flex items-center justify-center overflow-hidden shrink-0 shadow-sm border border-border/50 text-white"
-                          style={{ backgroundColor: hasImage ? 'transparent' : (cat?.color || '#3b82f6') }}
-                        >
-                          {hasImage ? (
-                            <img src={imageSrc} alt={fav.name} className="w-full h-full object-cover" />
-                          ) : (
-                            <IconComponent className="w-4 h-4" />
-                          )}
-                        </div>
-                        <span className="truncate flex-1 text-muted-foreground group-hover/item:text-foreground">
-                          {fav.name}
-                        </span>
+                        <item.icon className="w-4 h-4" />
+                        {item.label}
                       </button>
                     )
                   })}
                 </div>
               </div>
             </div>
-          )}
-          <button
-            onClick={() => navigate({ to: '/' as any, search: { action: 'add-income' } as any })}
-            className="flex items-center gap-2 bg-income/10 hover:bg-income hover:text-white text-income px-5 py-2.5 rounded-xl font-bold transition-all duration-300 text-sm shadow-sm active:scale-95"
-          >
-            <ArrowUpCircle className="w-5 h-5 stroke-[2.5px]" /> Ingreso
-          </button>
-          <button
-            onClick={() => navigate({ to: '/' as any, search: { action: 'add-expense' } as any })}
-            className="flex items-center gap-2 bg-expense/10 hover:bg-expense hover:text-white text-expense px-5 py-2.5 rounded-xl font-bold transition-all duration-300 text-sm shadow-sm active:scale-95"
-          >
-            <ArrowDownCircle className="w-5 h-5 stroke-[2.5px]" /> Gasto
-          </button>
-        </div>
+          </nav>
+        )}
+
+        {/* Action Buttons */}
+        {desktopActionButtons}
       </header>
 
       {/* BARRA INFERIOR MODERNA (Mobile Only) */}
-      <Sheet>
-        <nav
-          className="fixed bottom-0 left-0 right-0 z-50 h-[72px] bg-gradient-to-t from-background/95 via-background/85 to-transparent nav-blur-fade px-2 pb-safe lg:hidden transition-all duration-300 border-t border-border/10"
+      {flags.exp_nav_v2 ? (
+        <Sheet
+          open={activeSheetPillarId !== null}
+          onOpenChange={(open) => {
+            if (!open) setActiveSheetPillarId(null)
+          }}
         >
-          <div className="grid h-full grid-cols-5 max-w-lg mx-auto items-center">
-            <button
-              onClick={() => navigate({ to: '/' } as any)}
-              className="flex flex-col items-center justify-center relative group h-full"
-            >
-              <div
-                className={cn(
-                  'p-2 rounded-xl transition-all duration-500',
-                  isActive('/', true)
-                    ? 'text-primary scale-110'
-                    : 'text-muted-foreground/60 group-hover:text-primary'
-                )}
-              >
-                <Home className={cn('w-5 h-5', isActive('/', true) && 'stroke-[2.5px]')} />
-              </div>
-              <span
-                className={cn(
-                  'text-[10px] font-bold mt-0.5',
-                  isActive('/', true) ? 'text-primary' : 'text-muted-foreground/50'
-                )}
-              >
-                Inicio
-              </span>
-            </button>
-
-            <button
-              onClick={() => navigate({ to: '/presupuestos' } as any)}
-              className="flex flex-col items-center justify-center relative group h-full"
-            >
-              <div
-                className={cn(
-                  'p-2 rounded-xl transition-all duration-500',
-                  isActive('/presupuestos')
-                    ? 'text-primary scale-110'
-                    : 'text-muted-foreground/60 group-hover:text-primary'
-                )}
-              >
-                <PiggyBank
-                  className={cn('w-5 h-5', isActive('/presupuestos') && 'stroke-[2.5px]')}
-                />
-              </div>
-              <span
-                className={cn(
-                  'text-[10px] font-bold mt-0.5',
-                  isActive('/presupuestos') ? 'text-primary' : 'text-muted-foreground/50'
-                )}
-              >
-                Presup.
-              </span>
-            </button>
-
-            {/* BOTÓN GIGANTE CENTRAL */}
-            <Drawer>
-              <DrawerTrigger asChild>
-                <div className="flex flex-col items-center justify-center h-full -mt-6">
-                  <button className="bg-primary text-primary-foreground rounded-full p-4 shadow-xl shadow-primary/30 active:scale-95 transition-transform">
-                    <Plus className="w-8 h-8 stroke-[3px]" />
-                  </button>
-                </div>
-              </DrawerTrigger>
-              <DrawerContent>
-                <DrawerHeader className="relative">
-                  <DrawerTitle className="text-center text-xl">¿Qué quieres añadir?</DrawerTitle>
-                  <DrawerClose asChild>
-                    <Button
-                      variant="ghost"
-                      size="icon"
-                      className="absolute right-4 top-4 h-8 w-8 rounded-full bg-muted/50 hover:bg-muted"
-                    >
-                      <X className="h-4 w-4" />
-                    </Button>
-                  </DrawerClose>
-                </DrawerHeader>
-                <div className="p-4 flex gap-4">
-                  <button
-                    onClick={() => {
-                      document.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape' }))
-                      navigate({ to: '/' as any, search: { action: 'add-expense' } as any })
-                    }}
-                    className="flex-1 bg-expense/10 hover:bg-expense/20 border-2 border-expense/20 rounded-2xl p-6 flex flex-col items-center gap-3 transition-colors active:scale-95"
-                  >
-                    <ArrowDownCircle className="w-12 h-12 text-expense stroke-[2px]" />
-                    <span className="font-bold text-expense text-lg">Gasto</span>
-                  </button>
-                  <button
-                    onClick={() => {
-                      document.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape' }))
-                      navigate({ to: '/' as any, search: { action: 'add-income' } as any })
-                    }}
-                    className="flex-1 bg-income/10 hover:bg-income/20 border-2 border-income/20 rounded-2xl p-6 flex flex-col items-center gap-3 transition-colors active:scale-95"
-                  >
-                    <ArrowUpCircle className="w-12 h-12 text-income stroke-[2px]" />
-                    <span className="font-bold text-income text-lg">Ingreso</span>
-                  </button>
-                </div>
-                <div className="px-4 pb-12 max-h-[40vh] overflow-y-auto custom-scrollbar">
-                  {favorites.length > 0 && (
-                    <>
-                      <div className="flex items-center justify-between mb-4 mt-2 border-t border-border/10 pt-4">
-                        <h4 className="text-sm font-bold text-muted-foreground flex items-center gap-2">
-                          <Zap className="w-4 h-4 text-primary" /> Gastos Rápidos
-                        </h4>
-                      </div>
-                      <div className="grid grid-cols-3 gap-3">
-                        {favorites.map((fav) => {
-                          const cat = categories.find((c) => c.name === fav.category)
-                          const IconComponent =
-                            (Icons as any)[fav.icon || cat?.icon || 'Tag'] || Icons.Tag
-                          const hasImage = Boolean(fav.customIcon || (!fav.icon && cat?.customIcon))
-                          const imageSrc = fav.customIcon || (!fav.icon ? cat?.customIcon : undefined)
-
-                          return (
-                            <DrawerClose asChild key={fav.id}>
-                              <button
-                                onClick={() =>
-                                  navigate({
-                                    to: '/' as any,
-                                    search: { action: 'quick-expense', id: fav.id } as any,
-                                  })
-                                }
-                                className="flex flex-col items-center gap-2 p-3 rounded-2xl border border-border/50 hover:bg-muted/50 active:scale-95 transition-all"
-                              >
-                                <div
-                                  className="w-12 h-12 rounded-2xl flex items-center justify-center text-white overflow-hidden shadow-sm border border-border/40 shrink-0"
-                                  style={{ backgroundColor: hasImage ? 'transparent' : (cat?.color || '#3b82f6') }}
-                                >
-                                  {hasImage ? (
-                                    <img src={imageSrc} alt={fav.name} className="w-full h-full object-cover" />
-                                  ) : (
-                                    <IconComponent className="w-6 h-6" />
-                                  )}
-                                </div>
-                                <span className="text-[11px] font-bold text-center leading-tight truncate max-w-full">
-                                  {fav.name}
-                                </span>
-                              </button>
-                            </DrawerClose>
-                          )
-                        })}
-                      </div>
-                    </>
-                  )}
-                </div>
-              </DrawerContent>
-            </Drawer>
-
-            <button
-              onClick={() => navigate({ to: '/comparativa' } as any)}
-              className="flex flex-col items-center justify-center relative group h-full"
-            >
-              <div
-                className={cn(
-                  'p-2 rounded-xl transition-all duration-500',
-                  isActive('/comparativa')
-                    ? 'text-primary scale-110'
-                    : 'text-muted-foreground/60 group-hover:text-primary'
-                )}
-              >
-                <Scale className={cn('w-5 h-5', isActive('/comparativa') && 'stroke-[2.5px]')} />
-              </div>
-              <span
-                className={cn(
-                  'text-[10px] font-bold mt-0.5',
-                  isActive('/comparativa') ? 'text-primary' : 'text-muted-foreground/50'
-                )}
-              >
-                Cuadrar
-              </span>
-            </button>
-
-            <SheetTrigger asChild>
-              <button className="flex flex-col items-center justify-center relative group h-full">
-                <div className="p-2 rounded-xl text-muted-foreground/60 group-hover:text-primary transition-all duration-500 relative">
-                  <Menu className="w-5 h-5" />
-                </div>
-                <span className="text-[10px] font-bold mt-0.5 text-muted-foreground/50">Menú</span>
-              </button>
-            </SheetTrigger>
-          </div>
-        </nav>
-
-        <SheetContent
-          side="bottom"
-          className="h-[85vh] rounded-t-3xl border-t border-border/20 bg-background/95 backdrop-blur-3xl p-0 flex flex-col lg:hidden"
-        >
-          <SheetHeader className="p-6 border-b border-border/10 shrink-0">
-            <SheetTitle className="text-2xl font-black flex items-center justify-center gap-3 tracking-tighter">
-              <div className="p-2 bg-primary/10 rounded-xl">
-                <Menu className="w-6 h-6 text-primary" />
-              </div>
-              <span className="bg-clip-text text-transparent bg-gradient-to-br from-foreground to-foreground/60">
-                Menú Principal
-              </span>
-            </SheetTitle>
-          </SheetHeader>
-          <div className="flex-1 overflow-y-auto py-4 px-4 custom-scrollbar flex flex-col">
-            <div className="grid grid-cols-2 gap-3 content-start">
-              {allDrawerNavItems.map((item) => {
-                const active = isActive(item.path, item.exact)
+          <nav className="fixed bottom-0 left-0 right-0 z-50 h-[72px] bg-gradient-to-t from-background/95 via-background/85 to-transparent nav-blur-fade px-2 pb-safe lg:hidden transition-all duration-300 border-t border-border/10">
+            <div className="grid h-full grid-cols-5 max-w-lg mx-auto items-center">
+              {pillars.slice(0, 2).map((pillar) => {
+                const isCurrent = activePillar?.id === pillar.id
                 return (
-                  <SheetClose asChild key={item.path}>
-                    <button
-                      onClick={() => navigate({ to: item.path } as any)}
+                  <button
+                    key={pillar.id}
+                    type="button"
+                    onClick={() => {
+                      if (pillar.path) {
+                        setActiveSheetPillarId(null)
+                        navigate({ to: pillar.path } as any)
+                      } else {
+                        setActiveSheetPillarId(pillar.id)
+                      }
+                    }}
+                    className="flex flex-col items-center justify-center relative group h-full"
+                  >
+                    <div
                       className={cn(
-                        'flex flex-col items-center justify-center gap-2 p-4 rounded-2xl transition-all duration-300 font-bold group w-full text-center border',
-                        active
-                          ? 'bg-primary/10 text-primary border-primary/20 shadow-sm'
-                          : 'bg-card text-muted-foreground hover:bg-primary/5 hover:text-primary border-border/50 active:scale-95'
+                        'p-2 rounded-xl transition-all duration-300',
+                        isCurrent
+                          ? 'text-primary scale-110'
+                          : 'text-muted-foreground/60 group-hover:text-primary'
                       )}
                     >
-                      <div className="relative">
-                        <item.icon className={cn('w-6 h-6', active && 'stroke-[2.5px]')} />
-                      </div>
-                      <span className="text-xs uppercase tracking-[0.1em]">{item.label}</span>
-                    </button>
-                  </SheetClose>
+                      <pillar.icon className={cn('w-5 h-5', isCurrent && 'stroke-[2.5px]')} />
+                    </div>
+                    <span
+                      className={cn(
+                        'text-[10px] font-bold mt-0.5',
+                        isCurrent ? 'text-primary' : 'text-muted-foreground/50'
+                      )}
+                    >
+                      {pillar.label}
+                    </span>
+                  </button>
+                )
+              })}
+
+              {mobileFabDrawer}
+
+              {pillars.slice(2, 4).map((pillar) => {
+                const isCurrent = activePillar?.id === pillar.id
+                return (
+                  <button
+                    key={pillar.id}
+                    type="button"
+                    onClick={() => setActiveSheetPillarId(pillar.id)}
+                    className="flex flex-col items-center justify-center relative group h-full"
+                  >
+                    <div
+                      className={cn(
+                        'p-2 rounded-xl transition-all duration-300',
+                        isCurrent
+                          ? 'text-primary scale-110'
+                          : 'text-muted-foreground/60 group-hover:text-primary'
+                      )}
+                    >
+                      <pillar.icon className={cn('w-5 h-5', isCurrent && 'stroke-[2.5px]')} />
+                    </div>
+                    <span
+                      className={cn(
+                        'text-[10px] font-bold mt-0.5',
+                        isCurrent ? 'text-primary' : 'text-muted-foreground/50'
+                      )}
+                    >
+                      {pillar.label}
+                    </span>
+                  </button>
                 )
               })}
             </div>
-          </div>
-        </SheetContent>
-      </Sheet>
+          </nav>
+
+          <SheetContent
+            side="bottom"
+            className="max-h-[75vh] rounded-t-3xl border-t border-border/20 bg-background/95 backdrop-blur-3xl p-0 flex flex-col lg:hidden"
+          >
+            {mobileSheetPillar && (
+              <>
+                <SheetHeader className="p-5 border-b border-border/10 shrink-0">
+                  <SheetTitle className="text-xl font-black flex items-center justify-center gap-2.5 tracking-tight">
+                    <div className="p-2 bg-primary/10 rounded-xl">
+                      <mobileSheetPillar.icon className="w-5 h-5 text-primary" />
+                    </div>
+                    <span>{mobileSheetPillar.label}</span>
+                  </SheetTitle>
+                </SheetHeader>
+                <div className="flex-1 overflow-y-auto py-4 px-4 custom-scrollbar">
+                  <div className="grid gap-2.5">
+                    {mobileSheetPillar.items.map((item) => {
+                      const active = isActive(item.path, item.exact)
+                      return (
+                        <button
+                          key={item.path}
+                          type="button"
+                          onClick={() => {
+                            setActiveSheetPillarId(null)
+                            navigate({ to: item.path } as any)
+                          }}
+                          className={cn(
+                            'flex items-center gap-3.5 p-3.5 rounded-2xl transition-all text-left border',
+                            active
+                              ? 'bg-primary/10 text-primary border-primary/25 shadow-sm'
+                              : 'bg-card text-foreground hover:bg-primary/5 border-border/50 active:scale-[0.99]'
+                          )}
+                        >
+                          <div
+                            className={cn(
+                              'p-2.5 rounded-xl shrink-0',
+                              active ? 'bg-primary text-primary-foreground' : 'bg-muted text-muted-foreground'
+                            )}
+                          >
+                            <item.icon className="w-5 h-5" />
+                          </div>
+                          <div className="min-w-0 flex-1">
+                            <div className="text-sm font-bold leading-tight">{item.label}</div>
+                            {item.description && (
+                              <div className="text-xs text-muted-foreground mt-0.5 leading-snug">
+                                {item.description}
+                              </div>
+                            )}
+                          </div>
+                        </button>
+                      )
+                    })}
+                  </div>
+                </div>
+              </>
+            )}
+          </SheetContent>
+        </Sheet>
+      ) : (
+        <Sheet>
+          <nav
+            className="fixed bottom-0 left-0 right-0 z-50 h-[72px] bg-gradient-to-t from-background/95 via-background/85 to-transparent nav-blur-fade px-2 pb-safe lg:hidden transition-all duration-300 border-t border-border/10"
+          >
+            <div className="grid h-full grid-cols-5 max-w-lg mx-auto items-center">
+              <button
+                onClick={() => navigate({ to: '/' } as any)}
+                className="flex flex-col items-center justify-center relative group h-full"
+              >
+                <div
+                  className={cn(
+                    'p-2 rounded-xl transition-all duration-500',
+                    isActive('/', true)
+                      ? 'text-primary scale-110'
+                      : 'text-muted-foreground/60 group-hover:text-primary'
+                  )}
+                >
+                  <Home className={cn('w-5 h-5', isActive('/', true) && 'stroke-[2.5px]')} />
+                </div>
+                <span
+                  className={cn(
+                    'text-[10px] font-bold mt-0.5',
+                    isActive('/', true) ? 'text-primary' : 'text-muted-foreground/50'
+                  )}
+                >
+                  Inicio
+                </span>
+              </button>
+
+              <button
+                onClick={() => navigate({ to: '/presupuestos' } as any)}
+                className="flex flex-col items-center justify-center relative group h-full"
+              >
+                <div
+                  className={cn(
+                    'p-2 rounded-xl transition-all duration-500',
+                    isActive('/presupuestos')
+                      ? 'text-primary scale-110'
+                      : 'text-muted-foreground/60 group-hover:text-primary'
+                  )}
+                >
+                  <PiggyBank
+                    className={cn('w-5 h-5', isActive('/presupuestos') && 'stroke-[2.5px]')}
+                  />
+                </div>
+                <span
+                  className={cn(
+                    'text-[10px] font-bold mt-0.5',
+                    isActive('/presupuestos') ? 'text-primary' : 'text-muted-foreground/50'
+                  )}
+                >
+                  Presup.
+                </span>
+              </button>
+
+              {/* BOTÓN GIGANTE CENTRAL */}
+              {mobileFabDrawer}
+
+              <button
+                onClick={() => navigate({ to: '/comparativa' } as any)}
+                className="flex flex-col items-center justify-center relative group h-full"
+              >
+                <div
+                  className={cn(
+                    'p-2 rounded-xl transition-all duration-500',
+                    isActive('/comparativa')
+                      ? 'text-primary scale-110'
+                      : 'text-muted-foreground/60 group-hover:text-primary'
+                  )}
+                >
+                  <Scale className={cn('w-5 h-5', isActive('/comparativa') && 'stroke-[2.5px]')} />
+                </div>
+                <span
+                  className={cn(
+                    'text-[10px] font-bold mt-0.5',
+                    isActive('/comparativa') ? 'text-primary' : 'text-muted-foreground/50'
+                  )}
+                >
+                  Cuadrar
+                </span>
+              </button>
+
+              <SheetTrigger asChild>
+                <button className="flex flex-col items-center justify-center relative group h-full">
+                  <div className="p-2 rounded-xl text-muted-foreground/60 group-hover:text-primary transition-all duration-500 relative">
+                    <Menu className="w-5 h-5" />
+                  </div>
+                  <span className="text-[10px] font-bold mt-0.5 text-muted-foreground/50">Menú</span>
+                </button>
+              </SheetTrigger>
+            </div>
+          </nav>
+
+          <SheetContent
+            side="bottom"
+            className="h-[85vh] rounded-t-3xl border-t border-border/20 bg-background/95 backdrop-blur-3xl p-0 flex flex-col lg:hidden"
+          >
+            <SheetHeader className="p-6 border-b border-border/10 shrink-0">
+              <SheetTitle className="text-2xl font-black flex items-center justify-center gap-3 tracking-tighter">
+                <div className="p-2 bg-primary/10 rounded-xl">
+                  <Menu className="w-6 h-6 text-primary" />
+                </div>
+                <span className="bg-clip-text text-transparent bg-gradient-to-br from-foreground to-foreground/60">
+                  Menú Principal
+                </span>
+              </SheetTitle>
+            </SheetHeader>
+            <div className="flex-1 overflow-y-auto py-4 px-4 custom-scrollbar flex flex-col">
+              <div className="grid grid-cols-2 gap-3 content-start">
+                {allDrawerNavItems.map((item) => {
+                  const active = isActive(item.path, item.exact)
+                  return (
+                    <SheetClose asChild key={item.path}>
+                      <button
+                        onClick={() => navigate({ to: item.path } as any)}
+                        className={cn(
+                          'flex flex-col items-center justify-center gap-2 p-4 rounded-2xl transition-all duration-300 font-bold group w-full text-center border',
+                          active
+                            ? 'bg-primary/10 text-primary border-primary/20 shadow-sm'
+                            : 'bg-card text-muted-foreground hover:bg-primary/5 hover:text-primary border-border/50 active:scale-95'
+                        )}
+                      >
+                        <div className="relative">
+                          <item.icon className={cn('w-6 h-6', active && 'stroke-[2.5px]')} />
+                        </div>
+                        <span className="text-xs uppercase tracking-[0.1em]">{item.label}</span>
+                      </button>
+                    </SheetClose>
+                  )
+                })}
+              </div>
+            </div>
+          </SheetContent>
+        </Sheet>
+      )}
     </>
   )
 }

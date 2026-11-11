@@ -23,6 +23,7 @@ import { Route as AppHistorialRouteImport } from './routes/_app.historial'
 import { Route as AppPrestamosRouteImport } from './routes/_app.prestamos'
 import { Route as AppPresupuestosRouteImport } from './routes/_app.presupuestos'
 import { Route as AppProximosRouteImport } from './routes/_app.proximos'
+import { Route as AppSimuladorRouteImport } from './routes/_app.simulador'
 import { Route as AppTransferirRouteImport } from './routes/_app.transferir'
 
 const AppRoute = AppRouteImport.update({
@@ -94,6 +95,11 @@ const AppProximosRoute = AppProximosRouteImport.update({
   path: '/proximos',
   getParentRoute: () => AppRoute,
 } as any)
+const AppSimuladorRoute = AppSimuladorRouteImport.update({
+  id: '/simulador',
+  path: '/simulador',
+  getParentRoute: () => AppRoute,
+} as any)
 const AppTransferirRoute = AppTransferirRouteImport.update({
   id: '/transferir',
   path: '/transferir',
@@ -114,6 +120,7 @@ export interface FileRoutesByFullPath {
   '/prestamos': typeof AppPrestamosRoute
   '/presupuestos': typeof AppPresupuestosRoute
   '/proximos': typeof AppProximosRoute
+  '/simulador': typeof AppSimuladorRoute
   '/transferir': typeof AppTransferirRoute
 }
 export interface FileRoutesByTo {
@@ -129,6 +136,7 @@ export interface FileRoutesByTo {
   '/prestamos': typeof AppPrestamosRoute
   '/presupuestos': typeof AppPresupuestosRoute
   '/proximos': typeof AppProximosRoute
+  '/simulador': typeof AppSimuladorRoute
   '/transferir': typeof AppTransferirRoute
   '/': typeof AppIndexRoute
 }
@@ -147,6 +155,7 @@ export interface FileRoutesById {
   '/_app/prestamos': typeof AppPrestamosRoute
   '/_app/presupuestos': typeof AppPresupuestosRoute
   '/_app/proximos': typeof AppProximosRoute
+  '/_app/simulador': typeof AppSimuladorRoute
   '/_app/transferir': typeof AppTransferirRoute
   '/_app/': typeof AppIndexRoute
 }
@@ -166,6 +175,7 @@ export interface FileRouteTypes {
     | '/prestamos'
     | '/presupuestos'
     | '/proximos'
+    | '/simulador'
     | '/transferir'
   fileRoutesByTo: FileRoutesByTo
   to:
@@ -181,6 +191,7 @@ export interface FileRouteTypes {
     | '/prestamos'
     | '/presupuestos'
     | '/proximos'
+    | '/simulador'
     | '/transferir'
     | '/'
   id:
@@ -198,6 +209,7 @@ export interface FileRouteTypes {
     | '/_app/prestamos'
     | '/_app/presupuestos'
     | '/_app/proximos'
+    | '/_app/simulador'
     | '/_app/transferir'
     | '/_app/'
   fileRoutesById: FileRoutesById
@@ -306,6 +318,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AppProximosRouteImport
       parentRoute: typeof AppRoute
     }
+    '/_app/simulador': {
+      id: '/_app/simulador'
+      path: '/simulador'
+      fullPath: '/simulador'
+      preLoaderRoute: typeof AppSimuladorRouteImport
+      parentRoute: typeof AppRoute
+    }
     '/_app/transferir': {
       id: '/_app/transferir'
       path: '/transferir'
@@ -329,6 +348,7 @@ interface AppRouteChildren {
   AppPrestamosRoute: typeof AppPrestamosRoute
   AppPresupuestosRoute: typeof AppPresupuestosRoute
   AppProximosRoute: typeof AppProximosRoute
+  AppSimuladorRoute: typeof AppSimuladorRoute
   AppTransferirRoute: typeof AppTransferirRoute
   AppIndexRoute: typeof AppIndexRoute
 }
@@ -346,6 +366,7 @@ const AppRouteChildren: AppRouteChildren = {
   AppPrestamosRoute: AppPrestamosRoute,
   AppPresupuestosRoute: AppPresupuestosRoute,
   AppProximosRoute: AppProximosRoute,
+  AppSimuladorRoute: AppSimuladorRoute,
   AppTransferirRoute: AppTransferirRoute,
   AppIndexRoute: AppIndexRoute,
 }

@@ -13,6 +13,9 @@ import { useAccounts } from '@/hooks/useAccounts';
 import { useTransactions } from '@/hooks/useTransactions';
 import { useCategories } from '@/hooks/useCategories';
 import { useScrollOnFocus } from '@/hooks/useScrollOnFocus';
+import { useFeatureFlags } from '@/hooks/useFeatureFlags';
+import { SmartReconcilePanel } from '@/components/SmartReconcilePanel';
+import { HistoryTemplateSuggestion } from '@/lib/smartReconcile';
 import { withKeyboardClose, parseAmount } from '@/lib/utils';
 
 interface Adjustment {
@@ -26,13 +29,16 @@ interface Adjustment {
 const ComparisonPage = () => {
     const navigate = useNavigate();
     const scrollOnFocus = useScrollOnFocus();
+    const { flags } = useFeatureFlags();
+    const isSmartReconcile = flags.exp_smart_reconcile;
     const { accounts, isLoading: isAccLoading } = useAccounts();
-    const { transactions, addTransaction: rqAddTransaction, isLoading: isTxLoading } = useTransactions();
+    const { transactions, addTransaction: rqAddTransaction, updateTransaction: rqUpdateTransaction, isLoading: isTxLoading } = useTransactions();
     const { categories, isLoading: isCatLoading } = useCategories();
 
     const [activeAccountId, setActiveAccountId] = useState('');
     const [realBalances, setRealBalances] = useState<Record<string, string>>({});
     const [adjustments, setAdjustments] = useState<Record<string, Adjustment[]>>({});
+    const [stagedPending, setStagedPending] = useState<Record<string, Transaction[]>>({});
     const [newAmount, setNewAmount] = useState('');
     const [newCategory, setNewCategory] = useState('');
     const [newDescription, setNewDescription] = useState('');
@@ -121,7 +127,14 @@ const ComparisonPage = () => {
             });
         });
 
-        if (allAdjustments.length > 0) {
+        const stagedToConfirm = isSmartReconcile
+            ? Object.values(stagedPending).flat()
+            : [];
+
+        if (allAdjustments.length > 0 || stagedToConfirm.length > 0) {
+            for (const tx of stagedToConfirm) {
+                await rqUpdateTransaction({ id: tx.id, isPending: false });
+            }
             for (const adj of allAdjustments) {
                 await rqAddTransaction(adj);
             }
@@ -130,11 +143,49 @@ const ComparisonPage = () => {
         }
     };
 
+    const handleStagePending = (txs: Transaction[]) => {
+        if (!activeAccountId) return;
+        setStagedPending(prev => {
+            const current = prev[activeAccountId] || [];
+            const existingIds = new Set(current.map(t => t.id));
+            const toAdd = txs.filter(t => !existingIds.has(t.id));
+            return { ...prev, [activeAccountId]: [...current, ...toAdd] };
+        });
+    };
+
+    const handleUnstagePending = (txId: string) => {
+        if (!activeAccountId) return;
+        setStagedPending(prev => ({
+            ...prev,
+            [activeAccountId]: (prev[activeAccountId] || []).filter(t => t.id !== txId),
+        }));
+    };
+
+    const handleAddTemplateAdjustment = (tpl: HistoryTemplateSuggestion) => {
+        if (!activeAccountId) return;
+        const adjustment: Adjustment = {
+            id: crypto.randomUUID(),
+            type: tpl.type,
+            amount: tpl.amount,
+            category: tpl.category,
+            description: tpl.description,
+        };
+        setAdjustments(prev => ({
+            ...prev,
+            [activeAccountId]: [...(prev[activeAccountId] || []), adjustment],
+        }));
+    };
+
     const totalAdjustments = (adjustments[activeAccountId] || []).reduce((sum, adj) => {
         return adj.type === 'income' ? sum + adj.amount : sum - adj.amount;
     }, 0);
 
-    const adjustedBalance = currentBalance + totalAdjustments;
+    const activeStagedPending = isSmartReconcile ? (stagedPending[activeAccountId] || []) : [];
+    const pendingConfirmImpact = activeStagedPending.reduce((sum, tx) => {
+        return tx.type === 'income' ? sum + tx.amount : sum - tx.amount;
+    }, 0);
+
+    const adjustedBalance = currentBalance + totalAdjustments + pendingConfirmImpact;
     const realBalanceNum = parseAmount(realBalance);
     const difference = realBalanceNum - adjustedBalance;
     const hasDifference = Math.abs(difference) > 0.01;
@@ -142,16 +193,21 @@ const ComparisonPage = () => {
     // Check if all accounts are balanced
     const allAccountBalances = accounts.map(account => {
         const adj = (adjustments[account.id] || []).reduce((s, a) => a.type === 'income' ? s + a.amount : s - a.amount, 0);
+        const pend = isSmartReconcile
+            ? (stagedPending[account.id] || []).reduce((s, t) => t.type === 'income' ? s + t.amount : s - t.amount, 0)
+            : 0;
         const balance = calculateAccountBalance(account, transactions);
         const real = parseAmount(realBalances[account.id] || '0');
         return {
             accountId: account.id,
-            isBalanced: realBalances[account.id] !== '' && Math.abs(real - (balance + adj)) < 0.01,
-            hasAdjustments: (adjustments[account.id] || []).length > 0,
+            isBalanced: realBalances[account.id] !== '' && Math.abs(real - (balance + adj + pend)) < 0.01,
+            hasAdjustments: (adjustments[account.id] || []).length > 0 || (isSmartReconcile && (stagedPending[account.id] || []).length > 0),
         };
     });
 
-    const hasAnyAdjustments = Object.values(adjustments).some(adj => adj.length > 0);
+    const hasAnyAdjustments =
+        Object.values(adjustments).some(adj => adj.length > 0) ||
+        (isSmartReconcile && Object.values(stagedPending).some(list => list.length > 0));
     const atLeastOneBalanced = allAccountBalances.some(ab => ab.isBalanced && ab.hasAdjustments);
 
     if (isAccLoading || isTxLoading || isCatLoading) {
@@ -249,6 +305,22 @@ const ComparisonPage = () => {
                             )}
                         </CardContent>
                     </Card>
+
+                    {/* Experimental Smart Reconcile Panel */}
+                    {isSmartReconcile && activeAccountId && (
+                        <SmartReconcilePanel
+                            transactions={transactions}
+                            accountId={activeAccountId}
+                            realBalanceEntered={realBalance.trim() !== ''}
+                            difference={difference}
+                            hasDifference={hasDifference}
+                            stagedPending={activeStagedPending}
+                            onStagePending={handleStagePending}
+                            onUnstagePending={handleUnstagePending}
+                            onAddTemplateAdjustment={handleAddTemplateAdjustment}
+                            onPrefillRemainingAmount={(amt) => setNewAmount(amt.toFixed(2))}
+                        />
+                    )}
 
                     {/* Add adjustments section */}
                     <Card>

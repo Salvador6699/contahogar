@@ -52,10 +52,15 @@ import { HomeDiagnosisWidget } from "@/components/HomeDiagnosisWidget";
 import { HomeBudgetWidget } from "@/components/HomeBudgetWidget";
 import { IntramesAlertBanner } from "@/components/IntramesAlertBanner";
 import { AccountCoverageWidget } from "@/components/AccountCoverageWidget";
+import { HomeCompactPulse } from "@/components/HomeCompactPulse";
+import { DailyBudgetCard } from "@/components/DailyBudgetCard";
 import { PushPermissionBanner } from "@/components/PushPermissionBanner";
+import { useFeatureFlags } from "@/hooks/useFeatureFlags";
 
 const Index = () => {
   const navigate = useNavigate();
+  const { flags } = useFeatureFlags();
+  const isCompactHome = flags.exp_compact_home;
 
   const { accounts, isLoading: accountsLoading } = useAccounts();
   const { transactions, addTransaction: rqAddTransaction, updateTransaction: rqUpdateTransaction, deleteTransaction: rqDeleteTransaction, isLoading: transactionsLoading } = useTransactions();
@@ -749,7 +754,7 @@ const Index = () => {
 
   return (
     <>
-      <div className="w-full">
+      <div className={cn("w-full", isCompactHome && "tabular-nums")}>
         <div className="w-full max-w-full mx-auto px-4 lg:px-12 py-6 sm:py-8 transition-all duration-500 pb-32">
           <PushPermissionBanner />
           <div className="mb-6 sm:mb-8">
@@ -801,49 +806,74 @@ const Index = () => {
             />
           </div>
 
-          <div className="flex flex-col gap-6 lg:gap-8 mb-8">
+          <div className={cn("flex flex-col mb-8", isCompactHome ? "gap-4 lg:gap-6" : "gap-6 lg:gap-8")}>
             {/* Top Row: Hero Balance */}
             <div className="w-full">
               <BalanceCard
                 balance={balance}
                 projectedBalance={projectedBalance}
+                compact={isCompactHome}
               />
             </div>
 
-            {/* Alert Banner: Descubierto intrames por orden cronológico */}
-            <IntramesAlertBanner
-              alerts={intramesAlerts}
-              selectedAccount={selectedAccount}
-              onSelectAccount={setSelectedAccount}
-            />
-
-            {/* Smart Compact Alert Banner: Diagnóstico y Ritmo vs Mes Anterior */}
-            {isCurrentMonth && (
-              <HomeDiagnosisWidget
-                transactions={data.transactions}
-                categories={data.categories}
+            {flags.exp_daily_budget && isCurrentMonth && (
+              <DailyBudgetCard
                 accounts={data.accounts}
+                transactions={data.transactions}
+                budgets={data.budgets}
               />
             )}
 
-            {/* Smart Compact Alert Banner: Cumplimiento de Presupuestos del Mes */}
-            {isCurrentMonth && (
-              <HomeBudgetWidget
+            {isCompactHome ? (
+              <HomeCompactPulse
                 transactions={data.transactions}
                 categories={data.categories}
                 budgets={data.budgets}
                 accounts={data.accounts}
+                intramesAlerts={intramesAlerts}
+                monthKey={balanceMonthKey}
+                isCurrentMonth={isCurrentMonth}
+                selectedAccount={selectedAccount}
+                onSelectAccount={setSelectedAccount}
               />
-            )}
+            ) : (
+              <>
+                {/* Alert Banner: Descubierto intrames por orden cronológico */}
+                <IntramesAlertBanner
+                  alerts={intramesAlerts}
+                  selectedAccount={selectedAccount}
+                  onSelectAccount={setSelectedAccount}
+                />
 
-            {/* Smart Compact Banner: Cobertura mensual por cuenta */}
-            <AccountCoverageWidget
-              accounts={data.accounts}
-              transactions={data.transactions}
-              monthKey={balanceMonthKey}
-              selectedAccount={selectedAccount}
-              onSelectAccount={setSelectedAccount}
-            />
+                {/* Smart Compact Alert Banner: Diagnóstico y Ritmo vs Mes Anterior */}
+                {isCurrentMonth && (
+                  <HomeDiagnosisWidget
+                    transactions={data.transactions}
+                    categories={data.categories}
+                    accounts={data.accounts}
+                  />
+                )}
+
+                {/* Smart Compact Alert Banner: Cumplimiento de Presupuestos del Mes */}
+                {isCurrentMonth && (
+                  <HomeBudgetWidget
+                    transactions={data.transactions}
+                    categories={data.categories}
+                    budgets={data.budgets}
+                    accounts={data.accounts}
+                  />
+                )}
+
+                {/* Smart Compact Banner: Cobertura mensual por cuenta */}
+                <AccountCoverageWidget
+                  accounts={data.accounts}
+                  transactions={data.transactions}
+                  monthKey={balanceMonthKey}
+                  selectedAccount={selectedAccount}
+                  onSelectAccount={setSelectedAccount}
+                />
+              </>
+            )}
 
             {/* Draggable Widgets Area */}
             <DndContext 

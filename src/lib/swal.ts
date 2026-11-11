@@ -9,7 +9,6 @@ export const Toast = MySwal.mixin({
   showConfirmButton: false,
   timer: 3000,
   timerProgressBar: true,
-  backdrop: false,
   customClass: {
     popup: 'swal-toast-popup',
     title: 'swal-toast-title',

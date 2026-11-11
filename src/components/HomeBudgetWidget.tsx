@@ -1,36 +1,21 @@
-import { useState, useMemo, useEffect } from 'react'
+import { useState, useMemo } from 'react'
 import { useNavigate } from '@tanstack/react-router'
 import {
-  format,
-  getDate,
-  getDaysInMonth,
-  addMonths,
-} from 'date-fns'
-import { es } from 'date-fns/locale'
-import {
   Target,
-  AlertCircle,
   CheckCircle2,
   ChevronDown,
   ChevronUp,
   ArrowRight,
-  Clock,
   Calendar,
   Wallet,
   Tag,
   AlertTriangle,
 } from 'lucide-react'
 import * as Icons from 'lucide-react'
-import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Transaction, Category, Budget, Account } from '@/types/finance'
-import {
-  formatCurrency,
-  calculateTotalBalance,
-  calculatePendingImpact,
-  isTransfer,
-} from '@/lib/calculations'
-import { calculateSavingsProvisions } from '@/lib/savingsCalculations'
+import { formatCurrency } from '@/lib/calculations'
+import { computeHomeBudgetAnalysis } from '@/lib/homePulse'
 import { usePlanning } from '@/hooks/usePlanning'
 import { useRecurringRules } from '@/hooks/useRecurringRules'
 import { cn } from '@/lib/utils'
@@ -75,210 +60,19 @@ export function HomeBudgetWidget({
     return <IconComp className={sizeClass} />
   }
 
-  const analysis = useMemo(() => {
-    const now = new Date()
-    const currentDayOfMonth = getDate(now)
-    const daysInMonth = getDaysInMonth(now)
-    const currentMonthKey = format(now, 'yyyy-MM')
-    const currentMonthName = format(now, 'MMMM', { locale: es })
-
-    // Provisión Próximo Mes (nextMonthBudgetsTotal)
-    const nextMonthDate = addMonths(now, 1)
-    const nextMonthKey = format(nextMonthDate, 'yyyy-MM')
-    const nextMonthName = format(nextMonthDate, 'MMMM', { locale: es })
-
-    const excludedSet = new Set(excludedNextMonthIds)
-    const nextMonthExpenses = transactions.filter(
-      (t) =>
-        t.type === 'expense' &&
-        t.date.startsWith(nextMonthKey) &&
-        !isTransfer(t.category) &&
-        t.amount > 0 &&
-        !excludedSet.has(t.id)
-    )
-    const nextMonthBudgetsTotal = Number(
-      nextMonthExpenses.reduce((acc, t) => acc + t.amount, 0).toFixed(2)
-    )
-
-    // Current month active budget envelopes (deduplicated case-insensitively, manual priority)
-    const budgetMap = new Map<string, Budget>()
-    budgets.forEach((b) => {
-      if (b.month === currentMonthKey && !isTransfer(b.category) && b.amount > 0) {
-        const normKey = b.category.trim().toLowerCase()
-        const existing = budgetMap.get(normKey)
-        if (!existing || (existing.isAuto && !b.isAuto)) {
-          budgetMap.set(normKey, b)
-        }
-      }
-    })
-    const activeBudgets = Array.from(budgetMap.values())
-
-    // Filter valid expense transactions for current month (global across all accounts)
-    const curMonthExpenses = transactions.filter((t) => {
-      if (t.type !== 'expense') return false
-      if (isTransfer(t.category)) return false
-      if (!t.date.startsWith(currentMonthKey)) return false
-      if (t.isPending && t.isIgnored) return false
-      return true
-    })
-
-    // Group expenses by normalized category key separating real (paid) from pending
-    const catRealTotals: Record<string, number> = {}
-    const catPendingTotals: Record<string, number> = {}
-    const catDisplayNames: Record<string, string> = {}
-
-    curMonthExpenses.forEach((t) => {
-      const normKey = t.category.trim().toLowerCase()
-      if (!catDisplayNames[normKey]) {
-        catDisplayNames[normKey] = t.category.trim()
-      }
-      if (t.isPending) {
-        catPendingTotals[normKey] = (catPendingTotals[normKey] || 0) + t.amount
-      } else {
-        catRealTotals[normKey] = (catRealTotals[normKey] || 0) + t.amount
-      }
-    })
-
-    // Si el mes tiene presupuestos, cualquier gasto previsto o ejecutado de una categoría no presupuestada
-    // genera automáticamente su sobre con presupuesto 0 € y gasto sobrepasado
-    const allEnvelopeEntries: { category: string; amount: number }[] = activeBudgets.map((b) => ({
-      category: b.category,
-      amount: b.amount,
-    }))
-
-    if (activeBudgets.length > 0) {
-      Object.keys(catDisplayNames).forEach((normKey) => {
-        if (!budgetMap.has(normKey)) {
-          const totalSpent = Number(((catRealTotals[normKey] || 0) + (catPendingTotals[normKey] || 0)).toFixed(2))
-          if (totalSpent > 0) {
-            allEnvelopeEntries.push({
-              category: catDisplayNames[normKey],
-              amount: 0,
-            })
-          }
-        }
-      })
-    }
-
-    // Compute status per envelope
-    const envelopes = allEnvelopeEntries.map((b) => {
-      const normKey = b.category.trim().toLowerCase()
-      const realSpent = Number((catRealTotals[normKey] || 0).toFixed(2))
-      const pendingSpent = Number((catPendingTotals[normKey] || 0).toFixed(2))
-      const totalSpent = Number((realSpent + pendingSpent).toFixed(2))
-      const budgetAmount = b.amount
-      
-      // Si la categoría está presupuestada (> 0), su gasto previsto ya es el presupuesto,
-      // por lo que solo descuenta los gastos ejecutados reales. Si no está presupuestada (0),
-      // cualquier gasto (previsto o ejecutado) genera el sobre excedido.
-      const effectiveSpent = budgetAmount > 0 ? realSpent : totalSpent
-      const remaining = Number((budgetAmount - effectiveSpent).toFixed(2))
-      const percent = budgetAmount > 0 ? Number(((effectiveSpent / budgetAmount) * 100).toFixed(1)) : (effectiveSpent > 0 ? 100 : 0)
-      
-      const isOverbudget = remaining < -0.005
-      
-      // Los sobres al 100% (sin dinero restante y sin sobregasto) NO deben aparecer en el resumen rápido
-      const isExact100 = !isOverbudget && remaining <= 0.005
-      
-      // Todavía queda dinero libre en el sobre
-      const hasMoneyLeft = remaining > 0.005
-      
-      // En peligro: está sobrepasado O tiene dinero pero ya consumió >= 80%
-      const isDanger = isOverbudget || (hasMoneyLeft && percent >= 80)
-
-      return {
-        category: b.category,
-        budgetAmount,
-        realSpent: effectiveSpent,
-        pendingSpent,
-        remaining,
-        percent,
-        isOverbudget,
-        isExact100,
-        isDanger,
-        hasMoneyLeft,
-      }
-    })
-
-    // Total budgeted
-    const totalBudget = Number(activeBudgets.reduce((sum, b) => sum + b.amount, 0).toFixed(2))
-
-    // Disponible para Asignar calculation (strictly identical to BudgetPage.tsx)
-    let disponibleParaAsignar = 0
-    if (accounts.length > 0) {
-      const realBalance = calculateTotalBalance(accounts, transactions, false, currentMonthKey)
-      let currentMonthPendingImpact = 0
-      accounts.forEach((acc) => {
-        if (!acc.excludeFromTotals) {
-          currentMonthPendingImpact += calculatePendingImpact(transactions, currentMonthKey, acc.id)
-        }
-      })
-      const baseCapital = realBalance + currentMonthPendingImpact
-      const baseGastos = Number(
-        curMonthExpenses.reduce((sum, t) => sum + t.amount, 0).toFixed(2)
-      )
-      const baseBudgets = Number(
-        activeBudgets.reduce((sum, b) => sum + b.amount, 0).toFixed(2)
-      )
-      const savingsProvisionsAmount =
-        savingsTimeframe === 'none'
-          ? 0
-          : calculateSavingsProvisions(
-              accounts,
-              transactions,
-              goals || [],
-              recurringRules || [],
-              savingsTimeframe
-            ).totalSuggestedMonthly
-
-      disponibleParaAsignar = Number(
-        (
-          baseCapital +
-          baseGastos -
-          baseBudgets -
-          nextMonthBudgetsTotal -
-          savingsProvisionsAmount
-        ).toFixed(2)
-      )
-    }
-
-    const hasDeficit = disponibleParaAsignar < 0
-    const hasOverbudget = envelopes.some((e) => e.isOverbudget)
-    const overbudgetEnvelopes = envelopes.filter((e) => e.isOverbudget)
-
-    // Filtrar sobres:
-    // SOLO sobres en peligro o en los que todavía queda dinero.
-    // Los sobres al 100% completados NO deben aparecer.
-    const visibleEnvelopes = envelopes
-      .filter((e) => !e.isExact100 && (e.isDanger || e.hasMoneyLeft))
-      .sort((a, b) => {
-        // 1. Excedidos primero
-        if (a.isOverbudget && !b.isOverbudget) return -1
-        if (!a.isOverbudget && b.isOverbudget) return 1
-        // 2. En peligro primero (ej: >= 80% con poco margen restante o recibo no cubierto)
-        if (a.isDanger && !b.isDanger) return -1
-        if (!a.isDanger && b.isDanger) return 1
-        // 3. Con dinero restante por mayor saldo
-        return b.remaining - a.remaining
-      })
-
-    return {
-      currentDayOfMonth,
-      daysInMonth,
-      currentMonthKey,
-      currentMonthName,
-      nextMonthName,
-      nextMonthBudgetsTotal,
-      envelopes,
-      visibleEnvelopes,
-      hasBudgets: envelopes.length > 0,
-      totalBudget,
-      disponibleParaAsignar,
-      hasDeficit,
-      hasOverbudget,
-      overbudgetEnvelopes,
-    }
-  }, [transactions, budgets, accounts, goals, recurringRules, savingsTimeframe, excludedNextMonthIds])
+  const analysis = useMemo(
+    () =>
+      computeHomeBudgetAnalysis({
+        transactions,
+        budgets,
+        accounts,
+        goals: goals || [],
+        recurringRules: recurringRules || [],
+        savingsTimeframe,
+        excludedNextMonthIds,
+      }),
+    [transactions, budgets, accounts, goals, recurringRules, savingsTimeframe, excludedNextMonthIds]
+  )
 
   // Empty state if no budgets and no next month provision
   if (!analysis.hasBudgets && analysis.nextMonthBudgetsTotal === 0) {

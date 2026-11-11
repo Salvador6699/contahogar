@@ -75,10 +75,14 @@ import { format, addMonths } from "date-fns";
 import { AccountManager } from "@/components/AccountManager";
 import { useAccounts } from "@/hooks/useAccounts";
 import { useCategories } from "@/hooks/useCategories";
+import { useFeatureFlags } from "@/hooks/useFeatureFlags";
+import { FEATURE_FLAG_DEFINITIONS } from "@/lib/featureFlags";
+import { Badge } from "@/components/ui/badge";
 
 const SettingsPage = () => {
   const { setTheme } = useTheme();
   const [searchParams] = useSearchParams();
+  const { flags, toggleFlag, resetAll: resetFeatureFlags } = useFeatureFlags();
 
   const [activeTab, setActiveTab] = useState<
     "cuentas" | "categorias" | "notificaciones" | "apariencia"
@@ -461,7 +465,7 @@ const SettingsPage = () => {
 
           {/* TAB: APARIENCIA */}
           {activeTab === "apariencia" && (
-            <div className="animate-in fade-in slide-in-from-bottom-2 duration-300">
+            <div className="space-y-6 animate-in fade-in slide-in-from-bottom-2 duration-300">
               <Card className="border-none shadow-sm bg-card/50 backdrop-blur-sm">
                 <CardHeader>
                   <CardTitle className="flex items-center gap-2 text-lg">
@@ -497,6 +501,71 @@ const SettingsPage = () => {
                     <Laptop className="w-6 h-6" />
                     Sistema
                   </Button>
+                </CardContent>
+              </Card>
+
+              <Card className="border-none shadow-sm bg-card/50 backdrop-blur-sm">
+                <CardHeader>
+                  <div className="flex items-center justify-between gap-2 flex-wrap">
+                    <CardTitle className="flex items-center gap-2 text-lg">
+                      <Icons.FlaskConical className="w-5 h-5 text-primary" />
+                      Laboratorio (Experimental)
+                    </CardTitle>
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      onClick={() => {
+                        resetFeatureFlags();
+                        toast.success("Experimentos restablecidos");
+                      }}
+                      className="h-8 text-xs text-muted-foreground"
+                    >
+                      Restablecer todo
+                    </Button>
+                  </div>
+                  <CardDescription>
+                    Activa o desactiva funciones en prueba. Solo afectan a este dispositivo y puedes revertirlas al instante sin tocar tus datos.
+                  </CardDescription>
+                </CardHeader>
+                <CardContent className="space-y-3">
+                  {FEATURE_FLAG_DEFINITIONS.map((def) => {
+                    const enabled = Boolean(flags[def.key]);
+                    return (
+                      <div
+                        key={def.key}
+                        className="flex items-start justify-between gap-4 p-4 rounded-2xl border border-border/50 bg-background/60"
+                      >
+                        <div className="space-y-1 min-w-0">
+                          <div className="flex items-center gap-2 flex-wrap">
+                            <span className="font-bold text-sm">{def.label}</span>
+                            <Badge variant="secondary" className="text-[10px]">
+                              {def.risk}
+                            </Badge>
+                            {enabled && (
+                              <Badge className="text-[10px] bg-emerald-500/15 text-emerald-700 dark:text-emerald-300 border-emerald-500/30">
+                                Activo
+                              </Badge>
+                            )}
+                          </div>
+                          <p className="text-xs text-muted-foreground leading-relaxed">
+                            {def.description}
+                          </p>
+                        </div>
+                        <Switch
+                          checked={enabled}
+                          onCheckedChange={(checked) => {
+                            toggleFlag(def.key, checked);
+                            toast.success(
+                              checked
+                                ? `${def.label} activado`
+                                : `${def.label} desactivado`
+                            );
+                          }}
+                          aria-label={def.label}
+                        />
+                      </div>
+                    );
+                  })}
                 </CardContent>
               </Card>
             </div>
