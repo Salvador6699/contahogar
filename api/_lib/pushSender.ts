@@ -1,9 +1,6 @@
-import { createRequire } from 'node:module';
+import webpush from 'web-push';
 import type { SupabaseClient } from '@supabase/supabase-js';
 import type { PushSubscriptionRow } from './supabaseAdmin.js';
-
-const require = createRequire(import.meta.url);
-const webpush = require('web-push') as typeof import('web-push');
 
 export interface PushPayload {
   title: string;
