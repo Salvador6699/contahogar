@@ -37,8 +37,10 @@ import {
   Dumbbell,
   CreditCard,
   Settings,
-  Users
+  Users,
+  Bell
 } from "lucide-react";
+import { PushSettingsCard } from "@/components/PushPermissionBanner";
 import * as Icons from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
@@ -79,10 +81,10 @@ const SettingsPage = () => {
   const [searchParams] = useSearchParams();
 
   const [activeTab, setActiveTab] = useState<
-    "cuentas" | "categorias" | "apariencia"
+    "cuentas" | "categorias" | "notificaciones" | "apariencia"
   >(() => {
     const tabParam = searchParams.get("tab");
-    if (tabParam === "cuentas" || tabParam === "categorias" || tabParam === "apariencia") {
+    if (tabParam === "cuentas" || tabParam === "categorias" || tabParam === "notificaciones" || tabParam === "apariencia") {
       return tabParam as any;
     }
     return "cuentas";
@@ -90,7 +92,7 @@ const SettingsPage = () => {
 
   useEffect(() => {
     const tabParam = searchParams.get("tab");
-    if (tabParam === "cuentas" || tabParam === "categorias" || tabParam === "apariencia") {
+    if (tabParam === "cuentas" || tabParam === "categorias" || tabParam === "notificaciones" || tabParam === "apariencia") {
       setActiveTab(tabParam as any);
     }
   }, [searchParams]);
@@ -312,7 +314,7 @@ const SettingsPage = () => {
         </div>
 
         {/* Custom Tabs Navigation */}
-        <div className="grid grid-cols-3 gap-2 mb-6">
+        <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 mb-6">
           <Button
             variant={activeTab === "cuentas" ? "default" : "outline"}
             onClick={() => setActiveTab("cuentas")}
@@ -330,6 +332,14 @@ const SettingsPage = () => {
             <span>Categorías</span>
           </Button>
           <Button
+            variant={activeTab === "notificaciones" ? "default" : "outline"}
+            onClick={() => setActiveTab("notificaciones")}
+            className="w-full flex items-center justify-center rounded-xl"
+          >
+            <Bell className="w-4 h-4 mr-2" />
+            <span>Alertas</span>
+          </Button>
+          <Button
             variant={activeTab === "apariencia" ? "default" : "outline"}
             onClick={() => setActiveTab("apariencia")}
             className="w-full flex items-center justify-center rounded-xl"
@@ -340,6 +350,13 @@ const SettingsPage = () => {
         </div>
 
         <div className="space-y-6">
+          {/* TAB: NOTIFICACIONES */}
+          {activeTab === "notificaciones" && (
+            <div className="animate-in fade-in slide-in-from-bottom-2 duration-300">
+              <PushSettingsCard />
+            </div>
+          )}
+
           {/* TAB: CUENTAS */}
           {activeTab === "cuentas" && (
             <div className="animate-in fade-in slide-in-from-bottom-2 duration-300">

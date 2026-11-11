@@ -52,6 +52,7 @@ import { HomeDiagnosisWidget } from "@/components/HomeDiagnosisWidget";
 import { HomeBudgetWidget } from "@/components/HomeBudgetWidget";
 import { IntramesAlertBanner } from "@/components/IntramesAlertBanner";
 import { AccountCoverageWidget } from "@/components/AccountCoverageWidget";
+import { PushPermissionBanner } from "@/components/PushPermissionBanner";
 
 const Index = () => {
   const navigate = useNavigate();
@@ -750,6 +751,7 @@ const Index = () => {
     <>
       <div className="w-full">
         <div className="w-full max-w-full mx-auto px-4 lg:px-12 py-6 sm:py-8 transition-all duration-500 pb-32">
+          <PushPermissionBanner />
           <div className="mb-6 sm:mb-8">
             {/* Month Navigator Header */}
             <div className="flex flex-col sm:flex-row items-center justify-between mb-8 gap-4">

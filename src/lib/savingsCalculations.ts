@@ -1,5 +1,5 @@
-import { Account, Transaction, SavingsGoal, RecurringExpenseRule, isRuleIncludedInSavings } from '@/types/finance';
-import { calculateAccountBalance } from '@/lib/calculations';
+import { Account, Transaction, SavingsGoal, RecurringExpenseRule, isRuleIncludedInSavings } from '../types/finance';
+import { calculateAccountBalance } from './calculations';
 import { endOfMonth, addMonths, parseISO } from 'date-fns';
 
 export interface UnifiedSavingsGoal {

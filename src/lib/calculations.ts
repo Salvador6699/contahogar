@@ -1,4 +1,4 @@
-import { Transaction, CategorySummary, Account, AlertSettings } from '@/types/finance';
+import { Transaction, CategorySummary, Account, AlertSettings } from '../types/finance';
 import { format } from 'date-fns';
 import { isTransfer } from './utils';
 export { parseAmount, isTransfer } from './utils';

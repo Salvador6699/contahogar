@@ -12,7 +12,11 @@ export default defineConfig({
     tailwindcss(),
     VitePWA({
       registerType: 'autoUpdate',
-      includeAssets: ['favicon.ico', 'favicon.png', 'logo.png'],
+      includeAssets: ['favicon.ico', 'favicon.png', 'logo.png', 'sw-push.js'],
+      workbox: {
+        importScripts: ['/sw-push.js'],
+        navigateFallbackDenylist: [/^\/api\//],
+      },
       manifest: {
         name: 'ContaHogar',
         short_name: 'ContaHogar',
