@@ -229,7 +229,9 @@ function buildBudgetNotifications(
     const ratio = spent / budget.amount;
     const pct = Math.round(ratio * 100);
 
-    if (ratio >= 1) {
+    // Trigger overspend only when strictly above the budget (> 100%).
+    // Trigger 80% warning only while strictly below 100% (80%..99%) so exact 100% fixed bills don't spam.
+    if (spent > budget.amount + 0.005) {
       candidates.push({
         type: 'budget_threshold',
         dedupKey: `budget_100_${currentMonthKey}_${normCat}`,
@@ -238,7 +240,7 @@ function buildBudgetNotifications(
         url: '/presupuestos',
         tag: `budget-100-${currentMonthKey}-${normCat}`,
       });
-    } else if (ratio >= 0.8) {
+    } else if (!budget.isAuto && ratio >= 0.8 && spent < budget.amount - 0.005) {
       candidates.push({
         type: 'budget_threshold',
         dedupKey: `budget_80_${currentMonthKey}_${normCat}`,
