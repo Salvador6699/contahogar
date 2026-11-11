@@ -42,7 +42,7 @@ const AccountSelector = ({
         size="sm"
         onClick={() => onSelectAccount('total')}
         className={cn(
-          "flex items-center justify-between gap-3 px-4 min-h-12 sm:min-h-14 py-2 sm:flex-1 transition-all",
+          "flex items-center justify-between gap-3 px-4 h-auto min-h-14 py-2 sm:flex-1 transition-all",
           "w-full order-1"
         )}
       >
@@ -78,13 +78,13 @@ const AccountSelector = ({
               variant={isSelected ? 'default' : 'outline'}
               size="sm"
               onClick={() => onSelectAccount(ab.account.id)}
-              className="flex flex-col sm:flex-row items-center justify-center sm:justify-between gap-1 sm:gap-2 min-h-14 py-2 px-3 sm:px-4 min-w-0 flex-1 transition-all"
+              className="flex flex-col sm:flex-row items-center justify-center sm:justify-between gap-1.5 sm:gap-2 h-auto min-h-[4.75rem] sm:min-h-14 py-2.5 px-3 sm:px-4 min-w-0 flex-1 transition-all"
             >
-              <div className="flex items-center gap-1.5 overflow-hidden">
+              <div className="flex items-center justify-center sm:justify-start gap-1.5 max-w-full min-w-0">
                 {ab.account.logo && (
                   <img src={ab.account.logo} alt="" className="w-5 h-5 rounded-full object-cover flex-shrink-0 bg-white" />
                 )}
-                <span className="text-[10px] sm:text-xs font-black uppercase tracking-wider truncate mr-1">
+                <span className="text-[10px] sm:text-xs font-black uppercase tracking-wider truncate">
                   {ab.account.name}
                 </span>
               </div>
