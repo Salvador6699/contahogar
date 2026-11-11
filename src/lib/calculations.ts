@@ -1,5 +1,6 @@
 import { Transaction, CategorySummary, Account, AlertSettings } from '@/types/finance';
 import { format } from 'date-fns';
+import { isTransfer } from './utils';
 export { parseAmount, isTransfer } from './utils';
 
 export const calculateBalance = (
@@ -269,6 +270,234 @@ export const filterTransactions = (
 
     return true;
   }).sort((a, b) => b.date.localeCompare(a.date));
+};
+
+export interface AccountCoverageSummary {
+  accountId: string;
+  accountName: string;
+  accountLogo?: string;
+  excludeFromTotals?: boolean;
+  currentBalance: number;
+  projectedBalance: number;
+  realizedIncome: number;
+  pendingIncome: number;
+  totalIncome: number;
+  fixedPaid: number;
+  fixedPending: number;
+  fixedExpenses: number;
+  variableExpenses: number;
+  totalExpenses: number;
+  netTransfers: number;
+  marginAfterFixed: number;
+  monthlyNet: number;
+  fixedRatioPercent: number;
+}
+
+/**
+ * Computes per-account monthly income vs fixed/pending expenses coverage
+ * for the selected month key ('yyyy-MM').
+ */
+export const calculateAccountMonthlyCoverage = (
+  accounts: Account[],
+  transactions: Transaction[],
+  monthKey: string
+): AccountCoverageSummary[] => {
+  return accounts
+    .filter((acc) => !acc.linkedAccountId)
+    .map((account) => {
+      const currentBalance = calculateAccountBalance(account, transactions, false, monthKey);
+      const pendingImpact = calculatePendingImpact(transactions, monthKey, account.id);
+      const projectedBalance = Number((currentBalance + pendingImpact).toFixed(2));
+
+      let realizedIncome = 0;
+      let pendingIncome = 0;
+      let fixedPaid = 0;
+      let fixedPending = 0;
+      let variableExpenses = 0;
+      let netTransfers = 0;
+
+      for (const t of transactions) {
+        if (t.isIgnored || t.accountId !== account.id) continue;
+        if (!t.date.startsWith(monthKey)) continue;
+
+        if (isTransfer(t.category)) {
+          if (!t.isPending) {
+            netTransfers += t.type === 'income' ? t.amount : -t.amount;
+          }
+          continue;
+        }
+
+        if (t.type === 'income') {
+          if (t.isPending) {
+            pendingIncome += t.amount;
+          } else {
+            realizedIncome += t.amount;
+          }
+        } else {
+          const isFixedOrPlanned =
+            t.id.startsWith('rec_') || !!t.linkedLoanId || !!t.isPending;
+
+          if (isFixedOrPlanned) {
+            if (t.isPending) {
+              fixedPending += t.amount;
+            } else {
+              fixedPaid += t.amount;
+            }
+          } else {
+            variableExpenses += t.amount;
+          }
+        }
+      }
+
+      const round = (n: number) => Number(n.toFixed(2));
+      realizedIncome = round(realizedIncome);
+      pendingIncome = round(pendingIncome);
+      const totalIncome = round(realizedIncome + pendingIncome);
+      fixedPaid = round(fixedPaid);
+      fixedPending = round(fixedPending);
+      const fixedExpenses = round(fixedPaid + fixedPending);
+      variableExpenses = round(variableExpenses);
+      const totalExpenses = round(fixedExpenses + variableExpenses);
+      netTransfers = round(netTransfers);
+      const marginAfterFixed = round(totalIncome - fixedExpenses);
+      const monthlyNet = round(totalIncome - totalExpenses);
+      const fixedRatioPercent =
+        totalIncome > 0
+          ? Math.round((fixedExpenses / totalIncome) * 100)
+          : fixedExpenses > 0
+            ? 100
+            : 0;
+
+      return {
+        accountId: account.id,
+        accountName: account.name,
+        accountLogo: account.logo,
+        excludeFromTotals: account.excludeFromTotals,
+        currentBalance,
+        projectedBalance,
+        realizedIncome,
+        pendingIncome,
+        totalIncome,
+        fixedPaid,
+        fixedPending,
+        fixedExpenses,
+        variableExpenses,
+        totalExpenses,
+        netTransfers,
+        marginAfterFixed,
+        monthlyNet,
+        fixedRatioPercent,
+      };
+    });
+};
+
+export interface IntramesDeficitAlert {
+  accountId: string;
+  accountName: string;
+  startingBalance: number;
+  projectedBalance: number;
+  firstDeficitDate: string;
+  firstDeficitBalance: number;
+  minBalance: number;
+  minBalanceDate: string;
+  triggerDescriptions: string[];
+  recoversByMonthEnd: boolean;
+}
+
+/**
+ * Checks pending transactions chronologically per account for a given month
+ * to detect intermediate days where the balance drops below zero.
+ */
+export const calculateIntramesDeficitAlerts = (
+  accounts: Account[],
+  transactions: Transaction[],
+  monthKey: string
+): IntramesDeficitAlert[] => {
+  const now = new Date();
+  const currentMonthKey = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
+
+  if (monthKey < currentMonthKey) {
+    return [];
+  }
+
+  const alerts: IntramesDeficitAlert[] = [];
+
+  for (const account of accounts) {
+    if (account.linkedAccountId) continue;
+
+    const startingBalance = calculateAccountBalance(account, transactions, false, monthKey);
+    const pendingImpact = calculatePendingImpact(transactions, monthKey, account.id);
+    const projectedBalance = Number((startingBalance + pendingImpact).toFixed(2));
+
+    const pendingTxs = transactions.filter((t) => {
+      if (!t.isPending || t.isIgnored || t.accountId !== account.id) return false;
+      const txMonth = t.date.substring(0, 7);
+      if (monthKey > currentMonthKey) {
+        return txMonth >= currentMonthKey && txMonth <= monthKey;
+      }
+      return txMonth === monthKey;
+    });
+
+    const hasPendingExpense = pendingTxs.some((t) => t.type === 'expense');
+    if (!hasPendingExpense) continue;
+
+    const byDate = new Map<string, Transaction[]>();
+    for (const tx of pendingTxs) {
+      const list = byDate.get(tx.date) || [];
+      list.push(tx);
+      byDate.set(tx.date, list);
+    }
+
+    const sortedDates = Array.from(byDate.keys()).sort((a, b) => a.localeCompare(b));
+
+    let runningBalance = startingBalance;
+    let firstDeficitDate = '';
+    let firstDeficitBalance = 0;
+    let triggerDescriptions: string[] = [];
+    let minBalance = startingBalance;
+    let minBalanceDate = '';
+
+    for (const date of sortedDates) {
+      const dayTxs = byDate.get(date)!;
+      const dayNet = dayTxs.reduce(
+        (sum, t) => (t.type === 'income' ? sum + t.amount : sum - t.amount),
+        0
+      );
+      const dayExpenses = dayTxs.filter((t) => t.type === 'expense');
+
+      runningBalance = Number((runningBalance + dayNet).toFixed(2));
+
+      if (runningBalance < -0.005 && dayExpenses.length > 0 && !firstDeficitDate) {
+        firstDeficitDate = date;
+        firstDeficitBalance = runningBalance;
+        triggerDescriptions = dayExpenses.map(
+          (t) => t.description?.trim() || t.category
+        );
+      }
+
+      if (runningBalance < minBalance) {
+        minBalance = runningBalance;
+        minBalanceDate = date;
+      }
+    }
+
+    if (firstDeficitDate && minBalance < -0.005) {
+      alerts.push({
+        accountId: account.id,
+        accountName: account.name,
+        startingBalance,
+        projectedBalance,
+        firstDeficitDate,
+        firstDeficitBalance,
+        minBalance,
+        minBalanceDate: minBalanceDate || firstDeficitDate,
+        triggerDescriptions,
+        recoversByMonthEnd: projectedBalance >= -0.005,
+      });
+    }
+  }
+
+  return alerts;
 };
 
 export interface MonthlyHistory {

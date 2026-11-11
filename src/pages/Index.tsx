@@ -15,6 +15,7 @@ import {
   calculatePastMonthsHistory,
   calculateSpendingPace,
   calculatePendingImpact,
+  calculateIntramesDeficitAlerts,
 } from "@/lib/calculations";
 import { useMonthFilter } from "@/hooks/useMonthFilter";
 import BalanceCard from "@/components/BalanceCard";
@@ -49,6 +50,8 @@ import { useLoans } from "@/hooks/useLoans";
 import { useFavorites } from "@/hooks/useFavorites";
 import { HomeDiagnosisWidget } from "@/components/HomeDiagnosisWidget";
 import { HomeBudgetWidget } from "@/components/HomeBudgetWidget";
+import { IntramesAlertBanner } from "@/components/IntramesAlertBanner";
+import { AccountCoverageWidget } from "@/components/AccountCoverageWidget";
 
 const Index = () => {
   const navigate = useNavigate();
@@ -406,6 +409,16 @@ const Index = () => {
   const totalProjectedBalance = accountBalances
     .filter(ab => !ab.account.excludeFromTotals)
     .reduce((sum, ab) => sum + ab.projectedBalance, 0);
+
+  const intramesAlerts = useMemo(
+    () =>
+      calculateIntramesDeficitAlerts(
+        data.accounts,
+        data.transactions,
+        balanceMonthKey,
+      ),
+    [data.accounts, data.transactions, balanceMonthKey],
+  );
 
   // Selected account balance
   let balance = totalBalance;
@@ -795,6 +808,13 @@ const Index = () => {
               />
             </div>
 
+            {/* Alert Banner: Descubierto intrames por orden cronológico */}
+            <IntramesAlertBanner
+              alerts={intramesAlerts}
+              selectedAccount={selectedAccount}
+              onSelectAccount={setSelectedAccount}
+            />
+
             {/* Smart Compact Alert Banner: Diagnóstico y Ritmo vs Mes Anterior */}
             {isCurrentMonth && (
               <HomeDiagnosisWidget
@@ -813,6 +833,15 @@ const Index = () => {
                 accounts={data.accounts}
               />
             )}
+
+            {/* Smart Compact Banner: Cobertura mensual por cuenta */}
+            <AccountCoverageWidget
+              accounts={data.accounts}
+              transactions={data.transactions}
+              monthKey={balanceMonthKey}
+              selectedAccount={selectedAccount}
+              onSelectAccount={setSelectedAccount}
+            />
 
             {/* Draggable Widgets Area */}
             <DndContext 
