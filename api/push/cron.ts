@@ -12,11 +12,13 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   if (cronSecret) {
     const authHeader = req.headers.authorization;
     if (authHeader !== `Bearer ${cronSecret}`) {
+      console.warn('[push-cron] Unauthorized call to /api/push/cron');
       return res.status(401).json({ error: 'Unauthorized' });
     }
   }
 
   const dryRun = req.query.dryRun === '1' || req.query.dryRun === 'true';
+  console.log(`[push-cron] Start method=${req.method} dryRun=${dryRun}`);
 
   try {
     const supabase = createSupabaseAdmin();
@@ -31,6 +33,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     });
 
     if (candidates.length === 0) {
+      console.log(`[push-cron] No candidates (subs=${snapshot.subscriptions.length})`);
       return res.status(200).json({
         ok: true,
         dryRun,
@@ -52,6 +55,10 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
     const alreadySent = new Set((existingLogs || []).map((row) => row.dedup_key as string));
     const pendingToSend = candidates.filter((c) => !alreadySent.has(c.dedupKey));
+
+    console.log(
+      `[push-cron] subs=${snapshot.subscriptions.length} candidates=${candidates.length} pending=${pendingToSend.length}`
+    );
 
     if (dryRun || snapshot.subscriptions.length === 0) {
       return res.status(200).json({
@@ -104,6 +111,8 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       });
     }
 
+    console.log(`[push-cron] Finished sentNotifications=${sentNotifications}`, JSON.stringify(results));
+
     return res.status(200).json({
       ok: true,
       subscriptions: snapshot.subscriptions.length,
@@ -113,6 +122,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     });
   } catch (err) {
     const message = err instanceof Error ? err.message : 'Unexpected push cron error';
+    console.error('[push-cron] Error:', message);
     return res.status(500).json({ error: message });
   }
 }
