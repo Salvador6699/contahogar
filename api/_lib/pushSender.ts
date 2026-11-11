@@ -34,7 +34,7 @@ export async function sendWebPushToSubscriptions(
   supabase: SupabaseClient,
   subscriptions: PushSubscriptionRow[],
   payload: PushPayload
-): Promise<{ sent: number; removed: number; failed: number }> {
+): Promise<{ sent: number; removed: number; failed: number; lastStatusCode?: number; lastError?: string }> {
   if (subscriptions.length === 0) {
     return { sent: 0, removed: 0, failed: 0 };
   }
@@ -49,6 +49,8 @@ export async function sendWebPushToSubscriptions(
   let sent = 0;
   let removed = 0;
   let failed = 0;
+  let lastStatusCode: number | undefined;
+  let lastError: string | undefined;
   const staleEndpoints: string[] = [];
 
   await Promise.all(
@@ -74,6 +76,16 @@ export async function sendWebPushToSubscriptions(
           typeof err === 'object' && err !== null && 'statusCode' in err
             ? Number((err as { statusCode?: number }).statusCode)
             : 0;
+        const body =
+          typeof err === 'object' && err !== null && 'body' in err
+            ? String((err as { body?: unknown }).body || '')
+            : err instanceof Error
+              ? err.message
+              : '';
+
+        lastStatusCode = statusCode || undefined;
+        lastError = body ? `HTTP ${statusCode}: ${body}` : `HTTP ${statusCode}`;
+        console.warn(`[pushSender] Delivery rejected for device=${sub.device_id}: ${lastError}`);
 
         if (statusCode === 404 || statusCode === 410) {
           staleEndpoints.push(sub.endpoint);
@@ -89,5 +101,5 @@ export async function sendWebPushToSubscriptions(
     await supabase.from('push_subscriptions').delete().in('endpoint', staleEndpoints);
   }
 
-  return { sent, removed, failed };
+  return { sent, removed, failed, lastStatusCode, lastError };
 }

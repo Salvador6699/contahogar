@@ -207,14 +207,22 @@ export async function sendTestPushNotification(): Promise<{ sent: number }> {
     throw new Error('Activa primero las notificaciones en este dispositivo.');
   }
 
-  const res = await fetch('/api/push/test', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({
-      endpoint: status.endpoint,
-      deviceId: getOrCreateDeviceId(),
-    }),
-  });
+  const deviceId = getOrCreateDeviceId();
+  const postTest = async (endpoint: string) =>
+    fetch('/api/push/test', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ endpoint, deviceId }),
+    });
+
+  let res = await postTest(status.endpoint);
+
+  // If the push service returned 404/410 (stale/missing subscription), renew once automatically.
+  if ((res.status === 404 || res.status === 410) && Notification.permission === 'granted') {
+    await unsubscribeFromPush();
+    const renewed = await subscribeToPush();
+    res = await postTest(renewed.endpoint);
+  }
 
   const data = await res.json().catch(() => ({}));
   if (!res.ok) {

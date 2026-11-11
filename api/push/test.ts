@@ -51,8 +51,12 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     });
 
     if (dispatch.sent === 0) {
-      return res.status(502).json({
-        error: 'El servicio push del navegador rechazó la entrega.',
+      const httpStatus = dispatch.removed > 0 ? 410 : 502;
+      return res.status(httpStatus).json({
+        error:
+          dispatch.removed > 0
+            ? 'La suscripción de este navegador había caducado.'
+            : `El servicio push del navegador rechazó la entrega (${dispatch.lastError || 'error desconocido'}).`,
         ...dispatch,
       });
     }
