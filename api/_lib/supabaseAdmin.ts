@@ -5,7 +5,7 @@ import type {
   RecurringExpenseRule,
   SavingsGoal,
   Transaction,
-} from '../../src/types/finance';
+} from '../../src/types/finance.js';
 
 export interface PushSubscriptionRow {
   id: string;

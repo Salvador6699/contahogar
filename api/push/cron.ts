@@ -1,7 +1,7 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node';
-import { evaluateNotificationCandidates } from '../_lib/notificationRules';
-import { sendWebPushToSubscriptions } from '../_lib/pushSender';
-import { createSupabaseAdmin, fetchNotificationSnapshot } from '../_lib/supabaseAdmin';
+import { evaluateNotificationCandidates } from '../_lib/notificationRules.js';
+import { sendWebPushToSubscriptions } from '../_lib/pushSender.js';
+import { createSupabaseAdmin, fetchNotificationSnapshot } from '../_lib/supabaseAdmin.js';
 
 export default async function handler(req: VercelRequest, res: VercelResponse) {
   if (req.method !== 'GET' && req.method !== 'POST') {

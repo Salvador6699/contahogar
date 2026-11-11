@@ -1,13 +1,21 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node';
-import { sendWebPushToSubscriptions } from '../_lib/pushSender';
-import { createSupabaseAdmin, PushSubscriptionRow } from '../_lib/supabaseAdmin';
+import { sendWebPushToSubscriptions } from '../_lib/pushSender.js';
+import { createSupabaseAdmin, PushSubscriptionRow } from '../_lib/supabaseAdmin.js';
 
 export default async function handler(req: VercelRequest, res: VercelResponse) {
   if (req.method !== 'POST') {
     return res.status(405).json({ error: 'Method not allowed' });
   }
 
-  const body = typeof req.body === 'object' && req.body !== null ? req.body : {};
+  let rawBody: unknown = req.body;
+  if (typeof rawBody === 'string') {
+    try {
+      rawBody = JSON.parse(rawBody);
+    } catch {
+      rawBody = {};
+    }
+  }
+  const body = typeof rawBody === 'object' && rawBody !== null ? (rawBody as Record<string, unknown>) : {};
   const endpoint = typeof body.endpoint === 'string' ? body.endpoint.trim() : '';
   const deviceId = typeof body.deviceId === 'string' ? body.deviceId.trim() : '';
 

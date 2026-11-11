@@ -1,7 +1,7 @@
-import { Transaction, CategorySummary, Account, AlertSettings } from '../types/finance';
+import { Transaction, CategorySummary, Account, AlertSettings } from '../types/finance.js';
 import { format } from 'date-fns';
-import { isTransfer } from './utils';
-export { parseAmount, isTransfer } from './utils';
+import { isTransfer } from './utils.js';
+export { parseAmount, isTransfer } from './utils.js';
 
 export const calculateBalance = (
   transactions: Transaction[], 

@@ -1,15 +1,15 @@
 import {
   calculateIntramesDeficitAlerts,
   isTransfer,
-} from '../../src/lib/calculations';
-import { calculateSavingsProvisions } from '../../src/lib/savingsCalculations';
+} from '../../src/lib/calculations.js';
+import { calculateSavingsProvisions } from '../../src/lib/savingsCalculations.js';
 import type {
   Account,
   Budget,
   RecurringExpenseRule,
   SavingsGoal,
   Transaction,
-} from '../../src/types/finance';
+} from '../../src/types/finance.js';
 
 export interface NotificationCandidate {
   type:
