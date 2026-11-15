@@ -6,8 +6,37 @@ import { ThemeProvider } from 'next-themes'
 import { routeTree } from './routeTree.gen'
 import './index.css'
 import { registerSW } from 'virtual:pwa-register'
+
 if ('serviceWorker' in navigator) {
-  registerSW()
+  const hadController = Boolean(navigator.serviceWorker.controller)
+  let isRefreshing = false
+
+  navigator.serviceWorker.addEventListener('controllerchange', () => {
+    if (!hadController || isRefreshing) return
+    isRefreshing = true
+    window.location.reload()
+  })
+
+  registerSW({
+    immediate: true,
+    onRegisteredSW(_swUrl, registration) {
+      if (!registration) return
+      registration.update().catch(() => {})
+
+      const checkForUpdate = () => {
+        if (document.visibilityState === 'visible') {
+          registration.update().catch(() => {})
+        }
+      }
+
+      document.addEventListener('visibilitychange', checkForUpdate)
+      window.addEventListener('focus', checkForUpdate)
+      window.addEventListener('online', checkForUpdate)
+      setInterval(() => {
+        registration.update().catch(() => {})
+      }, 5 * 60 * 1000)
+    },
+  })
 }
 
 const queryClient = new QueryClient({

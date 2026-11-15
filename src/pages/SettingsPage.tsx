@@ -104,6 +104,32 @@ const SettingsPage = () => {
   const { accounts } = useAccounts();
   const { categories, addCategory: rqAddCategory, updateCategory: rqUpdateCategory, deleteCategory: rqDeleteCategory } = useCategories();
 
+  const [isForcingUpdate, setIsForcingUpdate] = useState(false);
+
+  const handleForceAppUpdate = async () => {
+    if (isForcingUpdate) return;
+    setIsForcingUpdate(true);
+    try {
+      if ("serviceWorker" in navigator) {
+        const registrations = await navigator.serviceWorker.getRegistrations();
+        await Promise.all(
+          registrations.map(async (registration) => {
+            await registration.update().catch(() => {});
+            await registration.unregister().catch(() => {});
+          }),
+        );
+      }
+      if ("caches" in window) {
+        const cacheKeys = await caches.keys();
+        await Promise.all(cacheKeys.map((key) => caches.delete(key)));
+      }
+      window.location.reload();
+    } catch {
+      setIsForcingUpdate(false);
+      toast.error("No se pudo limpiar la caché automáticamente");
+    }
+  };
+
   // Category Form State
   const [isCatDialogOpen, setIsCatDialogOpen] = useState(false);
   const [editingCat, setEditingCat] = useState<Category | null>(null);
@@ -590,10 +616,26 @@ const SettingsPage = () => {
             </div>
           )}
 
-          <div className="text-center py-8">
+          <div className="text-center py-8 space-y-3">
             <p className="text-[10px] text-muted-foreground uppercase font-bold tracking-[0.2em] opacity-50">
               ContaHogar v2.0
             </p>
+            {typeof window !== "undefined" && (
+              <p className="text-[11px] font-mono text-muted-foreground/70">
+                Dominio: {window.location.hostname}
+              </p>
+            )}
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              disabled={isForcingUpdate}
+              onClick={handleForceAppUpdate}
+              className="rounded-xl text-xs gap-1.5"
+            >
+              <Icons.RefreshCw className={cn("w-3.5 h-3.5", isForcingUpdate && "animate-spin")} />
+              {isForcingUpdate ? "Actualizando..." : "Actualizar app (limpiar caché)"}
+            </Button>
           </div>
         </div>
       </div>
