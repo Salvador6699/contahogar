@@ -171,6 +171,17 @@ const ESSENTIAL_EXPENSE_KEYWORDS = [
   "colegio",
   "guarderia",
   "guardería",
+  "estudio",
+  "estudios",
+  "instituto",
+  "universidad",
+  "academia",
+  "matricula",
+  "matrícula",
+  "formacion",
+  "formación",
+  "comedor",
+  "extraescolar",
 ];
 
 const ESSENTIAL_EXPENSE_CATEGORIES = [
@@ -184,6 +195,10 @@ const ESSENTIAL_EXPENSE_CATEGORIES = [
   "impuestos",
   "educacion",
   "educación",
+  "formacion",
+  "formación",
+  "estudios",
+  "hijos",
   "salud",
   "transporte",
 ];

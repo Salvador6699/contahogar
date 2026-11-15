@@ -6,6 +6,8 @@ import {
   RecurringExpenseKind,
   RecurrenceFrequency,
   Transaction,
+  Loan,
+  MortgageMetadata,
   getRecurringRuleKind,
   isRuleIncludedInSavings,
 } from "@/types/finance";
@@ -14,6 +16,11 @@ import { useAccounts } from "@/hooks/useAccounts";
 import { useCategories } from "@/hooks/useCategories";
 import { useLoans } from "@/hooks/useLoans";
 import { useTransactions } from "@/hooks/useTransactions";
+import { usePlanning } from "@/hooks/usePlanning";
+import {
+  calculateSavingsProvisions,
+  type UnifiedSavingsGoal,
+} from "@/lib/savingsCalculations";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -76,6 +83,152 @@ const getMonthlyEquivalent = (rule: RecurringExpenseRule): number => {
     return rule.amount / interval;
   }
   return rule.amount;
+};
+
+/** Returns true for periodic/annual expenses (yearly, quarterly/multi-month, >31 days). */
+const isPeriodicOrAnnualRule = (rule: RecurringExpenseRule): boolean => {
+  if (rule.frequency === "yearly") return true;
+  if (rule.frequency === "custom") {
+    const interval = rule.customInterval || 1;
+    if (rule.customIntervalUnit === "years") return true;
+    if (rule.customIntervalUnit === "months" && interval > 1) return true;
+    if (rule.customIntervalUnit === "days" && interval > 31) return true;
+  }
+  return false;
+};
+
+interface RuleSavingsStatus {
+  ruleId: string;
+  goals: UnifiedSavingsGoal[];
+  nextGoal?: UnifiedSavingsGoal;
+  targetTotal: number;
+  allocatedTotal: number;
+  missingTotal: number;
+  suggestedMonthlyTotal: number;
+}
+
+interface KindBreakdown {
+  rules: RecurringExpenseRule[];
+  pureMonthly: number;
+  periodicRules: RecurringExpenseRule[];
+  periodicProratedMonthly: number;
+  periodicAnnualTotal: number;
+  totalMonthly: number;
+  targetTotal: number;
+  allocatedTotal: number;
+  missingTotal: number;
+  suggestedMonthlyTotal: number;
+  uncoveredMonthlyNeeded: number;
+  coveragePct: number;
+}
+
+/** Splits rules into pure monthly vs periodic/annual and aggregates savings coverage. */
+const computeKindBreakdown = (
+  list: RecurringExpenseRule[],
+  ruleCoverageMap: Map<string, RuleSavingsStatus>
+): KindBreakdown => {
+  let pureMonthly = 0;
+  const periodicRules: RecurringExpenseRule[] = [];
+  let periodicProratedMonthly = 0;
+
+  let targetTotal = 0;
+  let allocatedTotal = 0;
+  let missingTotal = 0;
+  let suggestedMonthlyTotal = 0;
+  let untrackedMonthly = 0;
+
+  list.forEach((rule) => {
+    const monthlyEq = getMonthlyEquivalent(rule);
+    if (!isPeriodicOrAnnualRule(rule)) {
+      pureMonthly += monthlyEq;
+      return;
+    }
+
+    periodicRules.push(rule);
+    periodicProratedMonthly += monthlyEq;
+
+    if (!isRuleIncludedInSavings(rule)) {
+      untrackedMonthly += monthlyEq;
+      return;
+    }
+
+    const status = ruleCoverageMap.get(rule.id);
+    if (status) {
+      targetTotal += status.targetTotal;
+      allocatedTotal += status.allocatedTotal;
+      missingTotal += status.missingTotal;
+      suggestedMonthlyTotal += status.suggestedMonthlyTotal;
+    }
+  });
+
+  const uncoveredMonthlyNeeded = suggestedMonthlyTotal + untrackedMonthly;
+  const coveragePct =
+    targetTotal > 0 ? Math.min(100, Math.round((allocatedTotal / targetTotal) * 100)) : 0;
+
+  return {
+    rules: list,
+    pureMonthly,
+    periodicRules,
+    periodicProratedMonthly,
+    periodicAnnualTotal: periodicProratedMonthly * 12,
+    totalMonthly: pureMonthly + periodicProratedMonthly,
+    targetTotal,
+    allocatedTotal,
+    missingTotal,
+    suggestedMonthlyTotal,
+    uncoveredMonthlyNeeded,
+    coveragePct,
+  };
+};
+
+/** Mirrors LoansSection completion rules so paid-off loans never inflate active totals. */
+const isLoanActive = (
+  loan: Loan,
+  transactions: Transaction[],
+  rules: RecurringExpenseRule[]
+): boolean => {
+  if (loan.status === "completed" || (loan.installmentAmount || 0) <= 0) {
+    return false;
+  }
+
+  const meta = loan.originalTransactionData as MortgageMetadata | undefined;
+  if (meta?.isMortgage) {
+    const rule = meta.linkedRuleId
+      ? rules.find((r) => r.id === meta.linkedRuleId)
+      : undefined;
+
+    const confirmedCount = transactions.filter((t) => {
+      if (t.isPending || t.type !== "expense" || t.isIgnored || t.amount <= 0) return false;
+      if (t.date < meta.baselineDate) return false;
+      if (t.linkedLoanId === loan.id || t.id.startsWith(`rec_loan_${loan.id}_`)) return true;
+      if (meta.linkedRuleId && t.id.startsWith(`rec_${meta.linkedRuleId}_`)) return true;
+      if (!meta.linkedRuleId || !rule) {
+        const desc = `${t.description || ""} ${t.category || ""}`.toLowerCase();
+        if (t.accountId === loan.accountId && desc.includes("hipoteca")) return true;
+      }
+      return false;
+    }).length;
+
+    const paidInstallments = meta.paidInstallmentsBaseline + confirmedCount;
+    const remainingInstallments = Math.max(0, loan.installments - paidInstallments);
+    const amortizedPrincipal = Number(
+      Math.min(
+        loan.amount,
+        meta.amortizedPrincipalBaseline +
+          confirmedCount * (meta.currentPrincipalPortion || 0)
+      ).toFixed(2)
+    );
+    const pendingPrincipal = Number(Math.max(0, loan.amount - amortizedPrincipal).toFixed(2));
+    return remainingInstallments > 0 && pendingPrincipal > 0;
+  }
+
+  const totalReal = loan.installments * loan.installmentAmount + (loan.setupFee || 0);
+  const amountPaid =
+    transactions
+      .filter((t) => t.linkedLoanId === loan.id && t.type === "expense" && !t.isPending)
+      .reduce((acc, t) => acc + t.amount, 0) + (loan.startingPaidAmount || 0);
+
+  return amountPaid < totalReal - 0.01;
 };
 
 const getFrequencyLabel = (rule: RecurringExpenseRule): string => {
@@ -194,6 +347,7 @@ export const RecurringExpensesManager = ({
   const { accounts, isLoading: isAccLoading } = useAccounts();
   const { loans, isLoading: isLoansLoading } = useLoans();
   const { transactions, isLoading: isTxLoading } = useTransactions();
+  const { goals, savingsTimeframe, isGoalsLoading } = usePlanning();
 
   // Search and UI State
   const [searchQuery, setSearchQuery] = useState("");
@@ -380,6 +534,47 @@ export const RecurringExpensesManager = ({
     setExpandedRow(prev => (prev === id ? null : id));
   };
 
+  const savingsProvisions = useMemo(
+    () =>
+      calculateSavingsProvisions(
+        accounts,
+        transactions,
+        goals || [],
+        rules || [],
+        savingsTimeframe
+      ),
+    [accounts, transactions, goals, rules, savingsTimeframe]
+  );
+
+  const ruleCoverageMap = useMemo(() => {
+    const map = new Map<string, RuleSavingsStatus>();
+    const grouped = new Map<string, UnifiedSavingsGoal[]>();
+
+    savingsProvisions.unifiedGoals.forEach((g) => {
+      if (!g.isVirtual || !g.ruleId || g.isIgnored) return;
+      const bucket = grouped.get(g.ruleId) || [];
+      bucket.push(g);
+      grouped.set(g.ruleId, bucket);
+    });
+
+    grouped.forEach((ruleGoals, ruleId) => {
+      const sorted = [...ruleGoals].sort((a, b) =>
+        (a.deadline || "").localeCompare(b.deadline || "")
+      );
+      map.set(ruleId, {
+        ruleId,
+        goals: sorted,
+        nextGoal: sorted[0],
+        targetTotal: sorted.reduce((acc, g) => acc + g.targetAmount, 0),
+        allocatedTotal: sorted.reduce((acc, g) => acc + g.allocatedAmount, 0),
+        missingTotal: sorted.reduce((acc, g) => acc + g.missingAmount, 0),
+        suggestedMonthlyTotal: sorted.reduce((acc, g) => acc + g.suggestedMonthly, 0),
+      });
+    });
+
+    return map;
+  }, [savingsProvisions.unifiedGoals]);
+
   const summary = useMemo(() => {
     const essential = rules.filter(
       (r) => r.type === "expense" && getRecurringRuleKind(r) === "essential"
@@ -392,27 +587,51 @@ export const RecurringExpensesManager = ({
       (r) => r.type === "expense" && r.name.toLowerCase().includes("hipoteca")
     );
 
-    const essentialMonthly = essential.reduce((acc, r) => acc + getMonthlyEquivalent(r), 0);
-    const subscriptionMonthly = subscription.reduce((acc, r) => acc + getMonthlyEquivalent(r), 0);
-    const activeLoans = (loans || []).filter(
-      (l) => l.status !== "completed" && l.installmentAmount > 0
-    );
+    const essentialBreakdown = computeKindBreakdown(essential, ruleCoverageMap);
+    const subscriptionBreakdown = computeKindBreakdown(subscription, ruleCoverageMap);
+    const activeLoans = (loans || []).filter((l) => isLoanActive(l, transactions, rules));
     const loansMonthly = activeLoans.reduce(
       (acc, l) => acc + (l.installmentAmount || 0),
       0
     );
+
+    const pureTotalMonthly =
+      loansMonthly + essentialBreakdown.pureMonthly + subscriptionBreakdown.pureMonthly;
+    const totalPeriodicProratedMonthly =
+      essentialBreakdown.periodicProratedMonthly +
+      subscriptionBreakdown.periodicProratedMonthly;
+    const totalTarget =
+      essentialBreakdown.targetTotal + subscriptionBreakdown.targetTotal;
+    const totalAllocated =
+      essentialBreakdown.allocatedTotal + subscriptionBreakdown.allocatedTotal;
+    const totalMissing =
+      essentialBreakdown.missingTotal + subscriptionBreakdown.missingTotal;
+    const totalUncoveredMonthlyNeeded =
+      essentialBreakdown.uncoveredMonthlyNeeded +
+      subscriptionBreakdown.uncoveredMonthlyNeeded;
+    const totalCoveragePct =
+      totalTarget > 0 ? Math.min(100, Math.round((totalAllocated / totalTarget) * 100)) : 0;
 
     return {
       essential,
       subscription,
       income,
       mortgageRules,
-      essentialMonthly,
-      subscriptionMonthly,
+      essentialMonthly: essentialBreakdown.totalMonthly,
+      subscriptionMonthly: subscriptionBreakdown.totalMonthly,
+      essentialBreakdown,
+      subscriptionBreakdown,
       activeLoansCount: activeLoans.length,
       loansMonthly,
+      pureTotalMonthly,
+      totalPeriodicProratedMonthly,
+      totalTarget,
+      totalAllocated,
+      totalMissing,
+      totalUncoveredMonthlyNeeded,
+      totalCoveragePct,
     };
-  }, [rules, loans]);
+  }, [rules, loans, transactions, ruleCoverageMap]);
 
   const progressionByRuleId = useMemo(() => {
     const map = new Map<string, RuleProgression>();
@@ -440,7 +659,14 @@ export const RecurringExpensesManager = ({
     );
   };
 
-  if (isRulesLoading || isCatLoading || isAccLoading || isLoansLoading || isTxLoading) {
+  if (
+    isRulesLoading ||
+    isCatLoading ||
+    isAccLoading ||
+    isLoansLoading ||
+    isTxLoading ||
+    isGoalsLoading
+  ) {
     return <div className="p-8 text-center text-muted-foreground animate-pulse">Cargando datos...</div>;
   }
 
@@ -476,6 +702,9 @@ export const RecurringExpensesManager = ({
     };
     const isSimulatedCancelled =
       ruleKind === "subscription" && simulatedCancelIds.includes(rule.id);
+    const isPeriodic = rule.type === "expense" && isPeriodicOrAnnualRule(rule);
+    const ruleSavings = isPeriodic ? ruleCoverageMap.get(rule.id) : undefined;
+    const nextSavingsGoal = ruleSavings?.nextGoal;
 
     return (
       <div
@@ -570,26 +799,68 @@ export const RecurringExpensesManager = ({
                     Provisiones
                   </span>
                 )}
+
+                {isPeriodic && nextSavingsGoal && (
+                  <span
+                    className={cn(
+                      "font-bold inline-flex items-center gap-1 px-2 py-0.5 rounded-full border tabular-nums",
+                      nextSavingsGoal.missingAmount <= 0.01
+                        ? "bg-emerald-500/10 text-emerald-700 dark:text-emerald-300 border-emerald-500/25"
+                        : "bg-amber-500/10 text-amber-700 dark:text-amber-300 border-amber-500/25"
+                    )}
+                  >
+                    <PiggyBank className="w-3 h-3 shrink-0" />
+                    {nextSavingsGoal.missingAmount <= 0.01 ? (
+                      <span>
+                        Cubierto en Ahorros ({formatCurrency(nextSavingsGoal.allocatedAmount)}/
+                        {formatCurrency(nextSavingsGoal.targetAmount)})
+                      </span>
+                    ) : (
+                      <span>
+                        Ahorro: {formatCurrency(nextSavingsGoal.allocatedAmount)}/
+                        {formatCurrency(nextSavingsGoal.targetAmount)}
+                        {nextSavingsGoal.suggestedMonthly > 0.01
+                          ? ` · Apartar ${formatCurrency(nextSavingsGoal.suggestedMonthly)}/mes`
+                          : " · Sin provisión"}
+                      </span>
+                    )}
+                  </span>
+                )}
               </div>
 
               {rule.type === "expense" && ruleKind === "subscription" && (
-                <button
-                  type="button"
-                  onClick={(e) => toggleSimulatedCancel(rule.id, e)}
-                  className={cn(
-                    "mt-2 inline-flex items-center gap-1.5 px-2.5 py-1 rounded-xl text-[11px] font-bold border transition-all cursor-pointer",
-                    isSimulatedCancelled
-                      ? "bg-emerald-500/15 text-emerald-700 dark:text-emerald-300 border-emerald-500/40"
-                      : "bg-muted/40 text-muted-foreground border-border/60 hover:border-violet-500/40 hover:text-foreground"
-                  )}
-                >
-                  <Scissors className="w-3 h-3 shrink-0" />
-                  <span>
-                    {isSimulatedCancelled
-                      ? `Baja simulada · Ahorras ${formatCurrency(annualSaving)}/año`
-                      : `¿Y si la dejo? · Ahorras ${formatCurrency(annualSaving)}/año`}
-                  </span>
-                </button>
+                <div className="mt-2 flex items-center gap-1.5 flex-wrap">
+                  <button
+                    type="button"
+                    onClick={(e) => toggleSimulatedCancel(rule.id, e)}
+                    className={cn(
+                      "inline-flex items-center gap-1.5 px-2.5 py-1 rounded-xl text-[11px] font-bold border transition-all cursor-pointer",
+                      isSimulatedCancelled
+                        ? "bg-emerald-500/15 text-emerald-700 dark:text-emerald-300 border-emerald-500/40"
+                        : "bg-muted/40 text-muted-foreground border-border/60 hover:border-violet-500/40 hover:text-foreground"
+                    )}
+                  >
+                    <Scissors className="w-3 h-3 shrink-0" />
+                    <span>
+                      {isSimulatedCancelled
+                        ? `Baja simulada · Ahorras ${formatCurrency(annualSaving)}/año`
+                        : `¿Y si la dejo? · Ahorras ${formatCurrency(annualSaving)}/año`}
+                    </span>
+                  </button>
+                  <button
+                    type="button"
+                    onClick={async (e) => {
+                      e.stopPropagation();
+                      setSimulatedCancelIds((prev) => prev.filter((id) => id !== rule.id));
+                      await updateRule({ ...rule, kind: "essential" });
+                      toast.success("Movido a Suministros y Recibos");
+                    }}
+                    className="inline-flex items-center gap-1 px-2.5 py-1 rounded-xl text-[11px] font-bold border border-sky-500/30 bg-sky-500/10 text-sky-700 dark:text-sky-300 hover:bg-sky-500/15 transition-all cursor-pointer"
+                  >
+                    <Zap className="w-3 h-3 shrink-0" />
+                    <span>Es obligatorio · Pasar a Recibos</span>
+                  </button>
+                </div>
               )}
             </div>
           </div>
@@ -691,7 +962,7 @@ export const RecurringExpensesManager = ({
                       </span>
                       <span className="text-[11px] text-muted-foreground">
                         {ruleKind === "essential"
-                          ? "Luz, agua, internet, seguros u otros recibos del hogar"
+                          ? "Luz, agua, internet, estudios, seguros u otros recibos del hogar"
                           : "Servicio sin compromiso que puedes cancelar si quieres ahorrar"}
                       </span>
                     </div>
@@ -741,6 +1012,54 @@ export const RecurringExpensesManager = ({
                     />
                   </div>
                 )}
+
+                {isPeriodic && nextSavingsGoal && (
+                  <div className="pt-2 border-t border-border/30 space-y-1 text-xs">
+                    <div className="flex items-center justify-between gap-2">
+                      <span className="font-bold text-foreground">
+                        Cobertura con tu ahorro
+                        {nextSavingsGoal.deadline
+                          ? ` (${format(new Date(nextSavingsGoal.deadline), "dd MMM yyyy", {
+                              locale: es,
+                            })})`
+                          : ""}
+                      </span>
+                      <span
+                        className={cn(
+                          "font-black tabular-nums",
+                          nextSavingsGoal.missingAmount <= 0.01
+                            ? "text-emerald-600 dark:text-emerald-400"
+                            : "text-amber-600 dark:text-amber-400"
+                        )}
+                      >
+                        {nextSavingsGoal.missingAmount <= 0.01
+                          ? "Cubierto 100%"
+                          : nextSavingsGoal.suggestedMonthly > 0.01
+                          ? `Apartar ${formatCurrency(nextSavingsGoal.suggestedMonthly)} / mes`
+                          : "Sin provisión mensual activa"}
+                      </span>
+                    </div>
+                    <p className="text-[11px] text-muted-foreground tabular-nums">
+                      Asignado en Ahorros:{" "}
+                      <strong className="text-foreground">
+                        {formatCurrency(nextSavingsGoal.allocatedAmount)}
+                      </strong>{" "}
+                      de {formatCurrency(nextSavingsGoal.targetAmount)}
+                      {nextSavingsGoal.missingAmount > 0.01 &&
+                        ` · Faltan ${formatCurrency(nextSavingsGoal.missingAmount)} (${nextSavingsGoal.monthsLeft} ${
+                          nextSavingsGoal.monthsLeft === 1 ? "mes" : "meses"
+                        })`}
+                    </p>
+                    {ruleSavings && ruleSavings.goals.length > 1 && (
+                      <p className="text-[11px] text-muted-foreground tabular-nums">
+                        En tu horizonte ({ruleSavings.goals.length} cobros):{" "}
+                        {formatCurrency(ruleSavings.allocatedTotal)} /{" "}
+                        {formatCurrency(ruleSavings.targetTotal)} cubiertos · Apartar total{" "}
+                        {formatCurrency(ruleSavings.suggestedMonthlyTotal)}/mes
+                      </p>
+                    )}
+                  </div>
+                )}
               </div>
             </div>
 
@@ -782,7 +1101,11 @@ export const RecurringExpensesManager = ({
                 {group.label} ({group.rules.length})
               </span>
               <span className="text-[11px] font-bold text-muted-foreground tabular-nums">
-                {formatCurrency(group.monthlyTotal)} / mes
+                {group.key === "monthly"
+                  ? `${formatCurrency(group.monthlyTotal)} / mes (mensual puro)`
+                  : `${formatCurrency(group.monthlyTotal)} / mes prorrateado (${formatCurrency(
+                      group.monthlyTotal * 12
+                    )} / año)`}
               </span>
             </div>
             <div className="flex flex-col gap-3">{group.rules.map(renderRuleRow)}</div>
@@ -850,8 +1173,50 @@ export const RecurringExpensesManager = ({
   );
   const visibleIncome = filteredRules.filter((r) => r.type === "income");
 
-  const totalMonthlyCommitment =
-    summary.loansMonthly + summary.essentialMonthly + summary.subscriptionMonthly;
+  const renderPeriodicSavingsSummary = (breakdown: KindBreakdown) => {
+    if (breakdown.periodicRules.length === 0) {
+      return (
+        <p className="text-[11px] text-muted-foreground mt-1.5">
+          100% mensual puro (sin recibos periódicos ni anuales)
+        </p>
+      );
+    }
+
+    return (
+      <div className="mt-2 pt-2 border-t border-border/40 space-y-1.5">
+        <p className="text-[11px] font-semibold text-muted-foreground tabular-nums">
+          Periódicos/Anuales ({breakdown.periodicRules.length}):{" "}
+          <strong className="text-foreground">
+            +{formatCurrency(breakdown.periodicProratedMonthly)}/mes
+          </strong>{" "}
+          ({formatCurrency(breakdown.periodicAnnualTotal)}/año)
+        </p>
+        {breakdown.targetTotal > 0 &&
+        breakdown.missingTotal <= 0.01 &&
+        breakdown.uncoveredMonthlyNeeded <= 0.01 ? (
+          <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[11px] font-bold border bg-emerald-500/10 text-emerald-700 dark:text-emerald-300 border-emerald-500/25 tabular-nums">
+            <PiggyBank className="w-3 h-3 shrink-0" />
+            Cubierto 100% con tu ahorro (0 €/mes a apartar)
+          </span>
+        ) : breakdown.targetTotal > 0 ? (
+          <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[11px] font-bold border bg-amber-500/10 text-amber-700 dark:text-amber-300 border-amber-500/25 tabular-nums">
+            <PiggyBank className="w-3 h-3 shrink-0" />
+            Tu ahorro cubre {breakdown.coveragePct}% ({formatCurrency(breakdown.allocatedTotal)}/
+            {formatCurrency(breakdown.targetTotal)})
+            {breakdown.uncoveredMonthlyNeeded > 0.01
+              ? ` · Apartar ${formatCurrency(breakdown.uncoveredMonthlyNeeded)}/mes`
+              : " · Modo sin provisión"}
+          </span>
+        ) : (
+          <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[11px] font-semibold border bg-muted/60 text-muted-foreground border-border/60 tabular-nums">
+            <PiggyBank className="w-3 h-3 shrink-0" />
+            Sin provisión activa en Ahorros · Equiv.{" "}
+            {formatCurrency(breakdown.periodicProratedMonthly)}/mes
+          </span>
+        )}
+      </div>
+    );
+  };
 
   const handleOpenAddLoan = () => {
     if (filterTab !== "all" && filterTab !== "loans") {
@@ -873,11 +1238,38 @@ export const RecurringExpensesManager = ({
             Hipoteca, préstamos, suministros obligatorios y suscripciones en un único centro.
           </p>
           {(rules.length > 0 || summary.activeLoansCount > 0) && (
-            <div className="mt-2.5 inline-flex items-center gap-2 px-3 py-1 rounded-full bg-primary/10 border border-primary/20 text-xs">
-              <span className="text-muted-foreground font-medium">Compromiso fijo mensual total:</span>
-              <strong className="font-black text-foreground tabular-nums">
-                {formatCurrency(totalMonthlyCommitment)} / mes
-              </strong>
+            <div className="mt-2.5 flex flex-wrap items-center gap-2">
+              <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-primary/10 border border-primary/20 text-xs">
+                <span className="text-muted-foreground font-medium">Compromiso mensual directo:</span>
+                <strong className="font-black text-foreground tabular-nums">
+                  {formatCurrency(summary.pureTotalMonthly)} / mes
+                </strong>
+              </div>
+              {summary.totalPeriodicProratedMonthly > 0 && (
+                <div
+                  className={cn(
+                    "inline-flex items-center gap-1.5 px-3 py-1 rounded-full border text-xs",
+                    summary.totalTarget > 0 &&
+                      summary.totalMissing <= 0.01 &&
+                      summary.totalUncoveredMonthlyNeeded <= 0.01
+                      ? "bg-emerald-500/10 border-emerald-500/25 text-emerald-700 dark:text-emerald-300"
+                      : "bg-amber-500/10 border-amber-500/25 text-amber-700 dark:text-amber-300"
+                  )}
+                >
+                  <PiggyBank className="w-3.5 h-3.5 shrink-0" />
+                  {summary.totalTarget > 0 &&
+                  summary.totalMissing <= 0.01 &&
+                  summary.totalUncoveredMonthlyNeeded <= 0.01 ? (
+                    <span className="font-bold tabular-nums">
+                      Anuales/periódicos (+{formatCurrency(summary.totalPeriodicProratedMonthly)}/mes): Cubiertos 100% con Ahorros (0 €/mes a apartar)
+                    </span>
+                  ) : (
+                    <span className="font-bold tabular-nums">
+                      Provisión anuales/periódicos: +{formatCurrency(summary.totalUncoveredMonthlyNeeded)}/mes a apartar (Ahorro cubre {summary.totalCoveragePct}%)
+                    </span>
+                  )}
+                </div>
+              )}
             </div>
           )}
         </div>
@@ -951,13 +1343,16 @@ export const RecurringExpensesManager = ({
                 {summary.essential.length} reglas
               </span>
             </div>
-            <p className="text-2xl font-black mt-1.5 tabular-nums">
-              {formatCurrency(summary.essentialMonthly)}
-              <span className="text-xs font-medium text-muted-foreground"> / mes</span>
-            </p>
-            <p className="text-[11px] text-muted-foreground mt-1">
-              Luz, agua, internet, seguros obligatorios
-            </p>
+            <div className="mt-1.5 flex items-baseline gap-1.5 flex-wrap">
+              <p className="text-2xl font-black tabular-nums">
+                {formatCurrency(summary.essentialBreakdown.pureMonthly)}
+                <span className="text-xs font-medium text-muted-foreground"> / mes</span>
+              </p>
+              <span className="text-[11px] font-bold uppercase tracking-wider text-sky-600/90 dark:text-sky-400">
+                Mensual puro
+              </span>
+            </div>
+            {renderPeriodicSavingsSummary(summary.essentialBreakdown)}
           </button>
 
           <button
@@ -979,13 +1374,21 @@ export const RecurringExpensesManager = ({
                 {summary.subscription.length} reglas
               </span>
             </div>
-            <p className="text-2xl font-black mt-1.5 tabular-nums">
-              {formatCurrency(summary.subscriptionMonthly)}
-              <span className="text-xs font-medium text-muted-foreground"> / mes</span>
-            </p>
-            <p className="text-[11px] text-muted-foreground mt-1">
-              Margen recortable: {formatCurrency(summary.subscriptionMonthly * 12)} / año
-            </p>
+            <div className="mt-1.5 flex items-baseline gap-1.5 flex-wrap">
+              <p className="text-2xl font-black tabular-nums">
+                {formatCurrency(summary.subscriptionBreakdown.pureMonthly)}
+                <span className="text-xs font-medium text-muted-foreground"> / mes</span>
+              </p>
+              <span className="text-[11px] font-bold uppercase tracking-wider text-violet-600/90 dark:text-violet-400">
+                Mensual puro
+              </span>
+            </div>
+            {renderPeriodicSavingsSummary(summary.subscriptionBreakdown)}
+            {summary.subscriptionMonthly > 0 && (
+              <p className="text-[11px] text-muted-foreground mt-1.5 tabular-nums">
+                Margen recortable total: {formatCurrency(summary.subscriptionMonthly * 12)} / año
+              </p>
+            )}
           </button>
         </div>
       )}
@@ -1363,7 +1766,7 @@ export const RecurringExpensesManager = ({
                       Suministro / Recibo
                     </span>
                     <span className="text-[11px] leading-tight text-muted-foreground">
-                      Luz, agua, internet, seguros obligatorios
+                      Luz, agua, internet, estudios, seguros obligatorios
                     </span>
                   </button>
                   <button
