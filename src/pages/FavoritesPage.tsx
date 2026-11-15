@@ -20,10 +20,12 @@ const ICON_LIST = [
   'Stethoscope', 'Activity', 'Dumbbell', 'Gamepad2', 'Music', 'Film', 'Dog', 'Cat', 'Baby', 'Briefcase',
   'GraduationCap', 'Ship', 'Gift', 'Wrench', 'Hammer', 'Settings', 'Target', 'Trophy', 'Star',
   'Search', 'Calendar', 'Clock', 'ShieldCheck', 'Lock', 'Bell', 'Mail', 'Phone', 'Camera', 'Map',
-  'Headphones', 'Wifi', 'Thermometer', 'Navigation', 'Tree', 'Flower', 'Sun', 'Moon', 'Cloud', 'HardDrive',
-  'Monitor', 'Tablet', 'Watch', 'Video', 'Inbox', 'Unlock', 'Key', 'Tool', 'Trash', 'Eye', 'Image',
+  'Headphones', 'Wifi', 'Thermometer', 'Navigation', 'Trees', 'Flower', 'Sun', 'Moon', 'Cloud', 'HardDrive',
+  'Monitor', 'Tablet', 'Watch', 'Video', 'Inbox', 'Unlock', 'Key', 'Trash', 'Eye', 'Image',
   'File', 'Folder', 'User', 'Users', 'Layout', 'PieChart', 'BarChart', 'TrendingUp', 'TrendingDown',
-  'DollarSign', 'Euro', 'Award', 'CheckCircle', 'AlertTriangle'
+  'DollarSign', 'Euro', 'Award', 'CheckCircle', 'AlertTriangle', 'Landmark', 'Building2', 'Receipt',
+  'Sparkles', 'Trash2', 'ArrowLeftRight', 'Repeat', 'Smile', 'Brain', 'Shirt', 'Puzzle', 'Clover',
+  'Ticket', 'Cigarette', 'HandHeart', 'Globe', 'BookOpen', 'Scissors', 'SprayCan', 'Coins'
 ];
 
 const FavoritesPage = () => {

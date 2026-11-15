@@ -14,7 +14,15 @@ import { formatCurrency } from '@/lib/calculations';
 import { parseAmount } from '@/lib/utils';
 import { Switch } from '@/components/ui/switch';
 
+const CASH_SVG = '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64"><rect width="64" height="64" rx="32" fill="#10b981"/><rect x="14" y="21" width="36" height="22" rx="4" fill="none" stroke="#ffffff" stroke-width="3.5"/><circle cx="32" cy="32" r="5" fill="none" stroke="#ffffff" stroke-width="3.2"/><path d="M20 27v10M44 27v10" stroke="#ffffff" stroke-width="3" stroke-linecap="round"/></svg>';
+const SAVINGS_SVG = '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64"><rect width="64" height="64" rx="32" fill="#f59e0b"/><path d="M22 33c0-7.5 6-13 14-13 5.2 0 9.5 2.4 11.8 6H51a2.5 2.5 0 0 1 2.5 2.5v4a2.5 2.5 0 0 1-2.5 2.5h-2.2c-1 2.5-2.8 4.6-5.2 6V45a2.5 2.5 0 0 1-2.5 2.5h-3a2 2 0 0 1-2-2v-1.7a18 18 0 0 1-6 0V45.5a2 2 0 0 1-2 2h-3a2.5 2.5 0 0 1-2.5-2.5v-4.2C23.3 38.8 22 36.1 22 33Z" fill="none" stroke="#ffffff" stroke-width="3.2" stroke-linejoin="round"/><path d="M29 18.5c2-.8 5-.8 7 0" stroke="#ffffff" stroke-width="3" stroke-linecap="round"/><circle cx="42" cy="29.5" r="1.8" fill="#ffffff"/><path d="M22 31c-2.5-.5-4-2-4-4" fill="none" stroke="#ffffff" stroke-width="3" stroke-linecap="round"/></svg>';
+
+const CASH_LOGO = `data:image/svg+xml;base64,${btoa(CASH_SVG)}`;
+const SAVINGS_LOGO = `data:image/svg+xml;base64,${btoa(SAVINGS_SVG)}`;
+
 const BANK_LOGOS = [
+  { name: 'Efectivo (Billetes)', url: CASH_LOGO },
+  { name: 'Cuenta Ahorro (Hucha)', url: SAVINGS_LOGO },
   { name: 'CaixaBank', url: 'https://icon.horse/icon/caixabank.es' },
   { name: 'Santander', url: 'https://icon.horse/icon/bancosantander.es' },
   { name: 'BBVA', url: 'https://icon.horse/icon/bbva.es' },

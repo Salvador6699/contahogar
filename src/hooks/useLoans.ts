@@ -1,5 +1,5 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { getLoans, addLoan, updateLoan, deleteLoan, applyFractionatedTransaction, applyLoanTransaction } from '@/api/local/loans';
+import { getLoans, addLoan, updateLoan, deleteLoan, applyFractionatedTransaction, applyLoanTransaction, amortizeLoan, AmortizeLoanParams } from '@/api/local/loans';
 import { syncRecurringTransactionsToSupabase } from '@/lib/recurrence';
 
 export const useLoans = () => {
@@ -55,6 +55,15 @@ export const useLoans = () => {
     },
   });
 
+  const amortizeLoanMutation = useMutation({
+    mutationFn: (params: AmortizeLoanParams) => amortizeLoan(params),
+    onSuccess: async () => {
+      queryClient.invalidateQueries({ queryKey: ['loans'] });
+      await syncRecurringTransactionsToSupabase();
+      queryClient.invalidateQueries({ queryKey: ['transactions'] });
+    },
+  });
+
   return {
     loans: loansQuery.data || [],
     isLoading: loansQuery.isLoading,
@@ -64,5 +73,6 @@ export const useLoans = () => {
     deleteLoan: deleteLoanMutation.mutateAsync,
     applyFractionatedTransaction: applyFractionatedTransactionMutation.mutateAsync,
     applyLoanTransaction: applyLoanTransactionMutation.mutateAsync,
+    amortizeLoan: amortizeLoanMutation.mutateAsync,
   };
 };

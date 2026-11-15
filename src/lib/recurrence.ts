@@ -235,12 +235,18 @@ export const syncRecurringTransactionsToSupabase = async (): Promise<void> => {
       baselineDate = new Date(today.getFullYear(), today.getMonth(), 1);
     }
 
+    const isExtraAmortizationTx = (t: Transaction) =>
+      String(t.id || "").startsWith("amort_") ||
+      String(t.description || "").toLowerCase().includes("amortización anticipada") ||
+      String(t.description || "").toLowerCase().includes("amortización parcial");
+
     let monthCursor = new Date(baselineDate.getFullYear(), baselineDate.getMonth(), 1);
     const baselineStr = format(baselineDate, "yyyy-MM-dd");
     const confirmedSinceBaseline = transactions.filter(
       (t) =>
         !t.isPending &&
         !t.isIgnored &&
+        !isExtraAmortizationTx(t) &&
         t.type === "expense" &&
         t.date >= baselineStr &&
         (t.linkedLoanId === loan.id || t.id.startsWith(`rec_loan_${loan.id}_`))
@@ -274,6 +280,7 @@ export const syncRecurringTransactionsToSupabase = async (): Promise<void> => {
           (t) =>
             !t.isPending &&
             !t.isIgnored &&
+            !isExtraAmortizationTx(t) &&
             t.date.startsWith(monthKey) &&
             (t.id === txId || t.linkedLoanId === loan.id)
         );

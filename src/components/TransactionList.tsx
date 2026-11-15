@@ -4,7 +4,9 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Transaction } from '@/types/finance';
 import { formatCurrency } from '@/lib/calculations';
-import { Pencil, Trash2, Calendar, Clock, Search, ChevronLeft, ChevronRight, CreditCard } from 'lucide-react';
+import { Pencil, Trash2, Calendar, Clock, Search, ChevronLeft, ChevronRight, CreditCard, Tag } from 'lucide-react';
+import * as Icons from 'lucide-react';
+import { useCategories } from '@/hooks/useCategories';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
   AlertDialog,
@@ -27,6 +29,7 @@ interface TransactionListProps {
 const ITEMS_PER_PAGE = 5;
 
 const TransactionList = ({ transactions, onEdit, onDelete }: TransactionListProps) => {
+  const { categories: categoryCatalog } = useCategories();
   const [deleteId, setDeleteId] = useState<string | null>(null);
   const [searchQuery, setSearchQuery] = useState('');
   const [currentPage, setCurrentPage] = useState(1);
@@ -117,6 +120,10 @@ const TransactionList = ({ transactions, onEdit, onDelete }: TransactionListProp
                   borderLeftClass = 'border-l-purple-500';
                 }
 
+                const catObj = categoryCatalog.find(
+                  (c) => c.name.trim().toLowerCase() === transaction.category.trim().toLowerCase()
+                );
+
                 return (
                   <motion.div
                     key={transaction.id}
@@ -130,37 +137,55 @@ const TransactionList = ({ transactions, onEdit, onDelete }: TransactionListProp
                       className={`p-3 sm:p-4 bg-white dark:bg-card border border-border/40 border-l-[4px] ${borderLeftClass} shadow-sm hover:shadow-md hover:-translate-y-0.5 transition-all duration-300 rounded-2xl group`}
                     >
                     <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 min-w-0">
-                      <div className="flex-1 min-w-0">
-                        <div className="flex items-center gap-2 mb-0.5">
-                          <p className="font-bold text-foreground capitalize">
-                            {transaction.category}
-                          </p>
-                          {transaction.isPending && (
-                            <span className="flex items-center gap-1 text-[8px] font-black uppercase tracking-tighter bg-muted px-1.5 py-0.5 rounded border border-border/50">
-                              <Clock className="w-2 h-2" />
-                              Previsto
-                            </span>
+                      <div className="flex items-center gap-3 flex-1 min-w-0">
+                        {catObj?.customIcon ? (
+                          <div className="w-10 h-10 rounded-xl flex items-center justify-center flex-shrink-0 shadow-sm overflow-hidden border border-border/20 bg-muted">
+                            <img src={catObj.customIcon} className="w-full h-full object-cover" alt={catObj.name} />
+                          </div>
+                        ) : (() => {
+                          const IconComponent = (catObj?.icon && (Icons as any)[catObj.icon]) || Tag;
+                          const badgeColor = catObj?.color || (isIncome ? '#10b981' : '#ef4444');
+                          return (
+                            <div
+                              className="w-10 h-10 rounded-xl flex items-center justify-center flex-shrink-0 text-white shadow-sm"
+                              style={{ backgroundColor: badgeColor }}
+                            >
+                              <IconComponent className="w-5 h-5" />
+                            </div>
+                          );
+                        })()}
+                        <div className="flex-1 min-w-0">
+                          <div className="flex items-center gap-2 mb-0.5">
+                            <p className="font-bold text-foreground capitalize truncate">
+                              {transaction.category}
+                            </p>
+                            {transaction.isPending && (
+                              <span className="flex items-center gap-1 text-[8px] font-black uppercase tracking-tighter bg-muted px-1.5 py-0.5 rounded border border-border/50 shrink-0">
+                                <Clock className="w-2 h-2" />
+                                Previsto
+                              </span>
+                            )}
+                            {transaction.linkedLoanId && (
+                              <span className="flex items-center gap-1 text-[8px] font-black uppercase tracking-tighter bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-300 px-1.5 py-0.5 rounded border border-blue-200 dark:border-blue-800 shrink-0">
+                                <CreditCard className="w-2 h-2" />
+                                Cuota
+                              </span>
+                            )}
+                          </div>
+                          {transaction.description && (
+                            <p className="text-[10px] text-muted-foreground italic truncate mb-1">
+                              {transaction.description}
+                            </p>
                           )}
-                          {transaction.linkedLoanId && (
-                            <span className="flex items-center gap-1 text-[8px] font-black uppercase tracking-tighter bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-300 px-1.5 py-0.5 rounded border border-blue-200 dark:border-blue-800">
-                              <CreditCard className="w-2 h-2" />
-                              Cuota
-                            </span>
-                          )}
-                        </div>
-                        {transaction.description && (
-                          <p className="text-[10px] text-muted-foreground italic truncate mb-1">
-                            {transaction.description}
-                          </p>
-                        )}
-                        <div className="flex items-center gap-2">
-                          <p className="text-[10px] font-medium text-muted-foreground/80">
-                            {new Date(transaction.date).toLocaleDateString('es-ES', {
-                              year: 'numeric',
-                              month: 'long',
-                              day: 'numeric',
-                            })}
-                          </p>
+                          <div className="flex items-center gap-2">
+                            <p className="text-[10px] font-medium text-muted-foreground/80">
+                              {new Date(transaction.date).toLocaleDateString('es-ES', {
+                                year: 'numeric',
+                                month: 'long',
+                                day: 'numeric',
+                              })}
+                            </p>
+                          </div>
                         </div>
                       </div>
                       <div className="flex items-center justify-between w-full sm:w-auto gap-4 mt-3 sm:mt-0 pt-3 sm:pt-0 border-t sm:border-t-0 border-border/10">

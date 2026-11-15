@@ -232,7 +232,7 @@ const CategoryBreakdown = ({
               <div className="flex items-start justify-between gap-3">
                 <div className="flex items-center gap-3 min-w-0">
                     {(() => {
-                      const catObj = categoryCatalog.find(c => c.name === transaction.category);
+                      const catObj = categoryCatalog.find(c => c.name.trim().toLowerCase() === transaction.category.trim().toLowerCase());
                       if (catObj?.customIcon) {
                         return (
                           <div 
@@ -419,7 +419,7 @@ const CategoryBreakdown = ({
               <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
                 <div className="flex-1 flex items-center gap-3 min-w-0">
                   {(() => {
-                    const catObj = categoryCatalog.find(c => c.name === category.category);
+                    const catObj = categoryCatalog.find(c => c.name.trim().toLowerCase() === category.category.trim().toLowerCase());
                     if (catObj?.customIcon) {
                       return (
                         <div 

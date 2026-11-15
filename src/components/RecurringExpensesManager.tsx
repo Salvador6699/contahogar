@@ -62,6 +62,7 @@ import {
   ChevronDown,
   ChevronUp,
 } from "lucide-react";
+import * as Icons from "lucide-react";
 import { Switch } from "@/components/ui/switch";
 import { cn, parseAmount } from "@/lib/utils";
 import { appToast as toast, swalConfirm } from "@/lib/swal";
@@ -706,6 +707,27 @@ export const RecurringExpensesManager = ({
     const ruleSavings = isPeriodic ? ruleCoverageMap.get(rule.id) : undefined;
     const nextSavingsGoal = ruleSavings?.nextGoal;
 
+    const matchedCategory = categories.find(
+      (c) => c.name.trim().toLowerCase() === rule.category.trim().toLowerCase()
+    );
+    const ruleNameLower = rule.name.trim().toLowerCase();
+    const specificIconName = (() => {
+      if (ruleNameLower.includes("seguro coche")) return "Car";
+      if (ruleNameLower.includes("seguro hogar")) return "ShieldCheck";
+      if (ruleNameLower.includes("ibi") && ruleNameLower.includes("coche")) return "Car";
+      if (ruleNameLower === "itv" || ruleNameLower.includes(" itv")) return "Wrench";
+      return undefined;
+    })();
+    const iconName =
+      specificIconName ||
+      matchedCategory?.icon ||
+      (rule.type === "income" ? "Repeat" : ruleKind === "essential" ? "Zap" : "Sparkles");
+    const RuleIconComponent = (Icons as any)[iconName] || Tag;
+    const badgeColor =
+      matchedCategory?.color && matchedCategory.color !== "#94a3b8"
+        ? matchedCategory.color
+        : undefined;
+
     return (
       <div
         key={rule.id}
@@ -724,24 +746,35 @@ export const RecurringExpensesManager = ({
           onClick={() => toggleRow(rule.id)}
         >
           <div className="flex items-start gap-3.5 min-w-0 flex-1">
-            <div
-              className={cn(
-                "w-11 h-11 rounded-2xl flex items-center justify-center shadow-sm flex-shrink-0 transition-colors mt-0.5",
-                rule.type === "income"
-                  ? "bg-income/10 text-income"
-                  : ruleKind === "essential"
-                  ? "bg-sky-500/10 text-sky-600 dark:text-sky-400"
-                  : "bg-violet-500/10 text-violet-600 dark:text-violet-400"
-              )}
-            >
-              {rule.type === "income" ? (
-                <Repeat className="w-5 h-5" />
-              ) : ruleKind === "essential" ? (
-                <Zap className="w-5 h-5" />
-              ) : (
-                <Sparkles className="w-5 h-5" />
-              )}
-            </div>
+            {matchedCategory?.customIcon && !specificIconName ? (
+              <div className="w-11 h-11 rounded-2xl overflow-hidden shadow-sm border border-border/50 flex-shrink-0 mt-0.5 bg-muted">
+                <img
+                  src={matchedCategory.customIcon}
+                  alt={matchedCategory.name}
+                  className="w-full h-full object-cover"
+                />
+              </div>
+            ) : badgeColor ? (
+              <div
+                className="w-11 h-11 rounded-2xl flex items-center justify-center shadow-sm flex-shrink-0 text-white transition-colors mt-0.5"
+                style={{ backgroundColor: badgeColor }}
+              >
+                <RuleIconComponent className="w-5 h-5" />
+              </div>
+            ) : (
+              <div
+                className={cn(
+                  "w-11 h-11 rounded-2xl flex items-center justify-center shadow-sm flex-shrink-0 transition-colors mt-0.5",
+                  rule.type === "income"
+                    ? "bg-income/10 text-income"
+                    : ruleKind === "essential"
+                    ? "bg-sky-500/10 text-sky-600 dark:text-sky-400"
+                    : "bg-violet-500/10 text-violet-600 dark:text-violet-400"
+                )}
+              >
+                <RuleIconComponent className="w-5 h-5" />
+              </div>
+            )}
             <div className="min-w-0 flex-1">
               <p
                 className={cn(
@@ -756,6 +789,21 @@ export const RecurringExpensesManager = ({
                 <span className="uppercase tracking-wider">{getFrequencyLabel(rule)}</span>
                 <span className="w-1 h-1 rounded-full bg-border" />
                 <span className="truncate uppercase tracking-wider">{rule.category}</span>
+                {account && (
+                  <>
+                    <span className="w-1 h-1 rounded-full bg-border" />
+                    <span className="inline-flex items-center gap-1 text-foreground/80">
+                      {account.logo && (
+                        <img
+                          src={account.logo}
+                          alt=""
+                          className="w-3.5 h-3.5 rounded-full object-cover bg-white shrink-0"
+                        />
+                      )}
+                      <span className="truncate max-w-[90px]">{account.name}</span>
+                    </span>
+                  </>
+                )}
 
                 {rule.type === "expense" && (
                   <span
