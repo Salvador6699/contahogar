@@ -7,9 +7,10 @@ import { cn } from '@/lib/utils';
 interface SortableWidgetProps {
   id: string;
   children: React.ReactNode;
+  className?: string;
 }
 
-export function SortableWidget({ id, children }: SortableWidgetProps) {
+export function SortableWidget({ id, children, className }: SortableWidgetProps) {
   const {
     attributes,
     listeners,
@@ -31,7 +32,8 @@ export function SortableWidget({ id, children }: SortableWidgetProps) {
         style={style} 
         className={cn(
             "relative group w-full",
-            isDragging ? "opacity-50 scale-[1.02]" : ""
+            isDragging ? "opacity-50 scale-[1.02]" : "",
+            className
         )}
     >
       <div 

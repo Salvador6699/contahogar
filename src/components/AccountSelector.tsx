@@ -35,27 +35,27 @@ const AccountSelector = ({
   };
 
   return (
-    <div className="flex flex-col sm:flex-row w-full gap-3">
+    <div className="flex flex-col sm:flex-row w-full gap-2">
       {/* Global Balance - Full width on mobile, stretches on PC */}
       <Button
         variant={selectedAccount === 'total' ? 'default' : 'outline'}
         size="sm"
         onClick={() => onSelectAccount('total')}
         className={cn(
-          "flex items-center justify-between gap-3 px-4 h-auto min-h-14 py-2 sm:flex-1 transition-all",
+          "flex items-center justify-between gap-2 px-3 sm:px-3.5 h-auto min-h-10 sm:min-h-11 py-1.5 rounded-xl sm:flex-1 transition-all",
           "w-full order-1"
         )}
       >
-        <div className="flex items-center gap-2">
-          <Wallet className="w-5 h-5 opacity-70" />
-          <span className="text-xs font-black uppercase tracking-wider">Total</span>
+        <div className="flex items-center gap-1.5">
+          <Wallet className="w-4 h-4 opacity-70" />
+          <span className="text-[11px] font-black uppercase tracking-wider">Total</span>
         </div>
         <div className="flex flex-col items-end leading-tight">
-          <span className="font-bold tabular-nums text-sm sm:text-base">{formatCurrency(totalBalance)}</span>
+          <span className="font-bold tabular-nums text-xs sm:text-sm">{formatCurrency(totalBalance)}</span>
           {hasTotalPending && (
             <span
               className={cn(
-                "text-[10px] sm:text-[11px] font-semibold tabular-nums",
+                "text-[9px] sm:text-[10px] font-semibold tabular-nums",
                 getProjectedClassName(totalProjectedBalance, selectedAccount === 'total')
               )}
             >
@@ -66,7 +66,7 @@ const AccountSelector = ({
       </Button>
 
       {/* Account List - Grid on mobile, stretches on desktop */}
-      <div className="grid grid-cols-2 sm:flex sm:flex-[2] gap-3 order-2 w-full">
+      <div className="grid grid-cols-2 sm:flex sm:flex-[3] gap-2 order-2 w-full">
         {accountBalances.map((ab) => {
           const isSelected = selectedAccount === ab.account.id;
           const mainAmount = ab.account.linkedAccountId ? ab.projectedBalance : ab.balance;
@@ -78,24 +78,24 @@ const AccountSelector = ({
               variant={isSelected ? 'default' : 'outline'}
               size="sm"
               onClick={() => onSelectAccount(ab.account.id)}
-              className="flex flex-col sm:flex-row items-center justify-center sm:justify-between gap-1.5 sm:gap-2 h-auto min-h-[4.75rem] sm:min-h-14 py-2.5 px-3 sm:px-4 min-w-0 flex-1 transition-all"
+              className="flex flex-row items-center justify-between gap-1.5 h-auto min-h-10 sm:min-h-11 py-1.5 px-2.5 sm:px-3.5 rounded-xl min-w-0 flex-1 transition-all"
             >
-              <div className="flex items-center justify-center sm:justify-start gap-1.5 max-w-full min-w-0">
+              <div className="flex items-center justify-start gap-1.5 max-w-full min-w-0">
                 {ab.account.logo && (
-                  <img src={ab.account.logo} alt="" className="w-5 h-5 rounded-full object-cover flex-shrink-0 bg-white" />
+                  <img src={ab.account.logo} alt="" className="w-4 h-4 rounded-full object-cover flex-shrink-0 bg-white" />
                 )}
-                <span className="text-[10px] sm:text-xs font-black uppercase tracking-wider truncate">
+                <span className="text-[10px] sm:text-[11px] font-extrabold uppercase tracking-wider truncate">
                   {ab.account.name}
                 </span>
               </div>
-              <div className="flex flex-col items-center sm:items-end leading-tight">
+              <div className="flex flex-col items-end leading-tight shrink-0">
                 <span className="font-bold tabular-nums text-xs sm:text-sm whitespace-nowrap">
                   {formatCurrency(mainAmount)}
                 </span>
                 {hasPending && (
                   <span
                     className={cn(
-                      "text-[10px] font-semibold tabular-nums whitespace-nowrap",
+                      "text-[9px] sm:text-[10px] font-semibold tabular-nums whitespace-nowrap",
                       getProjectedClassName(ab.projectedBalance, isSelected)
                     )}
                   >

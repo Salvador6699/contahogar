@@ -1,27 +1,21 @@
 import { useState, useEffect } from 'react';
-import { 
-  X, 
-  Target, 
-  DollarSign, 
-  Calendar, 
-  Tag, 
-  Palette,
-  CheckCircle2,
-  Trash2
+import {
+  Target,
+  DollarSign,
+  Calendar,
+  Tag,
 } from 'lucide-react';
-import { cn } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { useScrollOnFocus } from '@/hooks/useScrollOnFocus';
 import { withKeyboardClose, parseAmount } from '@/lib/utils';
 import { SavingsGoal, Account } from '@/types/finance';
-import { 
-  Dialog, 
-  DialogContent, 
-  DialogHeader, 
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
   DialogTitle,
-  DialogFooter
 } from '@/components/ui/dialog';
 
 interface SavingsGoalModalProps {
@@ -74,14 +68,17 @@ const SavingsGoalModal = ({
     const goalData = {
       name: name.trim(),
       targetAmount: target,
-      currentAmount: 0,
+      currentAmount: editingGoal?.currentAmount ?? 0,
       deadline: deadline || undefined,
       category: category.trim() || undefined,
       accountId: accountId || undefined,
+      color: editingGoal?.color,
+      priority: editingGoal?.priority ?? 999,
+      isIgnored: editingGoal?.isIgnored ?? false,
     };
 
     if (editingGoal) {
-      onSave({ ...goalData, id: editingGoal.id });
+      onSave({ ...editingGoal, ...goalData, id: editingGoal.id });
     } else {
       onSave(goalData);
     }

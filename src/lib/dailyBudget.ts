@@ -17,9 +17,12 @@ export interface DailyBudgetResult {
   daysLeftInclusive: number
   currentDay: number
   daysInMonth: number
+  realBalance: number
+  grossMonthCapital: number
   projectedMonthEndCapital: number
   nextMonthProvision: number
   savingsProvision: number
+  totalBudgets: number
   unallocatedMargin: number
   envelopesRemaining: number
   spendableMonthMargin: number
@@ -59,8 +62,10 @@ export function computeDailyBudgetAllowance(params: {
   const currentMonthKey = format(now, 'yyyy-MM')
   const nextMonthKey = format(addMonths(now, 1), 'yyyy-MM')
 
-  // 1. Projected capital at end of current month (non-savings accounts)
-  const realBalance = calculateTotalBalance(accounts, transactions, false, currentMonthKey)
+  // 1. Real balance and projected capital at end of current month (non-savings accounts)
+  const realBalance = Number(
+    calculateTotalBalance(accounts, transactions, false, currentMonthKey).toFixed(2)
+  )
   let currentMonthPendingImpact = 0
   accounts.forEach((acc) => {
     if (!acc.excludeFromTotals) {
@@ -97,12 +102,7 @@ export function computeDailyBudgetAllowance(params: {
           savingsTimeframe
         ).totalSuggestedMonthly
 
-  // 4. Spendable margin for the remainder of the month without touching provisions
-  const spendableMonthMargin = Number(
-    (projectedMonthEndCapital - nextMonthProvision - savingsProvision).toFixed(2)
-  )
-
-  // 5. Active budget envelopes remaining (optional reference alongside free margin)
+  // 4. Active budget envelopes & current month expenses
   const budgetMap = new Map<string, Budget>()
   budgets.forEach((b) => {
     if (b.month === currentMonthKey && !isTransfer(b.category) && b.amount > 0) {
@@ -128,11 +128,23 @@ export function computeDailyBudgetAllowance(params: {
     }
   })
 
-  const totalBudgets = activeBudgets.reduce((s, b) => s + b.amount, 0)
-  const curExpensesTotal = Object.values(curAllByCat).reduce((s, v) => s + v, 0)
-  const unallocatedMargin = Number(
-    (spendableMonthMargin + curExpensesTotal - totalBudgets).toFixed(2)
+  const totalBudgets = Number(activeBudgets.reduce((s, b) => s + b.amount, 0).toFixed(2))
+  const curExpensesTotal = Number(
+    Object.values(curAllByCat)
+      .reduce((s, v) => s + v, 0)
+      .toFixed(2)
   )
+
+  // Gross month capital adds back current month expenses because activeBudgets already account for them
+  const grossMonthCapital = Number((projectedMonthEndCapital + curExpensesTotal).toFixed(2))
+  const unallocatedMargin = Number(
+    (grossMonthCapital - totalBudgets - nextMonthProvision - savingsProvision).toFixed(2)
+  )
+
+  const hasActiveBudgets = activeBudgets.length > 0
+  const spendableMonthMargin = hasActiveBudgets
+    ? unallocatedMargin
+    : Number((projectedMonthEndCapital - nextMonthProvision - savingsProvision).toFixed(2))
 
   const envelopesRemaining = Number(
     activeBudgets
@@ -148,14 +160,17 @@ export function computeDailyBudgetAllowance(params: {
     daysLeftInclusive,
     currentDay,
     daysInMonth,
+    realBalance,
+    grossMonthCapital,
     projectedMonthEndCapital,
     nextMonthProvision,
     savingsProvision,
+    totalBudgets,
     unallocatedMargin,
     envelopesRemaining,
     spendableMonthMargin,
     dailyAllowance: Number((spendableMonthMargin / daysLeftInclusive).toFixed(2)),
     envelopesDailyAllowance: Number((envelopesRemaining / daysLeftInclusive).toFixed(2)),
-    hasActiveBudgets: activeBudgets.length > 0,
+    hasActiveBudgets,
   }
 }

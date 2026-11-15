@@ -40,7 +40,7 @@ import { useSearchParams } from '@/hooks/useSearchParams';
 import { appToast as toast } from "@/lib/swal";
 
 import { DndContext, closestCenter, KeyboardSensor, PointerSensor, useSensor, useSensors, DragEndEvent } from '@dnd-kit/core';
-import { arrayMove, SortableContext, sortableKeyboardCoordinates, verticalListSortingStrategy } from '@dnd-kit/sortable';
+import { arrayMove, SortableContext, sortableKeyboardCoordinates, rectSortingStrategy } from '@dnd-kit/sortable';
 import { SortableWidget } from "@/components/SortableWidget";
 import { useAccounts } from "@/hooks/useAccounts";
 import { useTransactions } from "@/hooks/useTransactions";
@@ -48,12 +48,7 @@ import { useCategories } from "@/hooks/useCategories";
 import { usePlanning } from "@/hooks/usePlanning";
 import { useLoans } from "@/hooks/useLoans";
 import { useFavorites } from "@/hooks/useFavorites";
-import { HomeDiagnosisWidget } from "@/components/HomeDiagnosisWidget";
-import { HomeBudgetWidget } from "@/components/HomeBudgetWidget";
-import { IntramesAlertBanner } from "@/components/IntramesAlertBanner";
-import { AccountCoverageWidget } from "@/components/AccountCoverageWidget";
 import { HomeCompactPulse } from "@/components/HomeCompactPulse";
-import { DailyBudgetCard } from "@/components/DailyBudgetCard";
 import { PushPermissionBanner } from "@/components/PushPermissionBanner";
 import { useFeatureFlags } from "@/hooks/useFeatureFlags";
 
@@ -274,6 +269,15 @@ const Index = () => {
   };
 
   const handleEditTransaction = (transaction: Transaction) => {
+    // Si es un recibo futuro (pendiente) generado de forma autónoma por una hipoteca/préstamo
+    if (transaction.isPending && transaction.id.startsWith("rec_loan_")) {
+      toast.info(
+        "Este recibo futuro se gestiona de forma autónoma desde Préstamos e Hipoteca. Te redirigimos allí..."
+      );
+      navigate({ to: "/prestamos" } as any);
+      return;
+    }
+
     // Si es un gasto/ingreso futuro (pendiente) proveniente de una regla de gasto fijo automatizado
     if (transaction.isPending && transaction.id.startsWith("rec_")) {
       const parts = transaction.id.split("_");
@@ -415,6 +419,9 @@ const Index = () => {
   const totalProjectedBalance = accountBalances
     .filter(ab => !ab.account.excludeFromTotals)
     .reduce((sum, ab) => sum + ab.projectedBalance, 0);
+  const savingsBalance = accountBalances
+    .filter((ab) => ab.account.excludeFromTotals)
+    .reduce((sum, ab) => sum + ab.balance, 0);
 
   const intramesAlerts = useMemo(
     () =>
@@ -573,6 +580,27 @@ const Index = () => {
   if (accountsLoading || transactionsLoading) {
     return <div className="p-8 text-center text-muted-foreground animate-pulse">Cargando datos...</div>;
   }
+
+  const visibleWidgets = widgetOrder.filter((id) => {
+    if (id === "upcoming") return hasAnyPending;
+    if (id === "categories") return expenseCategories.length > 0;
+    return true;
+  });
+
+  const getWidgetSpanClass = (id: string, idx: number) => {
+    if (id === "summaries") return "lg:col-span-2";
+    let runStart = idx;
+    while (runStart > 0 && visibleWidgets[runStart - 1] !== "summaries") {
+      runStart -= 1;
+    }
+    const indexInRun = idx - runStart;
+    const isEndOfRun =
+      idx === visibleWidgets.length - 1 || visibleWidgets[idx + 1] === "summaries";
+    if (isEndOfRun && indexInRun % 2 === 0) {
+      return "lg:col-span-2";
+    }
+    return "lg:col-span-1";
+  };
 
   const WIDGET_COMPONENTS: Record<string, React.ReactNode> = {
     summaries: (
@@ -757,9 +785,9 @@ const Index = () => {
       <div className={cn("w-full", isCompactHome && "tabular-nums")}>
         <div className="w-full max-w-full mx-auto px-4 lg:px-12 py-6 sm:py-8 transition-all duration-500 pb-32">
           <PushPermissionBanner />
-          <div className="mb-6 sm:mb-8">
+          <div className="mb-3 sm:mb-4">
             {/* Month Navigator Header */}
-            <div className="flex flex-col sm:flex-row items-center justify-between mb-8 gap-4">
+            <div className="flex flex-col sm:flex-row items-center justify-between gap-3">
               <div className="flex items-center gap-2 mx-auto sm:mx-0 bg-white dark:bg-card p-1.5 rounded-full shadow-sm border border-border/50">
                 <Button
                   variant="ghost"
@@ -797,7 +825,7 @@ const Index = () => {
           </div>
 
           {/* Account Selector */}
-          <div className="mb-4">
+          <div className="mb-3">
             <AccountSelector
               selectedAccount={selectedAccount}
               onSelectAccount={setSelectedAccount}
@@ -812,68 +840,32 @@ const Index = () => {
               <BalanceCard
                 balance={balance}
                 projectedBalance={projectedBalance}
+                savingsBalance={savingsBalance}
                 compact={isCompactHome}
+                isTotalSelected={selectedAccount === "total"}
+                selectedAccountName={
+                  selectedAccount === "total"
+                    ? undefined
+                    : data.accounts.find((a) => a.id === selectedAccount)?.name
+                }
+                isCurrentMonth={isCurrentMonth}
+                accounts={data.accounts}
+                transactions={data.transactions}
+                budgets={data.budgets}
               />
             </div>
 
-            {flags.exp_daily_budget && isCurrentMonth && (
-              <DailyBudgetCard
-                accounts={data.accounts}
-                transactions={data.transactions}
-                budgets={data.budgets}
-              />
-            )}
-
-            {isCompactHome ? (
-              <HomeCompactPulse
-                transactions={data.transactions}
-                categories={data.categories}
-                budgets={data.budgets}
-                accounts={data.accounts}
-                intramesAlerts={intramesAlerts}
-                monthKey={balanceMonthKey}
-                isCurrentMonth={isCurrentMonth}
-                selectedAccount={selectedAccount}
-                onSelectAccount={setSelectedAccount}
-              />
-            ) : (
-              <>
-                {/* Alert Banner: Descubierto intrames por orden cronológico */}
-                <IntramesAlertBanner
-                  alerts={intramesAlerts}
-                  selectedAccount={selectedAccount}
-                  onSelectAccount={setSelectedAccount}
-                />
-
-                {/* Smart Compact Alert Banner: Diagnóstico y Ritmo vs Mes Anterior */}
-                {isCurrentMonth && (
-                  <HomeDiagnosisWidget
-                    transactions={data.transactions}
-                    categories={data.categories}
-                    accounts={data.accounts}
-                  />
-                )}
-
-                {/* Smart Compact Alert Banner: Cumplimiento de Presupuestos del Mes */}
-                {isCurrentMonth && (
-                  <HomeBudgetWidget
-                    transactions={data.transactions}
-                    categories={data.categories}
-                    budgets={data.budgets}
-                    accounts={data.accounts}
-                  />
-                )}
-
-                {/* Smart Compact Banner: Cobertura mensual por cuenta */}
-                <AccountCoverageWidget
-                  accounts={data.accounts}
-                  transactions={data.transactions}
-                  monthKey={balanceMonthKey}
-                  selectedAccount={selectedAccount}
-                  onSelectAccount={setSelectedAccount}
-                />
-              </>
-            )}
+            <HomeCompactPulse
+              transactions={data.transactions}
+              categories={data.categories}
+              budgets={data.budgets}
+              accounts={data.accounts}
+              intramesAlerts={intramesAlerts}
+              monthKey={balanceMonthKey}
+              isCurrentMonth={isCurrentMonth}
+              selectedAccount={selectedAccount}
+              onSelectAccount={setSelectedAccount}
+            />
 
             {/* Draggable Widgets Area */}
             <DndContext 
@@ -882,12 +874,12 @@ const Index = () => {
               onDragEnd={handleDragEnd}
             >
               <SortableContext 
-                items={widgetOrder}
-                strategy={verticalListSortingStrategy}
+                items={visibleWidgets}
+                strategy={rectSortingStrategy}
               >
-                <div className="flex flex-col gap-6 lg:gap-8 mb-8 pb-24 w-full">
-                  {widgetOrder.map((id) => (
-                    <SortableWidget key={id} id={id}>
+                <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 items-start mb-8 pb-24 w-full">
+                  {visibleWidgets.map((id, idx) => (
+                    <SortableWidget key={id} id={id} className={getWidgetSpanClass(id, idx)}>
                       {WIDGET_COMPONENTS[id]}
                     </SortableWidget>
                   ))}

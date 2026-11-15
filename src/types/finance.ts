@@ -80,6 +80,24 @@ export interface Budget {
   isAuto?: boolean;
 }
 
+export interface MortgageMetadata {
+  isMortgage: boolean;
+  linkedRuleId?: string;
+  billingDay?: number;
+  category?: string;
+  pendingPrincipalBaseline: number;
+  amortizedPrincipalBaseline: number;
+  paidInstallmentsBaseline: number;
+  baselineDate: string;
+  currentPrincipalPortion: number;
+  currentInterestPortion: number;
+  interestRate?: number;
+  indexSpread?: string;
+  nextReviewDate?: string;
+  endDate?: string;
+  balloonPayment?: number;
+}
+
 export interface Loan {
   id: string;
   name: string; // e.g. "Préstamo Coche" or "Veterinario"
@@ -93,11 +111,12 @@ export interface Loan {
   status: "active" | "completed";
   isStarted?: boolean; // True if the loan is pre-existing
   startingPaidAmount?: number; // Historical paid amount before adding it here
-  originalTransactionData?: Omit<Transaction, "id"> & { id?: string };
+  originalTransactionData?: (Omit<Transaction, "id"> & { id?: string }) | MortgageMetadata | any;
 }
 
 export type RecurrenceFrequency = "weekly" | "monthly" | "yearly" | "custom";
 export type CustomIntervalUnit = "days" | "months" | "years";
+export type RecurringExpenseKind = "essential" | "subscription";
 
 export interface RecurringExpenseRule {
   id: string;
@@ -112,7 +131,77 @@ export interface RecurringExpenseRule {
   type: TransactionType;
   savingsPriority?: number; // Priority for sinking funds
   includeInSavings?: boolean; // Si se incluye o no en la planificación de ahorros / provisiones
+  kind?: RecurringExpenseKind; // 'essential' = suministros/recibos obligatorios, 'subscription' = cancelable
 }
+
+const ESSENTIAL_EXPENSE_KEYWORDS = [
+  "luz",
+  "electricidad",
+  "iberdrola",
+  "endesa",
+  "naturgy",
+  "repsol",
+  "agua",
+  "gas",
+  "alquiler",
+  "hipoteca",
+  "comunidad",
+  "ibi",
+  "basura",
+  "internet",
+  "fibra",
+  "movil",
+  "móvil",
+  "telefono",
+  "teléfono",
+  "orange",
+  "movistar",
+  "vodafone",
+  "digi",
+  "yoigo",
+  "o2",
+  "pepephone",
+  "seguro",
+  "hogar",
+  "coche",
+  "salud",
+  "impuesto",
+  "autonomo",
+  "autónomo",
+  "colegio",
+  "guarderia",
+  "guardería",
+];
+
+const ESSENTIAL_EXPENSE_CATEGORIES = [
+  "vivienda",
+  "suministros",
+  "hogar",
+  "telefonia",
+  "telefonía",
+  "internet",
+  "seguros",
+  "impuestos",
+  "educacion",
+  "educación",
+  "salud",
+  "transporte",
+];
+
+export const getRecurringRuleKind = (rule: RecurringExpenseRule): RecurringExpenseKind => {
+  if (rule.kind === "essential" || rule.kind === "subscription") {
+    return rule.kind;
+  }
+  const haystack = `${rule.name} ${rule.category}`.toLowerCase();
+  if (ESSENTIAL_EXPENSE_KEYWORDS.some((kw) => haystack.includes(kw))) {
+    return "essential";
+  }
+  const catLower = rule.category.toLowerCase();
+  if (ESSENTIAL_EXPENSE_CATEGORIES.some((c) => catLower.includes(c))) {
+    return "essential";
+  }
+  return "subscription";
+};
 
 export const isRuleIncludedInSavings = (rule: RecurringExpenseRule): boolean => {
   if (rule.type === 'income') return false;

@@ -2,16 +2,19 @@ import {
   Transaction,
   RecurringExpenseRule,
   Loan,
+  MortgageMetadata,
 } from "@/types/finance";
 import {
   addDays,
   addWeeks,
   addMonths,
   addYears,
+  getDaysInMonth,
   isBefore,
   isAfter,
   parseISO,
   format,
+  setDate,
 } from "date-fns";
 import { supabase } from "@/lib/supabase";
 import { getTransactions } from "@/api/local/transactions";
@@ -31,13 +34,33 @@ export const syncRecurringTransactionsToSupabase = async (): Promise<void> => {
 
   const today = new Date();
 
-  // 1. Identify all rules
+  // 1. Identify all rules and autonomous mortgages
   const activeRuleIds = new Set(rules.map((r) => r.id));
+  const activeAutonomousMortgages = (loans || []).filter((loan) => {
+    const meta = loan.originalTransactionData as MortgageMetadata | undefined;
+    if (loan.type !== "loan" || !meta?.isMortgage) return false;
+    // Si todavía existe una regla vinculada activa en Gastos Fijos, esa regla genera los pendientes para no duplicar
+    if (meta.linkedRuleId && activeRuleIds.has(meta.linkedRuleId)) return false;
+    if (loan.status === "completed") return false;
+    if (loan.installmentAmount <= 0) return false;
+    if (loan.amount > 0 && (meta.pendingPrincipalBaseline ?? loan.amount - (loan.startingPaidAmount || 0)) <= 0.01) {
+      return false;
+    }
+    if (loan.installments > 0 && (meta.paidInstallmentsBaseline || 0) >= loan.installments) return false;
+    return true;
+  });
+  const activeAutonomousMortgageIds = new Set(activeAutonomousMortgages.map((l) => l.id));
 
-  // 2. Identify orphaned pending transactions (from deleted rules) to delete
+  // 2. Identify orphaned pending transactions (from deleted rules or inactive mortgages) to delete
   const idsToDelete = new Set<string>();
   transactions.forEach((t) => {
-    if (t.isPending && t.id.startsWith("rec_")) {
+    if (t.isPending && t.id.startsWith("rec_loan_")) {
+      const parts = t.id.split("_");
+      const loanId = parts.length >= 4 ? parts.slice(2, parts.length - 1).join("_") : "";
+      if (!activeAutonomousMortgageIds.has(loanId)) {
+        idsToDelete.add(t.id);
+      }
+    } else if (t.isPending && t.id.startsWith("rec_")) {
       const parts = t.id.split("_");
       if (parts.length >= 3) {
         const ruleId = parts[1];
@@ -184,6 +207,118 @@ export const syncRecurringTransactionsToSupabase = async (): Promise<void> => {
     transactions.forEach((t) => {
       if (t.isPending && t.id.startsWith(`rec_${rule.id}_`)) {
         if (!generatedIds.has(t.id)) {
+          idsToDelete.add(t.id);
+        }
+      }
+    });
+  });
+
+  // 4. For each autonomous mortgage loan (without an active linked rule in Gastos Fijos), generate pending monthly receipts
+  activeAutonomousMortgages.forEach((loan) => {
+    const meta = loan.originalTransactionData as MortgageMetadata;
+    const billingDay = Math.min(31, Math.max(1, Math.round(meta.billingDay ?? 31)));
+
+    const defaultLimit = addYears(today, 1);
+    let limitDate = defaultLimit;
+    if (meta.endDate) {
+      const parsedEnd = parseISO(meta.endDate);
+      if (!isNaN(parsedEnd.getTime()) && isBefore(parsedEnd, limitDate)) {
+        limitDate = parsedEnd;
+      }
+    }
+
+    const baselineRaw = meta.baselineDate || loan.startDate;
+    let baselineDate = baselineRaw
+      ? parseISO(baselineRaw)
+      : new Date(today.getFullYear(), today.getMonth(), 1);
+    if (isNaN(baselineDate.getTime())) {
+      baselineDate = new Date(today.getFullYear(), today.getMonth(), 1);
+    }
+
+    let monthCursor = new Date(baselineDate.getFullYear(), baselineDate.getMonth(), 1);
+    const baselineStr = format(baselineDate, "yyyy-MM-dd");
+    const confirmedSinceBaseline = transactions.filter(
+      (t) =>
+        !t.isPending &&
+        !t.isIgnored &&
+        t.type === "expense" &&
+        t.date >= baselineStr &&
+        (t.linkedLoanId === loan.id || t.id.startsWith(`rec_loan_${loan.id}_`))
+    ).length;
+    const remainingInstallments =
+      loan.installments > 0
+        ? Math.max(0, loan.installments - ((meta.paidInstallmentsBaseline || 0) + confirmedSinceBaseline))
+        : 24;
+
+    const generatedLoanIds = new Set<string>();
+    let iterations = 0;
+    let pendingCount = 0;
+    const MAX_LOAN_ITERATIONS = 36;
+
+    while (iterations < MAX_LOAN_ITERATIONS && pendingCount < remainingInstallments) {
+      iterations++;
+      const clampedDay = Math.min(billingDay, getDaysInMonth(monthCursor));
+      const occurrenceDate = setDate(monthCursor, clampedDay);
+
+      if (isAfter(occurrenceDate, limitDate)) {
+        break;
+      }
+
+      if (!isBefore(occurrenceDate, baselineDate)) {
+        const dateStr = format(occurrenceDate, "yyyy-MM-dd");
+        const monthKey = format(occurrenceDate, "yyyy-MM");
+        const txId = `rec_loan_${loan.id}_${dateStr}`;
+
+        // Avoid duplicate pending charges if a confirmed payment for this mortgage already exists in this month
+        const hasConfirmedInMonth = transactions.some(
+          (t) =>
+            !t.isPending &&
+            !t.isIgnored &&
+            t.date.startsWith(monthKey) &&
+            (t.id === txId || t.linkedLoanId === loan.id)
+        );
+
+        if (!hasConfirmedInMonth) {
+          generatedLoanIds.add(txId);
+          pendingCount++;
+
+          const existingTx = transactions.find((t) => t.id === txId);
+          if (existingTx) {
+            if (existingTx.isPending) {
+              transactionsToUpsert.push({
+                ...existingTx,
+                date: dateStr,
+                amount: loan.installmentAmount,
+                category: meta.category || existingTx.category || "Vivienda",
+                accountId: loan.accountId,
+                type: "expense",
+                description: loan.name,
+                linkedLoanId: loan.id,
+              });
+            }
+          } else {
+            transactionsToUpsert.push({
+              id: txId,
+              date: dateStr,
+              amount: loan.installmentAmount,
+              category: meta.category || "Vivienda",
+              accountId: loan.accountId,
+              type: "expense",
+              description: loan.name,
+              isPending: true,
+              linkedLoanId: loan.id,
+            });
+          }
+        }
+      }
+
+      monthCursor = addMonths(monthCursor, 1);
+    }
+
+    // Clean up obsolete pending transactions for THIS autonomous mortgage
+    transactions.forEach((t) => {
+      if (t.isPending && t.id.startsWith(`rec_loan_${loan.id}_`)) {
+        if (!generatedLoanIds.has(t.id)) {
           idsToDelete.add(t.id);
         }
       }

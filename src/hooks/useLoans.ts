@@ -1,6 +1,6 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { getLoans, addLoan, updateLoan, deleteLoan, applyFractionatedTransaction, applyLoanTransaction } from '@/api/local/loans';
-import { Loan } from '@/types/finance';
+import { syncRecurringTransactionsToSupabase } from '@/lib/recurrence';
 
 export const useLoans = () => {
   const queryClient = useQueryClient();
@@ -12,23 +12,27 @@ export const useLoans = () => {
 
   const addLoanMutation = useMutation({
     mutationFn: addLoan,
-    onSuccess: () => {
+    onSuccess: async () => {
       queryClient.invalidateQueries({ queryKey: ['loans'] });
+      await syncRecurringTransactionsToSupabase();
+      queryClient.invalidateQueries({ queryKey: ['transactions'] });
     },
   });
 
   const updateLoanMutation = useMutation({
     mutationFn: updateLoan,
-    onSuccess: () => {
+    onSuccess: async () => {
       queryClient.invalidateQueries({ queryKey: ['loans'] });
+      await syncRecurringTransactionsToSupabase();
       queryClient.invalidateQueries({ queryKey: ['transactions'] });
     },
   });
 
   const deleteLoanMutation = useMutation({
     mutationFn: deleteLoan,
-    onSuccess: () => {
+    onSuccess: async () => {
       queryClient.invalidateQueries({ queryKey: ['loans'] });
+      await syncRecurringTransactionsToSupabase();
       queryClient.invalidateQueries({ queryKey: ['transactions'] });
     },
   });
@@ -44,8 +48,9 @@ export const useLoans = () => {
 
   const applyLoanTransactionMutation = useMutation({
     mutationFn: applyLoanTransaction,
-    onSuccess: () => {
+    onSuccess: async () => {
       queryClient.invalidateQueries({ queryKey: ['loans'] });
+      await syncRecurringTransactionsToSupabase();
       queryClient.invalidateQueries({ queryKey: ['transactions'] });
     },
   });

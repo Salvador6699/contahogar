@@ -78,6 +78,19 @@ export const saveBudgetsForMonth = async (month: string, budgets: Budget[]): Pro
 };
 
 // Goals
+const sanitizeSavingsGoalPayload = (goal: SavingsGoal) => ({
+  id: goal.id,
+  name: goal.name,
+  targetAmount: goal.targetAmount,
+  currentAmount: goal.currentAmount ?? 0,
+  deadline: goal.deadline || null,
+  accountId: goal.accountId || null,
+  color: goal.color || null,
+  category: goal.category || null,
+  priority: goal.priority ?? 999,
+  isIgnored: Boolean(goal.isIgnored),
+});
+
 export const getSavingsGoals = async (): Promise<SavingsGoal[]> => {
   const { data, error } = await supabase.from('savings_goals').select('*');
   if (error) throw new Error(error.message);
@@ -85,17 +98,18 @@ export const getSavingsGoals = async (): Promise<SavingsGoal[]> => {
 };
 
 export const addSavingsGoal = async (goal: Omit<SavingsGoal, "id">): Promise<SavingsGoal> => {
-  const newGoal = {
+  const newGoal = sanitizeSavingsGoalPayload({
+    ...goal,
     id: crypto.randomUUID(),
-    ...goal
-  };
+  });
   const { data, error } = await supabase.from('savings_goals').insert([newGoal]).select().single();
   if (error) throw new Error(error.message);
   return data as SavingsGoal;
 };
 
 export const updateSavingsGoal = async (goal: SavingsGoal): Promise<void> => {
-  const { error } = await supabase.from('savings_goals').update(goal).eq('id', goal.id);
+  const payload = sanitizeSavingsGoalPayload(goal);
+  const { error } = await supabase.from('savings_goals').update(payload).eq('id', goal.id);
   if (error) throw new Error(error.message);
 };
 

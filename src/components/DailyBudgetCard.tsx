@@ -99,7 +99,11 @@ export function DailyBudgetCard({
                 {formatCurrency(metrics.dailyAllowance)}/día
               </span>
               <span className="text-[11px] text-muted-foreground font-semibold">
-                ({formatCurrency(metrics.spendableMonthMargin)} libres este mes sin tocar provisiones)
+                ({formatCurrency(metrics.spendableMonthMargin)} libres{' '}
+                {metrics.hasActiveBudgets
+                  ? 'sin tocar presupuestos ni provisiones'
+                  : 'este mes sin tocar provisiones'}
+                )
               </span>
             </div>
           </div>
@@ -120,12 +124,36 @@ export function DailyBudgetCard({
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
             <div className="p-2.5 rounded-xl bg-background/85 border border-border/40">
               <p className="text-[10px] font-bold uppercase text-muted-foreground">
-                Cierre previsto cuentas
+                Capital del mes
               </p>
               <p className="font-black text-sm mt-0.5">
-                {formatCurrency(metrics.projectedMonthEndCapital)}
+                {formatCurrency(
+                  metrics.hasActiveBudgets
+                    ? metrics.grossMonthCapital
+                    : metrics.projectedMonthEndCapital
+                )}
               </p>
-              <p className="text-[10px] text-muted-foreground">Saldo actual + pendientes mes</p>
+              <p className="text-[10px] text-muted-foreground">
+                {metrics.hasActiveBudgets
+                  ? `Saldo actual: ${formatCurrency(metrics.realBalance)}`
+                  : 'Saldo actual + pendientes mes'}
+              </p>
+            </div>
+
+            <div className="p-2.5 rounded-xl bg-background/85 border border-border/40">
+              <p className="text-[10px] font-bold uppercase text-muted-foreground">
+                Asignado en presupuestos
+              </p>
+              <p className="font-black text-sm text-primary mt-0.5">
+                {metrics.hasActiveBudgets
+                  ? `-${formatCurrency(metrics.totalBudgets)}`
+                  : formatCurrency(0)}
+              </p>
+              <p className="text-[10px] text-muted-foreground">
+                {metrics.hasActiveBudgets
+                  ? `Quedan ${formatCurrency(metrics.envelopesRemaining)} en sobres (${formatCurrency(metrics.envelopesDailyAllowance)}/día)`
+                  : 'Sin sobres activos este mes'}
+              </p>
             </div>
 
             <div className="p-2.5 rounded-xl bg-background/85 border border-border/40">
@@ -139,28 +167,12 @@ export function DailyBudgetCard({
                 Próx. mes ({formatCurrency(metrics.nextMonthProvision)}) + Ahorro ({formatCurrency(metrics.savingsProvision)})
               </p>
             </div>
-
-            <div className="p-2.5 rounded-xl bg-background/85 border border-border/40">
-              <p className="text-[10px] font-bold uppercase text-muted-foreground">
-                {metrics.hasActiveBudgets ? 'Restante en sobres' : 'Margen por asignar'}
-              </p>
-              <p className="font-black text-sm text-primary mt-0.5">
-                {metrics.hasActiveBudgets
-                  ? `${formatCurrency(metrics.envelopesDailyAllowance)}/día`
-                  : formatCurrency(metrics.unallocatedMargin)}
-              </p>
-              <p className="text-[10px] text-muted-foreground">
-                {metrics.hasActiveBudgets
-                  ? `${formatCurrency(metrics.envelopesRemaining)} en sobres activos`
-                  : 'Sin sobres activos este mes'}
-              </p>
-            </div>
           </div>
 
           <div className="flex items-center justify-between pt-1 border-t border-border/30 flex-wrap gap-2">
             <span className="inline-flex items-center gap-1.5 text-[11px] text-muted-foreground">
               <ShieldCheck className="w-3.5 h-3.5 text-emerald-500" />
-              Cálculo de solo lectura basado en tu dinero proyectado menos provisiones.
+              Cálculo de solo lectura: capital del mes menos tus presupuestos asignados y provisiones.
             </span>
             <Button
               variant="ghost"

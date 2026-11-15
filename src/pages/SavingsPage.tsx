@@ -1,19 +1,19 @@
-import { useState, useMemo, useEffect } from 'react';
+import { useState, useMemo } from 'react';
 import { useNavigate } from '@tanstack/react-router';
 
-import { Account, SavingsGoal, RecurringExpenseRule, isRuleIncludedInSavings } from '@/types/finance';
-import { calculateAccountBalance, formatCurrency } from '@/lib/calculations';
-import { calculateSavingsProvisions } from '@/lib/savingsCalculations';
+import { SavingsGoal } from '@/types/finance';
+import { formatCurrency } from '@/lib/calculations';
+import { calculateSavingsProvisions, UnifiedSavingsGoal } from '@/lib/savingsCalculations';
 import { useAccounts } from '@/hooks/useAccounts';
 import { useTransactions } from '@/hooks/useTransactions';
 import { usePlanning } from '@/hooks/usePlanning';
 import { useRecurringRules } from '@/hooks/useRecurringRules';
-import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
+import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { PiggyBank, Plus, Target, CalendarDays, ArrowUpCircle, ArrowDownCircle, Info, Edit2, Trash2, Filter, Eye, EyeOff, Calculator } from 'lucide-react';
 import SavingsGoalModal from '@/components/SavingsGoalModal';
-import { differenceInMonths, parseISO, startOfMonth, addMonths, endOfMonth } from 'date-fns';
+import { parseISO } from 'date-fns';
 import { appToast as toast, swalConfirm } from "@/lib/swal";
 
 export const SavingsPage = () => {
@@ -60,36 +60,66 @@ export const SavingsPage = () => {
         );
     }, [data.accounts, data.transactions, data.savingsGoals, data.recurringRules, timeframeMonths]);
 
-    const handleMovePriority = (index: number, direction: 'up' | 'down') => {
-        if (direction === 'up' && index === 0) return;
-        if (direction === 'down' && index === unifiedGoals.length - 1) return;
+    const activeGoalsCount = useMemo(
+        () => unifiedGoals.filter(g => !g.isIgnored).length,
+        [unifiedGoals]
+    );
 
-        const currentGoal = unifiedGoals[index];
-        const swapGoal = unifiedGoals[direction === 'up' ? index - 1 : index + 1];
+    const handleMovePriority = async (index: number, direction: 'up' | 'down') => {
+        const activeGoals = unifiedGoals.filter(g => !g.isIgnored);
+        if (index < 0 || index >= activeGoals.length) return;
 
-        // Swap priorities
-        const tempPriority = currentGoal.priority === 999 ? index + 1 : currentGoal.priority;
-        const swapTempPriority = swapGoal.priority === 999 ? (direction === 'up' ? index : index + 2) : swapGoal.priority;
+        const targetIndex = direction === 'up' ? index - 1 : index + 1;
+        if (targetIndex < 0 || targetIndex >= activeGoals.length) return;
 
-        updatePriority(currentGoal, swapTempPriority);
-        updatePriority(swapGoal, tempPriority);
-    };
+        const movedGoal = activeGoals[index];
+        const reordered = [...activeGoals];
+        [reordered[index], reordered[targetIndex]] = [reordered[targetIndex], reordered[index]];
 
-    const updatePriority = async (goal: any, newPriority: number) => {
-        if (goal.isVirtual) {
-            const rule = data.recurringRules?.find(r => r.id === goal.ruleId);
-            if (rule) {
-                await rqUpdateRule({ ...rule, savingsPriority: newPriority });
+        const rulePriorities = new Map<string, number>();
+        if (movedGoal.isVirtual && movedGoal.ruleId) {
+            rulePriorities.set(movedGoal.ruleId, targetIndex + 1);
+        }
+
+        const manualPriorities = new Map<string, number>();
+        reordered.forEach((g, idx) => {
+            const nextPriority = idx + 1;
+            if (g.isVirtual && g.ruleId) {
+                if (!rulePriorities.has(g.ruleId)) {
+                    rulePriorities.set(g.ruleId, nextPriority);
+                }
+            } else {
+                manualPriorities.set(g.id, nextPriority);
             }
-        } else {
-            const manualGoal = data.savingsGoals?.find(g => g.id === goal.id);
-            if (manualGoal) {
-                await rqUpdateGoal({ ...manualGoal, priority: newPriority });
+        });
+
+        const updates: Promise<unknown>[] = [];
+
+        manualPriorities.forEach((nextPriority, goalId) => {
+            const manualGoal = data.savingsGoals?.find(g => g.id === goalId);
+            if (manualGoal && manualGoal.priority !== nextPriority) {
+                updates.push(rqUpdateGoal({ ...manualGoal, priority: nextPriority }));
+            }
+        });
+
+        rulePriorities.forEach((nextPriority, ruleId) => {
+            const rule = data.recurringRules?.find(r => r.id === ruleId);
+            if (rule && rule.savingsPriority !== nextPriority) {
+                updates.push(rqUpdateRule({ ...rule, savingsPriority: nextPriority }));
+            }
+        });
+
+        if (updates.length > 0) {
+            try {
+                await Promise.all(updates);
+            } catch (error) {
+                console.error('Error updating goal priorities:', error);
+                toast.error('No se pudo actualizar el orden de prioridades');
             }
         }
     };
 
-    const handleToggleIgnore = async (goal: any) => {
+    const handleToggleIgnore = async (goal: UnifiedSavingsGoal) => {
         if (goal.isVirtual) {
             const tx = data.transactions.find(t => t.id === goal.txId);
             if (tx) {
@@ -119,7 +149,11 @@ export const SavingsPage = () => {
             await rqUpdateGoal(goalData as SavingsGoal);
             toast.success('Meta actualizada');
         } else {
-            await rqAddGoal({ ...goalData, priority: 999, currentAmount: 0 });
+            const activePriorities = unifiedGoals
+                .filter(g => !g.isIgnored && g.priority < 999)
+                .map(g => g.priority);
+            const nextPriority = Math.max(activeGoalsCount, ...activePriorities, 0) + 1;
+            await rqAddGoal({ ...goalData, priority: nextPriority, currentAmount: 0 });
             toast.success('Meta creada');
         }
     };
@@ -186,7 +220,9 @@ export const SavingsPage = () => {
                         </div>
                         <p className="text-sm text-muted-foreground mt-2 flex items-center gap-1.5">
                             <Info className="w-4 h-4" />
-                            Suma de las sugerencias mensuales de las metas activas.
+                            {timeframeMonths === 'none'
+                                ? 'Modo "Sin provisión" activo: tus metas siguen visibles, pero este mes se reservan 0 €.'
+                                : 'Suma de las sugerencias mensuales de las metas activas.'}
                         </p>
                     </CardContent>
                 </Card>
@@ -245,7 +281,7 @@ export const SavingsPage = () => {
                                                         variant="ghost" 
                                                         size="icon" 
                                                         className="w-8 h-8 rounded-full" 
-                                                        disabled={index === 0}
+                                                        disabled={index === 0 || goal.isIgnored}
                                                         onClick={() => handleMovePriority(index, 'up')}
                                                     >
                                                         <ArrowUpCircle className="w-5 h-5 text-muted-foreground" />
@@ -255,7 +291,7 @@ export const SavingsPage = () => {
                                                         variant="ghost" 
                                                         size="icon" 
                                                         className="w-8 h-8 rounded-full" 
-                                                        disabled={index === unifiedGoals.length - 1}
+                                                        disabled={goal.isIgnored || index >= activeGoalsCount - 1}
                                                         onClick={() => handleMovePriority(index, 'down')}
                                                     >
                                                         <ArrowDownCircle className="w-5 h-5 text-muted-foreground" />
@@ -273,7 +309,7 @@ export const SavingsPage = () => {
                                                 {goal.deadline && (
                                                     <p className="text-sm text-muted-foreground flex items-center gap-1.5">
                                                         <CalendarDays className="w-3.5 h-3.5" />
-                                                        Para {new Date(goal.deadline).toLocaleDateString('es-ES', { month: 'long', year: 'numeric' })} 
+                                                        Para {parseISO(goal.deadline).toLocaleDateString('es-ES', { month: 'long', year: 'numeric' })} 
                                                         ({goal.monthsLeft} meses)
                                                     </p>
                                                 )}
@@ -315,14 +351,28 @@ export const SavingsPage = () => {
 
                                                 {/* Actions */}
                                                 <div className="flex gap-1 mt-1 sm:mt-0">
-                                                        {!isComplete && (
-                                                            <Button variant="ghost" size="icon" className="h-8 w-8 text-muted-foreground hover:text-foreground" onClick={() => handleToggleIgnore(goal)}>
-                                                                {goal.isIgnored ? <EyeOff className="w-3.5 h-3.5" /> : <Eye className="w-3.5 h-3.5" />}
-                                                            </Button>
-                                                        )}
+                                                        <Button
+                                                            variant="ghost"
+                                                            size="icon"
+                                                            className="h-8 w-8 text-muted-foreground hover:text-foreground"
+                                                            title={goal.isIgnored ? 'Incluir meta en el reparto' : 'Ignorar meta'}
+                                                            onClick={() => handleToggleIgnore(goal)}
+                                                        >
+                                                            {goal.isIgnored ? <EyeOff className="w-3.5 h-3.5" /> : <Eye className="w-3.5 h-3.5" />}
+                                                        </Button>
                                                         {!goal.isVirtual ? (
                                                             <>
-                                                                <Button variant="ghost" size="icon" className="h-8 w-8 text-muted-foreground hover:text-foreground" onClick={() => { setEditingGoal(goal as SavingsGoal); setIsModalOpen(true); }} title="Editar meta">
+                                                                <Button
+                                                                    variant="ghost"
+                                                                    size="icon"
+                                                                    className="h-8 w-8 text-muted-foreground hover:text-foreground"
+                                                                    onClick={() => {
+                                                                        const originalGoal = data.savingsGoals?.find(g => g.id === goal.id) ?? null;
+                                                                        setEditingGoal(originalGoal);
+                                                                        setIsModalOpen(true);
+                                                                    }}
+                                                                    title="Editar meta"
+                                                                >
                                                                     <Edit2 className="w-3.5 h-3.5" />
                                                                 </Button>
                                                                 <Button variant="ghost" size="icon" className="h-8 w-8 text-muted-foreground hover:text-destructive" onClick={() => handleDeleteManual(goal.id)} title="Eliminar meta">

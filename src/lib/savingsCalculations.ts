@@ -1,6 +1,6 @@
 import { Account, Transaction, SavingsGoal, RecurringExpenseRule, isRuleIncludedInSavings } from '../types/finance.js';
 import { calculateAccountBalance } from './calculations.js';
-import { endOfMonth, addMonths, parseISO } from 'date-fns';
+import { endOfMonth, addMonths, parseISO, format } from 'date-fns';
 
 export interface UnifiedSavingsGoal {
   id: string;
@@ -40,14 +40,7 @@ export const calculateSavingsProvisions = (
   recurringRules: RecurringExpenseRule[],
   timeframeMonths: string
 ): SavingsCalculationResult => {
-  if (timeframeMonths === 'none' || timeframeMonths === '0') {
-    return {
-      totalSavingsCapital: 0,
-      unifiedGoals: [],
-      totalSuggestedMonthly: 0,
-      limitDateStr: null,
-    };
-  }
+  const isNoProvision = timeframeMonths === 'none' || timeframeMonths === '0';
 
   // 1. Calculate Total Savings Balance (Accounts with excludeFromTotals === true)
   const savingsAccounts = accounts.filter(a => a.excludeFromTotals);
@@ -55,12 +48,14 @@ export const calculateSavingsProvisions = (
     return total + calculateAccountBalance(acc, transactions);
   }, 0);
 
-  // 2. Limit date for filtering
+  // 2. Limit date for filtering (in local timezone to avoid UTC day-shift)
   const today = new Date();
+  const todayStr = format(today, 'yyyy-MM-dd');
   const monthsNum = parseInt(timeframeMonths, 10);
-  const limitDateStr = isNaN(monthsNum)
-    ? null
-    : endOfMonth(addMonths(today, monthsNum)).toISOString().split('T')[0];
+  const limitDateStr =
+    isNoProvision || isNaN(monthsNum)
+      ? null
+      : format(endOfMonth(addMonths(today, monthsNum)), 'yyyy-MM-dd');
 
   // 3. Gather Manual Goals (Filtered by timeframe)
   const manualGoals = (savingsGoals || [])
@@ -73,7 +68,6 @@ export const calculateSavingsProvisions = (
     }));
 
   // 4. Gather Virtual Goals from long-term Recurring Rules
-  const todayStr = new Date().toISOString().split('T')[0];
   const virtualGoals: any[] = [];
 
   (recurringRules || [])
@@ -108,11 +102,17 @@ export const calculateSavingsProvisions = (
   const allGoals = [...manualGoals, ...virtualGoals];
 
   allGoals.sort((a, b) => {
-    if (a.isIgnored && !b.isIgnored) return 1;
-    if (!a.isIgnored && b.isIgnored) return -1;
+    if (a.isIgnored !== b.isIgnored) return a.isIgnored ? 1 : -1;
     if (a.priority !== b.priority) return a.priority - b.priority;
-    if (a.deadline && b.deadline) return a.deadline.localeCompare(b.deadline);
-    return 0;
+    if (a.deadline && b.deadline) {
+      const cmp = a.deadline.localeCompare(b.deadline);
+      if (cmp !== 0) return cmp;
+    } else if (a.deadline || b.deadline) {
+      return a.deadline ? -1 : 1;
+    }
+    const nameCmp = (a.name || '').localeCompare(b.name || '');
+    if (nameCmp !== 0) return nameCmp;
+    return String(a.id).localeCompare(String(b.id));
   });
 
   let remainingCapital = totalSavingsCapital;
@@ -132,8 +132,7 @@ export const calculateSavingsProvisions = (
     let monthsLeft = 1;
     if (goal.deadline) {
       const targetDate = parseISO(goal.deadline);
-      const currentDate = new Date();
-      const diff = (targetDate.getFullYear() - currentDate.getFullYear()) * 12 + (targetDate.getMonth() - currentDate.getMonth());
+      const diff = (targetDate.getFullYear() - today.getFullYear()) * 12 + (targetDate.getMonth() - today.getMonth());
       monthsLeft = Math.max(1, diff);
     }
 
@@ -144,18 +143,20 @@ export const calculateSavingsProvisions = (
       allocatedAmount: allocated,
       missingAmount: missing,
       monthsLeft,
-      suggestedMonthly: goal.isIgnored ? 0 : suggestedMonthly,
+      suggestedMonthly: isNoProvision || goal.isIgnored ? 0 : suggestedMonthly,
       currentIndex: index,
       displayPriority: goal.isIgnored ? '-' : activePriorityCount,
     };
   });
 
-  const totalSuggestedMonthly = unifiedGoals.reduce((sum, goal) => {
-    if (!goal.isIgnored && goal.allocatedAmount < goal.targetAmount) {
-      return sum + goal.suggestedMonthly;
-    }
-    return sum;
-  }, 0);
+  const totalSuggestedMonthly = isNoProvision
+    ? 0
+    : unifiedGoals.reduce((sum, goal) => {
+        if (!goal.isIgnored && goal.allocatedAmount < goal.targetAmount) {
+          return sum + goal.suggestedMonthly;
+        }
+        return sum;
+      }, 0);
 
   return {
     totalSavingsCapital: Number(totalSavingsCapital.toFixed(2)),

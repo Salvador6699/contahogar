@@ -1,4 +1,4 @@
-import { Loan, Transaction } from "@/types/finance";
+import { Loan, MortgageMetadata, Transaction } from "@/types/finance";
 import { supabase } from "@/lib/supabase";
 import { addMonths, parseISO, format } from "date-fns";
 
@@ -175,11 +175,39 @@ export const applyFractionatedTransaction = async (
 };
 
 export const applyLoanTransaction = async (
-  loanData: { name: string; amount: number; date: string; accountId: string; installments: number; installmentAmount: number; firstInstallmentDate: string; setupFee: number; setupFeeDate: string; description?: string; isStarted?: boolean; startingPaidAmount?: number },
+  loanData: {
+    name: string;
+    amount: number;
+    date: string;
+    accountId: string;
+    installments: number;
+    installmentAmount: number;
+    firstInstallmentDate: string;
+    setupFee: number;
+    setupFeeDate: string;
+    description?: string;
+    isStarted?: boolean;
+    startingPaidAmount?: number;
+    originalTransactionData?: MortgageMetadata | any;
+  },
 ): Promise<void> => {
   const loanId = crypto.randomUUID();
   
-  const { name, amount, installments, installmentAmount, firstInstallmentDate, setupFee, setupFeeDate, accountId, date, description, isStarted, startingPaidAmount } = loanData;
+  const {
+    name,
+    amount,
+    installments,
+    installmentAmount,
+    firstInstallmentDate,
+    setupFee,
+    setupFeeDate,
+    accountId,
+    date,
+    description,
+    isStarted,
+    startingPaidAmount,
+    originalTransactionData,
+  } = loanData;
 
   const newLoan: any = {
     id: loanId,
@@ -193,11 +221,16 @@ export const applyLoanTransaction = async (
     accountId,
     status: "active",
     isStarted,
-    startingPaidAmount: startingPaidAmount || 0
+    startingPaidAmount: startingPaidAmount || 0,
+    originalTransactionData: originalTransactionData || null,
   };
 
   const { error: loanError } = await supabase.from('loans').insert([newLoan]);
   if (loanError) throw new Error(loanError.message);
+
+  if (originalTransactionData?.isMortgage) {
+    return;
+  }
 
   const transactionsToInsert = [];
 

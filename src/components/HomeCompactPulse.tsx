@@ -21,7 +21,6 @@ import {
   Wallet,
 } from 'lucide-react'
 import * as Icons from 'lucide-react'
-import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Account, Budget, Category, Transaction } from '@/types/finance'
 import {
@@ -389,12 +388,6 @@ export function HomeCompactPulse({
               <span className="text-[10px] font-black uppercase tracking-widest text-muted-foreground">
                 Pulso de {monthLabel}
               </span>
-              <Badge
-                variant="outline"
-                className="text-[9px] px-1.5 py-0 font-bold bg-background/60 border-border/50 text-muted-foreground"
-              >
-                Compacto
-              </Badge>
             </div>
             <p className={cn('text-xs sm:text-sm font-extrabold tracking-tight truncate', headlineTone)}>
               {overall.headline}
