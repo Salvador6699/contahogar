@@ -2,6 +2,7 @@
 import { useState, useEffect } from 'react';
 import { Account } from '@/types/finance';
 import { useAccounts } from '@/hooks/useAccounts';
+import { useTransactions } from '@/hooks/useTransactions';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogClose } from '@/components/ui/dialog';
@@ -10,7 +11,8 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Plus, Pencil, Trash2, Wallet } from 'lucide-react';
 import { appToast as toast } from "@/lib/swal";
-import { formatCurrency } from '@/lib/calculations';
+import { formatCurrency, calculateAccountBalance } from '@/lib/calculations';
+import { CashBreakdownBar } from '@/components/CashBreakdownBar';
 import { parseAmount } from '@/lib/utils';
 import { Switch } from '@/components/ui/switch';
 
@@ -42,6 +44,7 @@ const BANK_LOGOS = [
 
 export const AccountManager = () => {
     const { accounts, addAccount, updateAccount, deleteAccount, isLoading } = useAccounts();
+    const { transactions } = useTransactions();
     const [isDialogOpen, setIsDialogOpen] = useState(false);
     const [editingAccount, setEditingAccount] = useState<Account | null>(null);
     const [accountName, setAccountName] = useState('');
@@ -106,36 +109,48 @@ export const AccountManager = () => {
                 </CardHeader>
                 <CardContent className="space-y-4">
                     <div className="space-y-3">
-                        {accounts.map(account => (
-                            <div key={account.id} className="flex items-center justify-between p-3 rounded-lg bg-muted/50">
-                                <div className="flex items-center gap-3">
-                                    {account.logo ? (
-                                        <div className="w-10 h-10 rounded-full border border-border/20 overflow-hidden bg-white flex items-center justify-center flex-shrink-0 shadow-sm">
-                                            <img src={account.logo} alt={account.name} className="w-full h-full object-cover" />
+                        {accounts.map(account => {
+                            const isCashAccount = account.id === 'default-cash-id' || account.name.toLowerCase().includes('efectivo');
+                            const currentBalance = calculateAccountBalance(account, transactions, false);
+                            return (
+                                <div key={account.id} className="space-y-2">
+                                    <div className="flex items-center justify-between p-3 rounded-lg bg-muted/50">
+                                        <div className="flex items-center gap-3">
+                                            {account.logo ? (
+                                                <div className="w-10 h-10 rounded-full border border-border/20 overflow-hidden bg-white flex items-center justify-center flex-shrink-0 shadow-sm">
+                                                    <img src={account.logo} alt={account.name} className="w-full h-full object-cover" />
+                                                </div>
+                                            ) : (
+                                                <div className="w-10 h-10 rounded-full bg-primary/10 text-primary flex items-center justify-center flex-shrink-0">
+                                                    <Wallet className="w-5 h-5" />
+                                                </div>
+                                            )}
+                                            <div>
+                                                <p className="font-semibold">{account.name}</p>
+                                                <p className="text-sm text-muted-foreground">
+                                                    Saldo actual: <strong className="text-foreground">{formatCurrency(currentBalance)}</strong>
+                                                    <span className="ml-2 text-xs">· Inicial: {formatCurrency(account.initialBalance)}</span>
+                                                    {account.excludeFromTotals && <span className="ml-2 text-[10px] bg-primary/10 text-primary px-1.5 py-0.5 rounded uppercase font-bold tracking-wider">Ahorro</span>}
+                                                </p>
+                                            </div>
                                         </div>
-                                    ) : (
-                                        <div className="w-10 h-10 rounded-full bg-primary/10 text-primary flex items-center justify-center flex-shrink-0">
-                                            <Wallet className="w-5 h-5" />
+                                        <div className="flex gap-2">
+                                            <Button variant="ghost" size="icon" onClick={() => handleOpenDialog(account)}>
+                                                <Pencil className="w-4 h-4" />
+                                            </Button>
+                                            <Button variant="ghost" size="icon" className="text-destructive" onClick={() => handleDelete(account.id)}>
+                                                <Trash2 className="w-4 h-4" />
+                                            </Button>
+                                        </div>
+                                    </div>
+                                    {isCashAccount && (
+                                        <div className="pl-2 sm:pl-4">
+                                            <CashBreakdownBar cashAccountBalance={currentBalance} isCashSelected={true} />
                                         </div>
                                     )}
-                                    <div>
-                                        <p className="font-semibold">{account.name}</p>
-                                        <p className="text-sm text-muted-foreground">
-                                            Saldo inicial: {formatCurrency(account.initialBalance)}
-                                            {account.excludeFromTotals && <span className="ml-2 text-[10px] bg-primary/10 text-primary px-1.5 py-0.5 rounded uppercase font-bold tracking-wider">Ahorro</span>}
-                                        </p>
-                                    </div>
                                 </div>
-                                <div className="flex gap-2">
-                                    <Button variant="ghost" size="icon" onClick={() => handleOpenDialog(account)}>
-                                        <Pencil className="w-4 h-4" />
-                                    </Button>
-                                    <Button variant="ghost" size="icon" className="text-destructive" onClick={() => handleDelete(account.id)}>
-                                        <Trash2 className="w-4 h-4" />
-                                    </Button>
-                                </div>
-                            </div>
-                        ))}
+                            );
+                        })}
                     </div>
                     <Button onClick={() => handleOpenDialog()} className="w-full gap-2">
                         <Plus className="w-4 h-4" />
