@@ -5,13 +5,16 @@ export const MySwal = withReactContent(Swal);
 
 export const Toast = MySwal.mixin({
   toast: true,
-  position: 'top-end',
+  position: 'top-start',
+  backdrop: false,
   showConfirmButton: false,
-  timer: 3000,
-  timerProgressBar: true,
+  timer: 2500,
+  timerProgressBar: false,
   customClass: {
+    container: 'swal-toast-container',
     popup: 'swal-toast-popup',
     title: 'swal-toast-title',
+    htmlContainer: 'swal-toast-text',
   },
   didOpen: (toast) => {
     toast.addEventListener('mouseenter', Swal.stopTimer)
