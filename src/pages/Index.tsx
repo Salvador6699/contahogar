@@ -272,9 +272,9 @@ const Index = () => {
     // Si es un recibo futuro (pendiente) generado de forma autónoma por una hipoteca/préstamo
     if (transaction.isPending && transaction.id.startsWith("rec_loan_")) {
       toast.info(
-        "Este recibo futuro se gestiona de forma autónoma desde Préstamos e Hipoteca. Te redirigimos allí..."
+        "Este recibo futuro se gestiona de forma autónoma desde Gastos Fijos y Préstamos. Te redirigimos allí..."
       );
-      navigate({ to: "/prestamos" } as any);
+      navigate({ to: "/gastos-fijos", search: { tab: "loans" } } as any);
       return;
     }
 

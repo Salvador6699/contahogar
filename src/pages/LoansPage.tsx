@@ -32,7 +32,7 @@ import {
 } from '@/components/ui/select';
 import { appToast as toast, swalConfirm } from "@/lib/swal";
 import LoanModal from '@/components/LoanModal';
-import { addDays, format, parseISO, startOfMonth } from 'date-fns';
+import { addDays, addMonths, format, parseISO, startOfMonth } from 'date-fns';
 import { es } from 'date-fns/locale';
 import { MortgageMetadata, RecurringExpenseRule, Transaction } from '@/types/finance';
 import { useAccounts } from '@/hooks/useAccounts';
@@ -40,7 +40,21 @@ import { useTransactions } from '@/hooks/useTransactions';
 import { useLoans } from '@/hooks/useLoans';
 import { useRecurringRules } from '@/hooks/useRecurringRules';
 
-const LoansPage = () => {
+export interface LoansSectionProps {
+  embedded?: boolean;
+  searchQuery?: string;
+  externalModalOpen?: boolean;
+  onExternalModalClose?: () => void;
+  onExternalModalOpen?: () => void;
+}
+
+export const LoansSection = ({
+  embedded = false,
+  searchQuery = '',
+  externalModalOpen,
+  onExternalModalClose,
+  onExternalModalOpen,
+}: LoansSectionProps) => {
   const { accounts, isLoading: isAccLoading } = useAccounts();
   const { transactions, updateTransaction, isLoading: isTxLoading } = useTransactions();
   const { loans, deleteLoan, applyLoanTransaction, updateLoan, isLoading: isLoansLoading } = useLoans();
@@ -51,7 +65,23 @@ const LoansPage = () => {
     transactions,
     loans
   }), [accounts, transactions, loans]);
-  const [isModalOpen, setIsModalOpen] = useState(false);
+  const [internalModalOpen, setInternalModalOpen] = useState(false);
+
+  const isModalOpen = externalModalOpen !== undefined ? externalModalOpen : internalModalOpen;
+  const openModal = () => {
+    if (onExternalModalOpen) {
+      onExternalModalOpen();
+    } else {
+      setInternalModalOpen(true);
+    }
+  };
+  const closeModal = () => {
+    if (onExternalModalClose) {
+      onExternalModalClose();
+    } else {
+      setInternalModalOpen(false);
+    }
+  };
 
   const matchingMortgageRule = useMemo(() => {
     const expenseRules = recurringRules.filter((r) => r.type === 'expense');
@@ -233,7 +263,7 @@ const LoansPage = () => {
       }
     }
 
-    setIsModalOpen(false);
+    closeModal();
     toast.success(
       loanData.originalTransactionData?.isMortgage
         ? absorbedRuleName
@@ -335,22 +365,60 @@ const LoansPage = () => {
     return <div className="p-8 text-center text-muted-foreground animate-pulse">Cargando datos...</div>;
   }
 
-  return (
-    <div className="max-w-4xl mx-auto space-y-6 px-4 pb-20">
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-2xl font-bold tracking-tight">Préstamos y Financiaciones</h1>
-          <p className="text-sm text-muted-foreground mt-1">
-            Gestiona tu hipoteca, préstamos y pagos a plazos
-          </p>
-        </div>
-        <Button onClick={() => setIsModalOpen(true)} className="gap-2 rounded-full shadow-md hover:shadow-lg transition-all">
-            <Plus className="w-4 h-4" />
-            <span className="hidden sm:inline">Nuevo Préstamo / Hipoteca</span>
-          </Button>
-      </div>
+  const normalizedQuery = searchQuery.trim().toLowerCase();
+  const visibleActiveLoans = normalizedQuery
+    ? activeLoans.filter((l) => l.name.toLowerCase().includes(normalizedQuery))
+    : activeLoans;
+  const visibleCompletedLoans = normalizedQuery
+    ? completedLoans.filter((l) => l.name.toLowerCase().includes(normalizedQuery))
+    : completedLoans;
+  const activeMonthlyTotal = activeLoans.reduce(
+    (sum, l) => sum + (l.installmentAmount || 0),
+    0
+  );
 
-      {!hasMortgage && accounts.length > 0 && (
+  return (
+    <div className={embedded ? "space-y-4" : "max-w-4xl mx-auto space-y-6 px-4 pb-20"}>
+      {embedded ? (
+        <div className="flex items-center justify-between gap-2 px-1">
+          <div className="flex items-center gap-2 min-w-0 flex-wrap">
+            <h3 className="text-xs font-black uppercase tracking-wider text-primary flex items-center gap-1.5">
+              <Landmark className="w-3.5 h-3.5 shrink-0" />
+              <span>Préstamos e Hipoteca ({visibleActiveLoans.length})</span>
+            </h3>
+            {activeLoans.length > 0 && (
+              <span className="text-xs font-bold text-muted-foreground tabular-nums">
+                · {formatCurrency(activeMonthlyTotal)} / mes
+              </span>
+            )}
+          </div>
+          <Button
+            type="button"
+            variant="outline"
+            size="sm"
+            onClick={openModal}
+            className="h-8 text-xs font-bold rounded-xl gap-1 shrink-0"
+          >
+            <Plus className="w-3.5 h-3.5" />
+            <span>Añadir préstamo / hipoteca</span>
+          </Button>
+        </div>
+      ) : (
+        <div className="flex items-center justify-between">
+          <div>
+            <h1 className="text-2xl font-bold tracking-tight">Préstamos y Financiaciones</h1>
+            <p className="text-sm text-muted-foreground mt-1">
+              Gestiona tu hipoteca, préstamos y pagos a plazos
+            </p>
+          </div>
+          <Button onClick={openModal} className="gap-2 rounded-full shadow-md hover:shadow-lg transition-all">
+              <Plus className="w-4 h-4" />
+              <span className="hidden sm:inline">Nuevo Préstamo / Hipoteca</span>
+            </Button>
+        </div>
+      )}
+
+      {!hasMortgage && accounts.length > 0 && !normalizedQuery && (
         <div className="rounded-2xl border border-primary/25 bg-primary/5 p-4 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
           <div className="flex items-start gap-3">
             <div className="w-9 h-9 rounded-xl bg-primary text-primary-foreground flex items-center justify-center shrink-0">
@@ -376,60 +444,64 @@ const LoansPage = () => {
       )}
 
       {loanSummaries.length === 0 ? (
-        <div className="text-center py-12 px-4 border border-dashed rounded-xl bg-card">
-          <Landmark className="w-12 h-12 mx-auto text-muted-foreground mb-4 opacity-50" />
-          <h3 className="text-lg font-medium mb-2">No hay financiaciones activas</h3>
-          <p className="text-muted-foreground mb-6">
+        <div className={`text-center ${embedded ? 'py-8' : 'py-12'} px-4 border border-dashed rounded-2xl bg-card`}>
+          <Landmark className="w-10 h-10 mx-auto text-muted-foreground mb-3 opacity-50" />
+          <h3 className="text-base font-semibold mb-1.5">No hay financiaciones activas</h3>
+          <p className="text-sm text-muted-foreground mb-5">
             Añade un préstamo o vincula tu hipoteca aquí, o fracciona un gasto desde Inicio.
           </p>
-          <Button onClick={() => setIsModalOpen(true)} variant="outline">
+          <Button onClick={openModal} variant="outline" className="rounded-xl">
               Añadir mi primer préstamo o hipoteca
             </Button>
         </div>
+      ) : visibleActiveLoans.length === 0 && visibleCompletedLoans.length === 0 ? (
+        <div className="text-center py-8 px-4 border border-dashed rounded-2xl bg-card text-sm text-muted-foreground">
+          No hay préstamos ni hipotecas que coincidan con &ldquo;{searchQuery}&rdquo;
+        </div>
       ) : (
-        <div className="space-y-8">
-          {activeLoans.length > 0 && (
-            <div className="space-y-4">
-              <h2 className="text-lg font-semibold flex items-center gap-2">
-                <AlertCircle className="w-5 h-5 text-amber-500" />
-                En Curso
-              </h2>
-              <div className="grid gap-4 md:grid-cols-2">
-                {activeLoans.map((loan) => (
-                  <div key={loan.id} className={loan.isMortgage ? "md:col-span-2" : undefined}>
-                    <LoanCard
-                      loan={loan}
-                      recurringRules={recurringRules}
-                      matchingMortgageRule={matchingMortgageRule}
-                      onDelete={() => handleDelete(loan.id, loan.name, loan.amountPaid, loan.isMortgage)}
-                      onUpdateTx={handleUpdateTransaction}
-                      onUpdateLoan={handleUpdateLoan}
-                      onUpdateRule={handleUpdateRule}
-                      onAbsorbRule={handleAbsorbRule}
-                    />
-                  </div>
+        <div className="space-y-6">
+          {visibleActiveLoans.length > 0 && (
+            <div className="space-y-3">
+              {!embedded && (
+                <h2 className="text-lg font-semibold flex items-center gap-2">
+                  <AlertCircle className="w-5 h-5 text-amber-500" />
+                  En Curso
+                </h2>
+              )}
+              <div className="flex flex-col gap-3">
+                {visibleActiveLoans.map((loan) => (
+                  <LoanCard
+                    key={loan.id}
+                    loan={loan}
+                    recurringRules={recurringRules}
+                    matchingMortgageRule={matchingMortgageRule}
+                    onDelete={() => handleDelete(loan.id, loan.name, loan.amountPaid, loan.isMortgage)}
+                    onUpdateTx={handleUpdateTransaction}
+                    onUpdateLoan={handleUpdateLoan}
+                    onUpdateRule={handleUpdateRule}
+                    onAbsorbRule={handleAbsorbRule}
+                  />
                 ))}
               </div>
             </div>
           )}
 
-          {completedLoans.length > 0 && (
-            <div className="space-y-4">
-              <h2 className="text-lg font-semibold text-muted-foreground">Completados</h2>
-              <div className="grid gap-4 md:grid-cols-2 opacity-75">
-                {completedLoans.map((loan) => (
-                  <div key={loan.id} className={loan.isMortgage ? "md:col-span-2" : undefined}>
-                    <LoanCard
-                      loan={loan}
-                      recurringRules={recurringRules}
-                      matchingMortgageRule={matchingMortgageRule}
-                      onDelete={() => handleDelete(loan.id, loan.name, loan.amountPaid, loan.isMortgage)}
-                      onUpdateTx={handleUpdateTransaction}
-                      onUpdateLoan={handleUpdateLoan}
-                      onUpdateRule={handleUpdateRule}
-                      onAbsorbRule={handleAbsorbRule}
-                    />
-                  </div>
+          {visibleCompletedLoans.length > 0 && (
+            <div className="space-y-3">
+              <h2 className="text-sm font-bold uppercase tracking-wider text-muted-foreground">Completados</h2>
+              <div className="flex flex-col gap-3 opacity-75">
+                {visibleCompletedLoans.map((loan) => (
+                  <LoanCard
+                    key={loan.id}
+                    loan={loan}
+                    recurringRules={recurringRules}
+                    matchingMortgageRule={matchingMortgageRule}
+                    onDelete={() => handleDelete(loan.id, loan.name, loan.amountPaid, loan.isMortgage)}
+                    onUpdateTx={handleUpdateTransaction}
+                    onUpdateLoan={handleUpdateLoan}
+                    onUpdateRule={handleUpdateRule}
+                    onAbsorbRule={handleAbsorbRule}
+                  />
                 ))}
               </div>
             </div>
@@ -439,7 +511,7 @@ const LoansPage = () => {
 
       <LoanModal
         isOpen={isModalOpen}
-        onClose={() => setIsModalOpen(false)}
+        onClose={closeModal}
         onSave={handleSaveLoan}
         accounts={data.accounts}
         recurringRules={recurringRules}
@@ -447,6 +519,8 @@ const LoansPage = () => {
     </div>
   );
 };
+
+const LoansPage = () => <LoansSection />;
 
 const LoanCard = ({
   loan,
@@ -612,506 +686,595 @@ const LoanCard = ({
       .sort((a: any, b: any) => new Date(a.date).getTime() - new Date(b.date).getTime());
   }, [loan.linkedTxs]);
 
-  if (loan.isMortgage && meta) {
-    const receiptTotal = meta.currentPrincipalPortion + meta.currentInterestPortion;
-    const principalSharePct =
-      receiptTotal > 0 ? (meta.currentPrincipalPortion / receiptTotal) * 100 : 0;
-    const interestSharePct = receiptTotal > 0 ? 100 - principalSharePct : 0;
-    const nextPendingTx: Transaction | undefined = loan.pendingTxs?.[0];
-    const projectedAmortized = Math.min(
-      loan.amount,
-      loan.amountPaid + (meta.currentPrincipalPortion || 0)
-    );
-    const projectedPending = Math.max(0, loan.amount - projectedAmortized);
-    const projectedRemaining = Math.max(0, loan.remainingInstallments - 1);
+  const computedEndDate = useMemo(() => {
+    if (loan.isMortgage && meta?.endDate) return meta.endDate;
+    if (!loan.startDate) return undefined;
+    try {
+      const parsed = parseISO(loan.startDate);
+      if (isNaN(parsed.getTime())) return undefined;
+      return format(
+        addMonths(parsed, Math.max(0, (loan.installments || 1) - 1)),
+        'yyyy-MM-dd'
+      );
+    } catch {
+      return undefined;
+    }
+  }, [loan.isMortgage, meta?.endDate, loan.startDate, loan.installments]);
 
-    return (
-      <div className="bg-card rounded-2xl shadow-sm border border-border relative overflow-hidden group tabular-nums">
-        <div className="p-5 sm:p-6 space-y-5">
-          {/* Header */}
-          <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-3">
-            <div className="space-y-1.5">
+  const formattedEndDate = useMemo(() => {
+    if (!computedEndDate) return 'N/D';
+    try {
+      return format(parseISO(computedEndDate), 'dd/MM/yyyy');
+    } catch {
+      return 'N/D';
+    }
+  }, [computedEndDate]);
+
+  const duplicateRule =
+    loan.isMortgage && meta
+      ? (loan.linkedRule as RecurringExpenseRule | undefined) ||
+        (!meta.linkedRuleId ? matchingMortgageRule : undefined)
+      : undefined;
+
+  const receiptTotal = meta
+    ? meta.currentPrincipalPortion + meta.currentInterestPortion
+    : 0;
+  const principalSharePct =
+    meta && receiptTotal > 0 ? (meta.currentPrincipalPortion / receiptTotal) * 100 : 0;
+  const interestSharePct = receiptTotal > 0 ? 100 - principalSharePct : 0;
+  const nextPendingTx: Transaction | undefined = loan.pendingTxs?.[0];
+  const projectedAmortized = meta
+    ? Math.min(loan.amount, loan.amountPaid + (meta.currentPrincipalPortion || 0))
+    : 0;
+  const projectedPending = meta ? Math.max(0, loan.amount - projectedAmortized) : 0;
+  const projectedRemaining = Math.max(0, loan.remainingInstallments - 1);
+
+  return (
+    <div
+      className={`bg-card rounded-3xl shadow-sm border relative overflow-hidden transition-all duration-300 tabular-nums ${
+        isExpanded ? 'border-primary/35' : 'border-border/50 hover:border-primary/20'
+      }`}
+    >
+      {/* COMPACT SUMMARY ROW */}
+      <div
+        className="p-4 sm:p-5 space-y-3 cursor-pointer hover:bg-muted/20 transition-colors"
+        onClick={() => setIsExpanded((prev) => !prev)}
+      >
+        <div className="flex items-start justify-between gap-3">
+          <div className="flex items-center gap-3.5 min-w-0 flex-1">
+            <div
+              className={`w-11 h-11 rounded-2xl flex items-center justify-center shrink-0 ${
+                loan.isMortgage
+                  ? 'bg-indigo-500/10 text-indigo-600 dark:text-indigo-400'
+                  : loan.type === 'loan'
+                  ? 'bg-blue-500/10 text-blue-600 dark:text-blue-400'
+                  : 'bg-purple-500/10 text-purple-600 dark:text-purple-400'
+              }`}
+            >
+              {loan.isMortgage ? (
+                <Home className="w-5 h-5" />
+              ) : (
+                <Landmark className="w-5 h-5" />
+              )}
+            </div>
+
+            <div className="min-w-0">
               <div className="flex items-center gap-2 flex-wrap">
-                <span className="text-[10px] font-bold uppercase tracking-wider px-2.5 py-0.5 rounded-full bg-indigo-100 text-indigo-700 dark:bg-indigo-900/40 dark:text-indigo-300">
-                  Hipoteca Variable
+                <p className="font-extrabold text-base sm:text-lg truncate text-foreground">
+                  {loan.name}
+                </p>
+                <span
+                  className={`text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-full ${
+                    loan.isMortgage
+                      ? 'bg-indigo-100 text-indigo-700 dark:bg-indigo-900/40 dark:text-indigo-300'
+                      : loan.type === 'loan'
+                      ? 'bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400'
+                      : 'bg-purple-100 text-purple-700 dark:bg-purple-900/30 dark:text-purple-400'
+                  }`}
+                >
+                  {loan.isMortgage
+                    ? 'Hipoteca'
+                    : loan.type === 'loan'
+                    ? 'Préstamo'
+                    : 'Fraccionamiento'}
                 </span>
-                {loan.linkedRule ? (
-                  <span className="inline-flex items-center gap-1 text-[10px] font-bold uppercase tracking-wider px-2.5 py-0.5 rounded-full bg-amber-100 text-amber-800 dark:bg-amber-900/30 dark:text-amber-300">
-                    <Link2 className="w-3 h-3" />
-                    Regla en Gastos Fijos: {loan.linkedRule.name}
-                  </span>
-                ) : (
-                  <span className="inline-flex items-center gap-1 text-[10px] font-bold uppercase tracking-wider px-2.5 py-0.5 rounded-full bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-300">
-                    <Home className="w-3 h-3" />
-                    Autónoma · {meta.billingDay && meta.billingDay < 31 ? `Día ${meta.billingDay}` : 'Fin de mes'} · {meta.category || 'Vivienda'}
+                {loan.isCompleted && (
+                  <span className="text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-300">
+                    Pagado
                   </span>
                 )}
-                {(meta.interestRate !== undefined || meta.indexSpread) && (
-                  <span className="inline-flex items-center gap-1 text-[10px] font-bold px-2.5 py-0.5 rounded-full bg-muted text-muted-foreground">
-                    <Percent className="w-3 h-3" />
-                    {meta.interestRate !== undefined ? `TIN ${meta.interestRate}%` : ''}
-                    {meta.interestRate !== undefined && meta.indexSpread ? ' · ' : ''}
-                    {meta.indexSpread || ''}
-                  </span>
-                )}
-                {meta.nextReviewDate && (
-                  <span className="inline-flex items-center gap-1 text-[10px] font-bold px-2.5 py-0.5 rounded-full bg-sky-100 text-sky-800 dark:bg-sky-900/30 dark:text-sky-300">
-                    <CalendarClock className="w-3 h-3" />
-                    Revisión: {format(parseISO(meta.nextReviewDate), 'dd/MM/yyyy')}
+                {duplicateRule && (
+                  <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-amber-100 text-amber-800 dark:bg-amber-900/30 dark:text-amber-300">
+                    Duplicada en Fijos
                   </span>
                 )}
               </div>
-              <h3 className="font-bold text-xl flex items-center gap-2">
-                <Home className="w-5 h-5 text-primary shrink-0" />
-                <span>{loan.name}</span>
-              </h3>
-            </div>
-
-            <div className="flex items-center gap-1.5 self-end sm:self-start">
-              <Button
-                variant="outline"
-                size="sm"
-                className="h-8 gap-1.5 text-xs font-semibold"
-                onClick={openEditor}
-              >
-                <RefreshCw className="w-3.5 h-3.5" />
-                <span>{isEditingLoan ? 'Cerrar revisión' : 'Revisión / Editar'}</span>
-              </Button>
-              <Button
-                variant="ghost"
-                size="icon"
-                className="h-8 w-8 text-muted-foreground hover:text-destructive"
-                onClick={onDelete}
-              >
-                <Trash2 className="w-4 h-4" />
-              </Button>
-              <Button
-                variant="ghost"
-                size="icon"
-                className="h-8 w-8 text-muted-foreground"
-                onClick={() => setIsExpanded(!isExpanded)}
-              >
-                {isExpanded ? <ChevronUp className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />}
-              </Button>
+              <p className="text-[11px] font-medium text-muted-foreground mt-0.5">
+                {loan.paidInstallments} / {loan.installments} cuotas · quedan {loan.remainingInstallments}
+              </p>
             </div>
           </div>
 
-          {(loan.linkedRule || (!meta.linkedRuleId && matchingMortgageRule)) && !isEditingLoan && (
-            <div className="rounded-xl border border-amber-500/30 bg-amber-500/10 p-3 flex flex-col sm:flex-row sm:items-center justify-between gap-2.5">
-              <p className="text-xs text-amber-900 dark:text-amber-200">
-                {loan.linkedRule
-                  ? `Tu hipoteca sigue dependiendo de "${loan.linkedRule.name}" en Gastos Fijos. Muévela aquí para que Gastos Fijos quede solo para recibos y suscripciones.`
-                  : `Todavía existe "${matchingMortgageRule?.name}" en Gastos Fijos. Quítala de allí para gestionar la hipoteca 100% aquí sin duplicados.`}
+          <div className="flex items-center gap-2 shrink-0">
+            <div className="text-right">
+              <p className="font-black text-lg sm:text-xl text-expense leading-none">
+                -{formatCurrency(loan.installmentAmount)}
               </p>
-              <Button
-                size="sm"
-                variant="outline"
-                className="h-8 text-xs font-bold shrink-0 border-amber-500/40 bg-background hover:bg-amber-500/15"
-                onClick={() =>
-                  onAbsorbRule(loan, (loan.linkedRule || matchingMortgageRule)!)
-                }
-              >
-                {loan.linkedRule ? 'Pasar a autónoma y quitar' : 'Quitar de Gastos Fijos'}
-              </Button>
+              <span className="text-[10px] font-semibold text-muted-foreground">cuota / mes</span>
             </div>
-          )}
+            <span className="text-muted-foreground p-1">
+              {isExpanded ? <ChevronUp className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />}
+            </span>
+          </div>
+        </div>
 
-          {isEditingLoan ? (
-            <div className="space-y-4 bg-muted/40 p-4 rounded-xl border border-border/60">
-              <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-                <div className="space-y-1">
-                  <Label className="text-xs font-semibold">Día de cobro mensual</Label>
-                  <Select value={editBillingDay} onValueChange={setEditBillingDay}>
-                    <SelectTrigger className="h-9 text-sm bg-background">
-                      <SelectValue placeholder="Día de cobro" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="31">Último día del mes (30/31)</SelectItem>
-                      {Array.from({ length: 30 }, (_, i) => i + 1).map((d) => (
-                        <SelectItem key={d} value={d.toString()}>
-                          Día {d}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                </div>
-                <div className="space-y-1">
-                  <Label className="text-xs font-semibold">Categoría en Inicio</Label>
-                  <Input
-                    value={editCategory}
-                    onChange={(e) => setEditCategory(e.target.value)}
-                    placeholder="Vivienda"
-                    className="h-9 text-sm bg-background"
-                  />
-                </div>
-                <div className="space-y-1">
-                  <Label className="text-xs font-semibold">Regla en Gastos Fijos</Label>
-                  <Select value={editLinkedRuleId} onValueChange={setEditLinkedRuleId}>
-                    <SelectTrigger className="h-9 text-sm bg-background">
-                      <SelectValue placeholder="Gestión autónoma" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="none">Autónoma (sin Gasto Fijo)</SelectItem>
-                      {expenseRules.map((rule) => (
-                        <SelectItem key={rule.id} value={rule.id}>
-                          {rule.name} ({formatCurrency(rule.amount)})
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                </div>
-              </div>
-
-              <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
-                <div className="space-y-1">
-                  <Label className="text-xs text-muted-foreground">Recibo mensual (€)</Label>
-                  <Input
-                    type="text"
-                    inputMode="decimal"
-                    value={editReceipt}
-                    onChange={(e) => setEditReceipt(e.target.value)}
-                    className="h-9 text-sm bg-background"
-                  />
-                </div>
-                <div className="space-y-1">
-                  <Label className="text-xs text-muted-foreground">Principal del recibo (€)</Label>
-                  <Input
-                    type="text"
-                    inputMode="decimal"
-                    value={editPrincipalPortion}
-                    onChange={(e) => setEditPrincipalPortion(e.target.value)}
-                    className="h-9 text-sm bg-background"
-                  />
-                </div>
-                <div className="space-y-1">
-                  <Label className="text-xs text-muted-foreground">Intereses del recibo (€)</Label>
-                  <Input
-                    type="text"
-                    inputMode="decimal"
-                    value={editInterestPortion}
-                    onChange={(e) => setEditInterestPortion(e.target.value)}
-                    className="h-9 text-sm bg-background"
-                  />
-                </div>
-                <div className="space-y-1">
-                  <Label className="text-xs text-muted-foreground">Capital pendiente (€)</Label>
-                  <Input
-                    type="text"
-                    inputMode="decimal"
-                    value={editPendingPrincipal}
-                    onChange={(e) => setEditPendingPrincipal(e.target.value)}
-                    className="h-9 text-sm bg-background"
-                  />
-                </div>
-                <div className="space-y-1">
-                  <Label className="text-xs text-muted-foreground">Cuotas pendientes</Label>
-                  <Input
-                    type="text"
-                    inputMode="numeric"
-                    value={editRemainingInstallments}
-                    onChange={(e) => setEditRemainingInstallments(e.target.value)}
-                    className="h-9 text-sm bg-background"
-                  />
-                </div>
-                <div className="space-y-1">
-                  <Label className="text-xs text-muted-foreground">TIN (%)</Label>
-                  <Input
-                    type="text"
-                    inputMode="decimal"
-                    value={editInterestRate}
-                    onChange={(e) => setEditInterestRate(e.target.value)}
-                    className="h-9 text-sm bg-background"
-                  />
-                </div>
-              </div>
-
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 items-end">
-                <div className="space-y-1">
-                  <Label className="text-xs text-muted-foreground">Próxima revisión Euríbor</Label>
-                  <Input
-                    type="date"
-                    value={editNextReviewDate}
-                    onChange={(e) => setEditNextReviewDate(e.target.value)}
-                    className="h-9 text-sm bg-background"
-                  />
-                </div>
-                <p className="text-[11px] text-muted-foreground">
-                  Si modificas el recibo mensual con un Gasto Fijo vinculado, también se actualizará su importe en Gastos Fijos.
-                </p>
-              </div>
-
-              <div className="flex justify-end gap-2 pt-2 border-t border-border/50">
-                <Button size="sm" variant="ghost" onClick={() => setIsEditingLoan(false)}>
-                  Cancelar
-                </Button>
-                <Button size="sm" onClick={handleSaveLoan}>
-                  Guardar revisión
-                </Button>
-              </div>
+        {/* Key metrics + single compact progress bar */}
+        <div className="space-y-2 pt-1">
+          <div className="grid grid-cols-3 gap-2 text-xs">
+            <div className="rounded-xl bg-muted/40 px-2.5 py-1.5">
+              <span className="block text-[10px] font-semibold text-muted-foreground">
+                Amortizado
+              </span>
+              <span className="font-bold text-foreground">
+                {formatCurrency(loan.amountPaid)}
+              </span>
             </div>
-          ) : (
+            <div className="rounded-xl bg-muted/40 px-2.5 py-1.5">
+              <span className="block text-[10px] font-semibold text-muted-foreground">
+                Pendiente
+              </span>
+              <span className="font-bold text-foreground">
+                {formatCurrency(loan.pendingPrincipal)}
+              </span>
+            </div>
+            <div className="rounded-xl bg-muted/40 px-2.5 py-1.5">
+              <span className="block text-[10px] font-semibold text-muted-foreground">
+                Fecha fin
+              </span>
+              <span className="font-bold text-foreground">{formattedEndDate}</span>
+            </div>
+          </div>
+
+          <div className="flex items-center gap-2.5">
+            <Progress value={loan.progressPercent} className="h-2 flex-1" />
+            <span className="text-[11px] font-bold text-muted-foreground shrink-0 w-12 text-right">
+              {loan.progressPercent.toFixed(1)}%
+            </span>
+          </div>
+        </div>
+      </div>
+
+      {/* EXPANDED DETAILS */}
+      {isExpanded && (
+        <div className="border-t border-border/50 bg-muted/15 p-4 sm:p-5 space-y-5 animate-in slide-in-from-top-2">
+          {loan.isMortgage && meta ? (
             <>
-              {/* Dual Progress Bars: Capital & Term */}
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
-                <div className="space-y-2">
-                  <div className="flex justify-between text-xs sm:text-sm">
-                    <span className="text-muted-foreground font-medium">
-                      Capital amortizado ({loan.progressPercent.toFixed(1)}%)
+              {/* Badges & Action Buttons */}
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                <div className="flex items-center gap-2 flex-wrap">
+                  {loan.linkedRule ? (
+                    <span className="inline-flex items-center gap-1 text-[10px] font-bold uppercase tracking-wider px-2.5 py-0.5 rounded-full bg-amber-100 text-amber-800 dark:bg-amber-900/30 dark:text-amber-300">
+                      <Link2 className="w-3 h-3" />
+                      Regla en Gastos Fijos: {loan.linkedRule.name}
                     </span>
-                    <span className="font-bold">
-                      {formatCurrency(loan.amountPaid)} / {formatCurrency(loan.amount)}
+                  ) : (
+                    <span className="inline-flex items-center gap-1 text-[10px] font-bold uppercase tracking-wider px-2.5 py-0.5 rounded-full bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-300">
+                      <Home className="w-3 h-3" />
+                      Autónoma · {meta.billingDay && meta.billingDay < 31 ? `Día ${meta.billingDay}` : 'Fin de mes'} · {meta.category || 'Vivienda'}
                     </span>
-                  </div>
-                  <Progress value={loan.progressPercent} className="h-2.5" />
-                  <div className="flex items-center justify-between text-xs gap-2 flex-wrap">
-                    <span className="font-bold text-foreground">
-                      Pendiente hoy: {formatCurrency(loan.pendingPrincipal)}
+                  )}
+                  {(meta.interestRate !== undefined || meta.indexSpread) && (
+                    <span className="inline-flex items-center gap-1 text-[10px] font-bold px-2.5 py-0.5 rounded-full bg-muted text-muted-foreground">
+                      <Percent className="w-3 h-3" />
+                      {meta.interestRate !== undefined ? `TIN ${meta.interestRate}%` : ''}
+                      {meta.interestRate !== undefined && meta.indexSpread ? ' · ' : ''}
+                      {meta.indexSpread || ''}
                     </span>
-                    {meta.balloonPayment && (
-                      <span className="text-muted-foreground">
-                        Incluye cuota final {formatCurrency(meta.balloonPayment)}
-                      </span>
-                    )}
-                  </div>
-                </div>
-
-                <div className="space-y-2">
-                  <div className="flex justify-between text-xs sm:text-sm">
-                    <span className="text-muted-foreground font-medium">
-                      Plazo recorrido ({loan.timeProgressPercent.toFixed(1)}%)
-                    </span>
-                    <span className="font-bold">
-                      {loan.paidInstallments} / {loan.installments} cuotas
-                    </span>
-                  </div>
-                  <Progress value={loan.timeProgressPercent} className="h-2.5" />
-                  <div className="flex items-center justify-between text-xs gap-2 flex-wrap">
-                    <span className="font-bold text-foreground">
-                      Quedan {loan.remainingInstallments} cuotas
-                    </span>
-                    {meta.endDate && (
-                      <span className="text-muted-foreground flex items-center gap-1">
-                        <Calendar className="w-3 h-3" />
-                        Vencimiento: {format(parseISO(meta.endDate), 'dd/MM/yyyy')}
-                      </span>
-                    )}
-                  </div>
-                </div>
-              </div>
-
-              {/* Current Installment Breakdown */}
-              <div className="rounded-xl bg-muted/40 border border-border/50 p-3.5 sm:p-4 space-y-2.5">
-                <div className="flex items-center justify-between gap-2 flex-wrap">
-                  <span className="text-xs font-bold uppercase tracking-wider text-muted-foreground">
-                    Recibo mensual actual: {formatCurrency(loan.installmentAmount)}
-                  </span>
-                  {receiptTotal > 0 && (
-                    <span className="text-xs font-semibold text-muted-foreground">
-                      Principal {principalSharePct.toFixed(1)}% · Intereses {interestSharePct.toFixed(1)}%
+                  )}
+                  {meta.nextReviewDate && (
+                    <span className="inline-flex items-center gap-1 text-[10px] font-bold px-2.5 py-0.5 rounded-full bg-sky-100 text-sky-800 dark:bg-sky-900/30 dark:text-sky-300">
+                      <CalendarClock className="w-3 h-3" />
+                      Revisión: {format(parseISO(meta.nextReviewDate), 'dd/MM/yyyy')}
                     </span>
                   )}
                 </div>
 
-                {receiptTotal > 0 && (
-                  <div className="h-2 w-full rounded-full overflow-hidden flex bg-muted">
-                    <div
-                      className="h-full bg-emerald-500"
-                      style={{ width: `${principalSharePct}%` }}
-                      title={`Principal: ${formatCurrency(meta.currentPrincipalPortion)}`}
-                    />
-                    <div
-                      className="h-full bg-amber-500"
-                      style={{ width: `${interestSharePct}%` }}
-                      title={`Intereses: ${formatCurrency(meta.currentInterestPortion)}`}
-                    />
-                  </div>
-                )}
+                <div className="flex items-center gap-1.5 self-end sm:self-auto">
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    className="h-8 gap-1.5 text-xs font-semibold rounded-xl"
+                    onClick={openEditor}
+                  >
+                    <RefreshCw className="w-3.5 h-3.5" />
+                    <span>{isEditingLoan ? 'Cerrar revisión' : 'Revisión / Editar'}</span>
+                  </Button>
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    className="h-8 w-8 text-muted-foreground hover:text-destructive rounded-xl"
+                    onClick={onDelete}
+                  >
+                    <Trash2 className="w-4 h-4" />
+                  </Button>
+                </div>
+              </div>
 
-                <div className="flex items-center justify-between gap-3 flex-wrap text-xs">
-                  <div className="flex items-center gap-4 flex-wrap">
-                    <span className="inline-flex items-center gap-1.5">
-                      <span className="w-2 h-2 rounded-full bg-emerald-500" />
-                      Principal que baja deuda: <strong>{formatCurrency(meta.currentPrincipalPortion)}</strong>
-                    </span>
-                    <span className="inline-flex items-center gap-1.5">
-                      <span className="w-2 h-2 rounded-full bg-amber-500" />
-                      Intereses: <strong>{formatCurrency(meta.currentInterestPortion)}</strong>
-                    </span>
+              {duplicateRule && !isEditingLoan && (
+                <div className="rounded-xl border border-amber-500/30 bg-amber-500/10 p-3 flex flex-col sm:flex-row sm:items-center justify-between gap-2.5">
+                  <p className="text-xs text-amber-900 dark:text-amber-200">
+                    {loan.linkedRule
+                      ? `Tu hipoteca sigue dependiendo de "${loan.linkedRule.name}" en Gastos Fijos. Quítala de allí para gestionarla de forma autónoma.`
+                      : `Todavía existe "${matchingMortgageRule?.name}" en Suministros/Gastos Fijos. Quítala para evitar duplicados.`}
+                  </p>
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    className="h-8 text-xs font-bold shrink-0 border-amber-500/40 bg-background hover:bg-amber-500/15 rounded-xl"
+                    onClick={() => onAbsorbRule(loan, duplicateRule)}
+                  >
+                    {loan.linkedRule ? 'Pasar a autónoma y quitar' : 'Quitar duplicado'}
+                  </Button>
+                </div>
+              )}
+
+              {isEditingLoan ? (
+                <div className="space-y-4 bg-background/80 p-4 rounded-2xl border border-border/60">
+                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                    <div className="space-y-1">
+                      <Label className="text-xs font-semibold">Día de cobro mensual</Label>
+                      <Select value={editBillingDay} onValueChange={setEditBillingDay}>
+                        <SelectTrigger className="h-9 text-sm bg-background">
+                          <SelectValue placeholder="Día de cobro" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="31">Último día del mes (30/31)</SelectItem>
+                          {Array.from({ length: 30 }, (_, i) => i + 1).map((d) => (
+                            <SelectItem key={d} value={d.toString()}>
+                              Día {d}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </div>
+                    <div className="space-y-1">
+                      <Label className="text-xs font-semibold">Categoría en Inicio</Label>
+                      <Input
+                        value={editCategory}
+                        onChange={(e) => setEditCategory(e.target.value)}
+                        placeholder="Vivienda"
+                        className="h-9 text-sm bg-background"
+                      />
+                    </div>
+                    <div className="space-y-1">
+                      <Label className="text-xs font-semibold">Regla en Gastos Fijos</Label>
+                      <Select value={editLinkedRuleId} onValueChange={setEditLinkedRuleId}>
+                        <SelectTrigger className="h-9 text-sm bg-background">
+                          <SelectValue placeholder="Gestión autónoma" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="none">Autónoma (sin Gasto Fijo)</SelectItem>
+                          {expenseRules.map((rule) => (
+                            <SelectItem key={rule.id} value={rule.id}>
+                              {rule.name} ({formatCurrency(rule.amount)})
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </div>
+                  </div>
+
+                  <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
+                    <div className="space-y-1">
+                      <Label className="text-xs text-muted-foreground">Recibo mensual (€)</Label>
+                      <Input
+                        type="text"
+                        inputMode="decimal"
+                        value={editReceipt}
+                        onChange={(e) => setEditReceipt(e.target.value)}
+                        className="h-9 text-sm bg-background"
+                      />
+                    </div>
+                    <div className="space-y-1">
+                      <Label className="text-xs text-muted-foreground">Principal del recibo (€)</Label>
+                      <Input
+                        type="text"
+                        inputMode="decimal"
+                        value={editPrincipalPortion}
+                        onChange={(e) => setEditPrincipalPortion(e.target.value)}
+                        className="h-9 text-sm bg-background"
+                      />
+                    </div>
+                    <div className="space-y-1">
+                      <Label className="text-xs text-muted-foreground">Intereses del recibo (€)</Label>
+                      <Input
+                        type="text"
+                        inputMode="decimal"
+                        value={editInterestPortion}
+                        onChange={(e) => setEditInterestPortion(e.target.value)}
+                        className="h-9 text-sm bg-background"
+                      />
+                    </div>
+                    <div className="space-y-1">
+                      <Label className="text-xs text-muted-foreground">Capital pendiente (€)</Label>
+                      <Input
+                        type="text"
+                        inputMode="decimal"
+                        value={editPendingPrincipal}
+                        onChange={(e) => setEditPendingPrincipal(e.target.value)}
+                        className="h-9 text-sm bg-background"
+                      />
+                    </div>
+                    <div className="space-y-1">
+                      <Label className="text-xs text-muted-foreground">Cuotas pendientes</Label>
+                      <Input
+                        type="text"
+                        inputMode="numeric"
+                        value={editRemainingInstallments}
+                        onChange={(e) => setEditRemainingInstallments(e.target.value)}
+                        className="h-9 text-sm bg-background"
+                      />
+                    </div>
+                    <div className="space-y-1">
+                      <Label className="text-xs text-muted-foreground">TIN (%)</Label>
+                      <Input
+                        type="text"
+                        inputMode="decimal"
+                        value={editInterestRate}
+                        onChange={(e) => setEditInterestRate(e.target.value)}
+                        className="h-9 text-sm bg-background"
+                      />
+                    </div>
+                  </div>
+
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 items-end">
+                    <div className="space-y-1">
+                      <Label className="text-xs text-muted-foreground">Próxima revisión Euríbor</Label>
+                      <Input
+                        type="date"
+                        value={editNextReviewDate}
+                        onChange={(e) => setEditNextReviewDate(e.target.value)}
+                        className="h-9 text-sm bg-background"
+                      />
+                    </div>
+                    <p className="text-[11px] text-muted-foreground">
+                      Al guardar se actualizan los próximos recibos mensuales en Inicio automáticamente.
+                    </p>
+                  </div>
+
+                  <div className="flex justify-end gap-2 pt-2 border-t border-border/50">
+                    <Button size="sm" variant="ghost" onClick={() => setIsEditingLoan(false)}>
+                      Cancelar
+                    </Button>
+                    <Button size="sm" onClick={handleSaveLoan}>
+                      Guardar revisión
+                    </Button>
                   </div>
                 </div>
+              ) : (
+                <>
+                  {/* Dual Progress Bars: Capital & Term */}
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4 bg-background/60 p-4 rounded-2xl border border-border/50">
+                    <div className="space-y-2">
+                      <div className="flex justify-between text-xs sm:text-sm">
+                        <span className="text-muted-foreground font-medium">
+                          Capital amortizado ({loan.progressPercent.toFixed(1)}%)
+                        </span>
+                        <span className="font-bold">
+                          {formatCurrency(loan.amountPaid)} / {formatCurrency(loan.amount)}
+                        </span>
+                      </div>
+                      <Progress value={loan.progressPercent} className="h-2.5" />
+                      <div className="flex items-center justify-between text-xs gap-2 flex-wrap">
+                        <span className="font-bold text-foreground">
+                          Pendiente hoy: {formatCurrency(loan.pendingPrincipal)}
+                        </span>
+                        {meta.balloonPayment && (
+                          <span className="text-muted-foreground">
+                            Incluye cuota final {formatCurrency(meta.balloonPayment)}
+                          </span>
+                        )}
+                      </div>
+                    </div>
 
-                {loan.remainingInstallments > 0 && meta.currentPrincipalPortion > 0 && (
-                  <p className="text-[11px] text-muted-foreground pt-1 border-t border-border/40">
-                    Tras confirmar el próximo recibo
-                    {nextPendingTx ? ` (${format(parseISO(nextPendingTx.date), 'dd/MM/yyyy')})` : ''}:{' '}
-                    <strong className="text-foreground">{formatCurrency(projectedAmortized)}</strong> amortizados ·{' '}
-                    <strong className="text-foreground">{formatCurrency(projectedPending)}</strong> pendientes ·{' '}
-                    <strong className="text-foreground">{projectedRemaining}</strong> cuotas restantes.
+                    <div className="space-y-2">
+                      <div className="flex justify-between text-xs sm:text-sm">
+                        <span className="text-muted-foreground font-medium">
+                          Plazo recorrido ({loan.timeProgressPercent.toFixed(1)}%)
+                        </span>
+                        <span className="font-bold">
+                          {loan.paidInstallments} / {loan.installments} cuotas
+                        </span>
+                      </div>
+                      <Progress value={loan.timeProgressPercent} className="h-2.5" />
+                      <div className="flex items-center justify-between text-xs gap-2 flex-wrap">
+                        <span className="font-bold text-foreground">
+                          Quedan {loan.remainingInstallments} cuotas
+                        </span>
+                        {meta.endDate && (
+                          <span className="text-muted-foreground flex items-center gap-1">
+                            <Calendar className="w-3 h-3" />
+                            Vencimiento: {format(parseISO(meta.endDate), 'dd/MM/yyyy')}
+                          </span>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Current Installment Breakdown */}
+                  <div className="rounded-2xl bg-background/60 border border-border/50 p-4 space-y-2.5">
+                    <div className="flex items-center justify-between gap-2 flex-wrap">
+                      <span className="text-xs font-bold uppercase tracking-wider text-muted-foreground">
+                        Desglose del recibo actual: {formatCurrency(loan.installmentAmount)}
+                      </span>
+                      {receiptTotal > 0 && (
+                        <span className="text-xs font-semibold text-muted-foreground">
+                          Principal {principalSharePct.toFixed(1)}% · Intereses {interestSharePct.toFixed(1)}%
+                        </span>
+                      )}
+                    </div>
+
+                    {receiptTotal > 0 && (
+                      <div className="h-2 w-full rounded-full overflow-hidden flex bg-muted">
+                        <div
+                          className="h-full bg-emerald-500"
+                          style={{ width: `${principalSharePct}%` }}
+                          title={`Principal: ${formatCurrency(meta.currentPrincipalPortion)}`}
+                        />
+                        <div
+                          className="h-full bg-amber-500"
+                          style={{ width: `${interestSharePct}%` }}
+                          title={`Intereses: ${formatCurrency(meta.currentInterestPortion)}`}
+                        />
+                      </div>
+                    )}
+
+                    <div className="flex items-center justify-between gap-3 flex-wrap text-xs">
+                      <div className="flex items-center gap-4 flex-wrap">
+                        <span className="inline-flex items-center gap-1.5">
+                          <span className="w-2 h-2 rounded-full bg-emerald-500" />
+                          Principal que baja deuda: <strong>{formatCurrency(meta.currentPrincipalPortion)}</strong>
+                        </span>
+                        <span className="inline-flex items-center gap-1.5">
+                          <span className="w-2 h-2 rounded-full bg-amber-500" />
+                          Intereses: <strong>{formatCurrency(meta.currentInterestPortion)}</strong>
+                        </span>
+                      </div>
+                    </div>
+
+                    {loan.remainingInstallments > 0 && meta.currentPrincipalPortion > 0 && (
+                      <p className="text-[11px] text-muted-foreground pt-1 border-t border-border/40">
+                        Tras confirmar el próximo recibo
+                        {nextPendingTx ? ` (${format(parseISO(nextPendingTx.date), 'dd/MM/yyyy')})` : ''}:{' '}
+                        <strong className="text-foreground">{formatCurrency(projectedAmortized)}</strong> amortizados ·{' '}
+                        <strong className="text-foreground">{formatCurrency(projectedPending)}</strong> pendientes ·{' '}
+                        <strong className="text-foreground">{projectedRemaining}</strong> cuotas restantes.
+                      </p>
+                    )}
+                  </div>
+                </>
+              )}
+
+              {/* Receipts list */}
+              <div className="space-y-2.5">
+                <div className="flex items-center justify-between gap-2 flex-wrap">
+                  <h4 className="text-sm font-semibold">
+                    Recibos programados desde {format(parseISO(meta.baselineDate), 'dd MMM yyyy', { locale: es })}
+                  </h4>
+                  <span className="text-xs text-muted-foreground">
+                    {loan.linkedRule
+                      ? 'Se actualizan desde la regla vinculada'
+                      : `Generados automáticamente (${meta.category || 'Vivienda'})`}
+                  </span>
+                </div>
+                {expenses.length === 0 ? (
+                  <p className="text-xs text-muted-foreground py-2">
+                    No hay recibos futuros o confirmados todavía desde la fecha base.
                   </p>
+                ) : (
+                  <div className="space-y-1.5 max-h-64 overflow-y-auto pr-1">
+                    {expenses.slice(0, 12).map((tx: any, idx: number) => (
+                      <div
+                        key={tx.id}
+                        className="flex items-center justify-between text-xs sm:text-sm py-1.5 px-2.5 rounded-lg bg-background/70 border border-border/40"
+                      >
+                        <div className="flex items-center gap-2.5">
+                          <span className="text-muted-foreground text-xs w-6">#{idx + 1}</span>
+                          <span className="font-medium">
+                            {format(parseISO(tx.date), "dd MMM yyyy", { locale: es })}
+                          </span>
+                          <span
+                            className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${
+                              tx.isPending
+                                ? 'bg-amber-100 text-amber-800 dark:bg-amber-900/30 dark:text-amber-300'
+                                : 'bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-300'
+                            }`}
+                          >
+                            {tx.isPending ? 'Pendiente' : 'Confirmada'}
+                          </span>
+                        </div>
+                        <span className={tx.isPending ? "text-expense font-semibold" : "text-emerald-600 dark:text-emerald-400 font-bold"}>
+                          {formatCurrency(tx.amount)}
+                        </span>
+                      </div>
+                    ))}
+                  </div>
                 )}
               </div>
             </>
-          )}
-        </div>
-
-        {isExpanded && (
-          <div className="bg-muted/30 border-t border-border px-5 py-4 space-y-3">
-            <div className="flex items-center justify-between gap-2 flex-wrap">
-              <h4 className="text-sm font-semibold">
-                Recibos programados desde {format(parseISO(meta.baselineDate), 'dd MMM yyyy', { locale: es })}
-              </h4>
-              <span className="text-xs text-muted-foreground">
-                {loan.linkedRule
-                  ? 'Se actualizan desde la regla vinculada en Gastos Fijos'
-                  : `Generados automáticamente desde Préstamos (${meta.category || 'Vivienda'})`}
-              </span>
-            </div>
-            {expenses.length === 0 ? (
-              <p className="text-xs text-muted-foreground py-2">
-                No hay recibos futuros o confirmados todavía desde la fecha base.
-              </p>
-            ) : (
-              <div className="space-y-1.5 max-h-64 overflow-y-auto pr-1">
-                {expenses.slice(0, 12).map((tx: any, idx: number) => (
-                  <div
-                    key={tx.id}
-                    className="flex items-center justify-between text-xs sm:text-sm py-1.5 px-2.5 rounded-lg bg-background/60 border border-border/40"
-                  >
-                    <div className="flex items-center gap-2.5">
-                      <span className="text-muted-foreground text-xs w-6">#{idx + 1}</span>
-                      <span className="font-medium">
-                        {format(parseISO(tx.date), "dd MMM yyyy", { locale: es })}
-                      </span>
-                      <span
-                        className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${
-                          tx.isPending
-                            ? 'bg-amber-100 text-amber-800 dark:bg-amber-900/30 dark:text-amber-300'
-                            : 'bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-300'
-                        }`}
-                      >
-                        {tx.isPending ? 'Pendiente' : 'Confirmada'}
-                      </span>
-                    </div>
-                    <span className={tx.isPending ? "text-expense font-semibold" : "text-emerald-600 dark:text-emerald-400 font-bold"}>
-                      {formatCurrency(tx.amount)}
-                    </span>
-                  </div>
-                ))}
-              </div>
-            )}
-          </div>
-        )}
-      </div>
-    );
-  }
-
-  return (
-    <div className="bg-card rounded-xl shadow-sm border border-border relative overflow-hidden group">
-      <div className="p-5">
-        <div className="flex justify-between items-start mb-4">
-          <div>
-            <div className="flex items-center gap-2 mb-1">
-              <span className={`text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-full ${loan.type === 'loan' ? 'bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400' : 'bg-purple-100 text-purple-700 dark:bg-purple-900/30 dark:text-purple-400'}`}>
-                {loan.type === 'loan' ? 'Préstamo' : 'Fraccionamiento'}
-              </span>
-              {loan.isCompleted && (
-                <span className="text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-full bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400">
-                  Pagado
-                </span>
-              )}
-            </div>
-            <h3 className="font-semibold text-lg line-clamp-1">{loan.name}</h3>
-          </div>
-          <div className="flex items-center gap-1">
+          ) : (
             <>
-                <Button
-                  variant="ghost"
-                  size="icon"
-                  className="text-muted-foreground hover:text-primary opacity-100 sm:opacity-0 sm:group-hover:opacity-100 transition-opacity"
-                  onClick={openEditor}
-                >
-                  <Edit2 className="w-4 h-4" />
-                </Button>
-                <Button 
-                  variant="ghost" 
-                  size="icon" 
-                  className="text-muted-foreground hover:text-destructive opacity-100 sm:opacity-0 sm:group-hover:opacity-100 transition-opacity"
-                  onClick={onDelete}
-                >
-                  <Trash2 className="w-4 h-4" />
-                </Button>
-              </>
-            <Button
-              variant="ghost"
-              size="icon"
-              className="text-muted-foreground"
-              onClick={() => setIsExpanded(!isExpanded)}
-            >
-              {isExpanded ? <ChevronUp className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />}
-            </Button>
-          </div>
-        </div>
-
-        {isEditingLoan ? (
-          <div className="space-y-4 mt-2 bg-muted/30 p-3 rounded-lg border border-border/50">
-            <div className="space-y-1.5">
-              <label className="text-xs font-medium text-muted-foreground">Fecha de Inicio</label>
-              <Input type="date" value={editStartDate} onChange={e => setEditStartDate(e.target.value)} className="h-8 text-sm" />
-            </div>
-            <div className="space-y-1.5">
-              <label className="text-xs font-medium text-muted-foreground">Cantidad ya pagada inicial (€)</label>
-              <Input type="text" inputMode="decimal" value={editStartingPaid} onChange={e => setEditStartingPaid(e.target.value)} className="h-8 text-sm" enterKeyHint="done" />
-            </div>
-            <div className="flex justify-end gap-2 pt-2">
-              <Button size="sm" variant="ghost" className="h-8 text-xs" onClick={() => setIsEditingLoan(false)}>Cancelar</Button>
-              <Button size="sm" className="h-8 text-xs" onClick={handleSaveLoan}>Guardar</Button>
-            </div>
-          </div>
-        ) : (
-          <div className="space-y-4">
-            <div>
-              <div className="flex justify-between text-sm mb-2">
-                <span className="text-muted-foreground">Progreso</span>
-                <span className="font-medium">
-                  {formatCurrency(loan.amountPaid)} / {formatCurrency(loan.totalReal)}
-                </span>
+              {/* Regular Loan / Fractionation Expanded Details */}
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                <div className="flex items-center gap-3 flex-wrap text-xs">
+                  <span className="px-2.5 py-1 rounded-xl bg-background/80 border border-border/50">
+                    Capital / Total: <strong className="text-foreground">{formatCurrency(loan.totalReal)}</strong>
+                  </span>
+                  {loan.setupFee > 0 && (
+                    <span className="px-2.5 py-1 rounded-xl bg-background/80 border border-border/50">
+                      Comisión: <strong className="text-foreground">{formatCurrency(loan.setupFee)}</strong>
+                    </span>
+                  )}
+                  <span className="px-2.5 py-1 rounded-xl bg-background/80 border border-border/50 inline-flex items-center gap-1">
+                    <Calendar className="w-3 h-3" />
+                    Inicio: <strong className="text-foreground">{loan.startDate ? format(parseISO(loan.startDate), "MMM yyyy", { locale: es }) : 'N/A'}</strong>
+                  </span>
+                </div>
+                <div className="flex items-center gap-1.5 self-end sm:self-auto">
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    className="h-8 gap-1.5 text-xs font-semibold rounded-xl"
+                    onClick={openEditor}
+                  >
+                    <Edit2 className="w-3.5 h-3.5" />
+                    <span>{isEditingLoan ? 'Cerrar edición' : 'Editar'}</span>
+                  </Button>
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    className="h-8 w-8 text-muted-foreground hover:text-destructive rounded-xl"
+                    onClick={onDelete}
+                  >
+                    <Trash2 className="w-4 h-4" />
+                  </Button>
+                </div>
               </div>
-              <Progress value={loan.progressPercent} className="h-2" />
-            </div>
 
-            <div className="grid grid-cols-2 gap-4 pt-4 border-t border-border/50">
+              {isEditingLoan && (
+                <div className="space-y-3 bg-background/80 p-3.5 rounded-2xl border border-border/50">
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                    <div className="space-y-1">
+                      <label className="text-xs font-medium text-muted-foreground">Fecha de Inicio</label>
+                      <Input type="date" value={editStartDate} onChange={e => setEditStartDate(e.target.value)} className="h-9 text-sm" />
+                    </div>
+                    <div className="space-y-1">
+                      <label className="text-xs font-medium text-muted-foreground">Cantidad ya pagada inicial (€)</label>
+                      <Input type="text" inputMode="decimal" value={editStartingPaid} onChange={e => setEditStartingPaid(e.target.value)} className="h-9 text-sm" enterKeyHint="done" />
+                    </div>
+                  </div>
+                  <div className="flex justify-end gap-2">
+                    <Button size="sm" variant="ghost" className="h-8 text-xs" onClick={() => setIsEditingLoan(false)}>Cancelar</Button>
+                    <Button size="sm" className="h-8 text-xs" onClick={handleSaveLoan}>Guardar</Button>
+                  </div>
+                </div>
+              )}
+
               <div>
-                <p className="text-xs text-muted-foreground mb-1">Cuotas</p>
-                <p className="font-medium text-sm">
-                  {loan.installments} x {formatCurrency(loan.installmentAmount)}
-                </p>
+                <h4 className="text-sm font-semibold mb-2">Detalle de cuotas</h4>
+                <div className="space-y-1.5">
+                  {expenses.map((tx: any, idx: number) => (
+                    <EditableTransactionRow
+                      key={tx.id}
+                      tx={tx}
+                      index={idx + 1}
+                      onSave={(updates) => onUpdateTx(tx.id, updates)}
+                    />
+                  ))}
+                </div>
               </div>
-              <div>
-                <p className="text-xs text-muted-foreground mb-1">Inicio de Pagos</p>
-                <p className="font-medium text-sm flex items-center gap-1">
-                  <Calendar className="w-3 h-3" />
-                  {loan.startDate ? format(parseISO(loan.startDate), "MMM yyyy", { locale: es }) : 'N/A'}
-                </p>
-              </div>
-            </div>
-          </div>
-        )}
-      </div>
-
-      {isExpanded && (
-        <div className="bg-muted/30 border-t border-border px-5 py-4 space-y-3">
-          <h4 className="text-sm font-semibold mb-2">Detalle de cuotas</h4>
-          <div className="space-y-2">
-            {expenses.map((tx: any, idx: number) => (
-              <EditableTransactionRow 
-                key={tx.id} 
-                tx={tx} 
-                index={idx + 1}
-               
-                onSave={(updates) => onUpdateTx(tx.id, updates)} 
-              />
-            ))}
-          </div>
+            </>
+          )}
         </div>
       )}
     </div>

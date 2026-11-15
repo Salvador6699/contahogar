@@ -110,8 +110,7 @@ const MobileNav = () => {
     { icon: SearchIcon, label: 'Buscar', path: '/buscar' },
     { icon: PiggyBank, label: 'Presupuestos', path: '/presupuestos' },
     { icon: Target, label: 'Ahorros', path: '/ahorros' },
-    { icon: Landmark, label: 'Préstamos', path: '/prestamos' },
-    { icon: Repeat, label: 'Gastos Fijos', path: '/gastos-fijos' },
+    { icon: Repeat, label: 'Fijos y Préstamos', path: '/gastos-fijos' },
     ...(flags.exp_cashflow_lab
       ? [{ icon: Calendar, label: 'Simulador', path: '/simulador' }]
       : []),
@@ -131,6 +130,8 @@ const MobileNav = () => {
     const item = allDrawerNavItems.find((nav) => isActive(nav.path, nav.exact))
     if (item) return { title: item.label, icon: <item.icon className="w-5 h-5 text-primary" /> }
 
+    if (location.pathname.startsWith('/prestamos'))
+      return { title: 'Fijos y Préstamos', icon: <Landmark className="w-5 h-5 text-primary" /> }
     if (location.pathname.startsWith('/simulador'))
       return { title: 'Simulador', icon: <Calendar className="w-5 h-5 text-primary" /> }
     if (location.pathname.startsWith('/proximos'))

@@ -1,10 +1,11 @@
 import { useState, useEffect, useMemo } from "react";
-import { useNavigate } from "@tanstack/react-router";
 import { useSearchParams } from '@/hooks/useSearchParams';
+import { LoansSection } from "@/pages/LoansPage";
 import {
   RecurringExpenseRule,
   RecurringExpenseKind,
   RecurrenceFrequency,
+  Transaction,
   getRecurringRuleKind,
   isRuleIncludedInSavings,
 } from "@/types/finance";
@@ -12,6 +13,7 @@ import { useRecurringRules } from "@/hooks/useRecurringRules";
 import { useAccounts } from "@/hooks/useAccounts";
 import { useCategories } from "@/hooks/useCategories";
 import { useLoans } from "@/hooks/useLoans";
+import { useTransactions } from "@/hooks/useTransactions";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -44,15 +46,25 @@ import {
   Zap,
   Sparkles,
   Landmark,
-  ArrowRight,
   AlertTriangle,
+  TrendingUp,
+  TrendingDown,
+  Minus,
+  Scissors,
+  RotateCcw,
+  ChevronDown,
+  ChevronUp,
 } from "lucide-react";
 import { Switch } from "@/components/ui/switch";
 import { cn, parseAmount } from "@/lib/utils";
 import { appToast as toast, swalConfirm } from "@/lib/swal";
 import { formatCurrency } from "@/lib/calculations";
 
-type RuleFilterTab = "all" | "essential" | "subscription" | "income";
+export type RuleFilterTab = "all" | "loans" | "essential" | "subscription" | "income";
+
+export interface RecurringExpensesManagerProps {
+  initialTab?: RuleFilterTab;
+}
 
 const getMonthlyEquivalent = (rule: RecurringExpenseRule): number => {
   if (rule.frequency === "weekly") return rule.amount * (52 / 12);
@@ -79,19 +91,137 @@ const getFrequencyLabel = (rule: RecurringExpenseRule): string => {
   }`;
 };
 
-export const RecurringExpensesManager = () => {
-  const navigate = useNavigate();
+type ProgressionStatus = "up" | "down" | "same";
+
+interface RuleProgression {
+  status: ProgressionStatus;
+  diff: number;
+  pct: number;
+  prevAmount?: number;
+  recentHistory: Transaction[];
+}
+
+const getRuleProgression = (
+  rule: RecurringExpenseRule,
+  transactions: Transaction[]
+): RuleProgression => {
+  const normalizedName = rule.name.trim().toLowerCase();
+  const history = transactions
+    .filter(
+      (t) =>
+        !t.isPending &&
+        !t.isIgnored &&
+        t.type === rule.type &&
+        t.amount > 0 &&
+        (t.id.startsWith(`rec_${rule.id}_`) ||
+          (t.description && t.description.trim().toLowerCase() === normalizedName))
+    )
+    .sort((a, b) => a.date.localeCompare(b.date));
+
+  const recentHistory = history.slice(-4).reverse();
+
+  if (history.length === 0) {
+    return { status: "same", diff: 0, pct: 0, recentHistory };
+  }
+
+  const lastTx = history[history.length - 1];
+  let currentAmount = rule.amount;
+  let prevAmount: number | undefined;
+
+  if (Math.abs(rule.amount - lastTx.amount) > 0.01) {
+    prevAmount = lastTx.amount;
+  } else if (history.length >= 2) {
+    currentAmount = lastTx.amount;
+    prevAmount = history[history.length - 2].amount;
+  }
+
+  if (prevAmount === undefined || prevAmount <= 0) {
+    return { status: "same", diff: 0, pct: 0, recentHistory };
+  }
+
+  const diff = Number((currentAmount - prevAmount).toFixed(2));
+  if (Math.abs(diff) <= 0.01) {
+    return { status: "same", diff: 0, pct: 0, prevAmount, recentHistory };
+  }
+
+  const pct = (diff / prevAmount) * 100;
+  return {
+    status: diff > 0 ? "up" : "down",
+    diff,
+    pct,
+    prevAmount,
+    recentHistory,
+  };
+};
+
+interface PeriodicityGroup {
+  key: string;
+  label: string;
+  rules: RecurringExpenseRule[];
+  monthlyTotal: number;
+}
+
+const groupRulesByPeriodicity = (list: RecurringExpenseRule[]): PeriodicityGroup[] => {
+  const buckets: { key: string; label: string; rules: RecurringExpenseRule[] }[] = [
+    { key: "monthly", label: "Mensuales", rules: [] },
+    { key: "periodic", label: "Trimestrales y Periódicos", rules: [] },
+    { key: "yearly", label: "Anuales", rules: [] },
+    { key: "weekly", label: "Semanales", rules: [] },
+  ];
+
+  list.forEach((rule) => {
+    if (rule.frequency === "monthly") buckets[0].rules.push(rule);
+    else if (rule.frequency === "custom") buckets[1].rules.push(rule);
+    else if (rule.frequency === "yearly") buckets[2].rules.push(rule);
+    else if (rule.frequency === "weekly") buckets[3].rules.push(rule);
+    else buckets[0].rules.push(rule);
+  });
+
+  return buckets
+    .filter((b) => b.rules.length > 0)
+    .map((b) => ({
+      ...b,
+      monthlyTotal: b.rules.reduce((sum, r) => sum + getMonthlyEquivalent(r), 0),
+    }));
+};
+
+export const RecurringExpensesManager = ({
+  initialTab = "all",
+}: RecurringExpensesManagerProps) => {
   const [searchParams, setSearchParams] = useSearchParams();
   const { rules, addRule, updateRule, deleteRule, isLoading: isRulesLoading } = useRecurringRules();
   const { categories, isLoading: isCatLoading } = useCategories();
   const { accounts, isLoading: isAccLoading } = useAccounts();
   const { loans, isLoading: isLoansLoading } = useLoans();
+  const { transactions, isLoading: isTxLoading } = useTransactions();
 
   // Search and UI State
   const [searchQuery, setSearchQuery] = useState("");
-  const [filterTab, setFilterTab] = useState<RuleFilterTab>("all");
+  const [filterTab, setFilterTab] = useState<RuleFilterTab>(initialTab);
+  const [simulatedCancelIds, setSimulatedCancelIds] = useState<string[]>([]);
   const [isModalOpen, setIsModalOpen] = useState(false);
+  const [isLoanModalOpen, setIsLoanModalOpen] = useState(false);
   const [expandedRow, setExpandedRow] = useState<string | null>(null);
+
+  useEffect(() => {
+    setFilterTab(initialTab);
+  }, [initialTab]);
+
+  useEffect(() => {
+    const tabParam = searchParams.get("tab");
+    if (
+      tabParam === "all" ||
+      tabParam === "loans" ||
+      tabParam === "essential" ||
+      tabParam === "subscription" ||
+      tabParam === "income"
+    ) {
+      setFilterTab(tabParam);
+      const newParams = new URLSearchParams(searchParams);
+      newParams.delete("tab");
+      setSearchParams(newParams);
+    }
+  }, [searchParams, setSearchParams]);
 
   // Form State
   const [editingRule, setEditingRule] = useState<RecurringExpenseRule | null>(null);
@@ -284,7 +414,33 @@ export const RecurringExpensesManager = () => {
     };
   }, [rules, loans]);
 
-  if (isRulesLoading || isCatLoading || isAccLoading || isLoansLoading) {
+  const progressionByRuleId = useMemo(() => {
+    const map = new Map<string, RuleProgression>();
+    rules.forEach((rule) => {
+      map.set(rule.id, getRuleProgression(rule, transactions));
+    });
+    return map;
+  }, [rules, transactions]);
+
+  const simulatedStats = useMemo(() => {
+    const selected = summary.subscription.filter((r) => simulatedCancelIds.includes(r.id));
+    const monthlySaving = selected.reduce((sum, r) => sum + getMonthlyEquivalent(r), 0);
+    return {
+      count: selected.length,
+      monthlySaving,
+      annualSaving: monthlySaving * 12,
+      remainingMonthly: Math.max(0, summary.subscriptionMonthly - monthlySaving),
+    };
+  }, [summary.subscription, summary.subscriptionMonthly, simulatedCancelIds]);
+
+  const toggleSimulatedCancel = (id: string, e: React.MouseEvent) => {
+    e.stopPropagation();
+    setSimulatedCancelIds((prev) =>
+      prev.includes(id) ? prev.filter((item) => item !== id) : [...prev, id]
+    );
+  };
+
+  if (isRulesLoading || isCatLoading || isAccLoading || isLoansLoading || isTxLoading) {
     return <div className="p-8 text-center text-muted-foreground animate-pulse">Cargando datos...</div>;
   }
 
@@ -310,24 +466,38 @@ export const RecurringExpensesManager = () => {
     const ruleKind = getRecurringRuleKind(rule);
     const nextKind: RecurringExpenseKind =
       ruleKind === "essential" ? "subscription" : "essential";
+    const monthlyEq = getMonthlyEquivalent(rule);
+    const annualSaving = monthlyEq * 12;
+    const progression = progressionByRuleId.get(rule.id) || {
+      status: "same" as const,
+      diff: 0,
+      pct: 0,
+      recentHistory: [],
+    };
+    const isSimulatedCancelled =
+      ruleKind === "subscription" && simulatedCancelIds.includes(rule.id);
 
     return (
       <div
         key={rule.id}
         className={cn(
           "bg-card rounded-3xl border shadow-sm overflow-hidden transition-all duration-300",
-          isExpanded ? "border-primary/30" : "border-border/50 hover:border-primary/20"
+          isSimulatedCancelled
+            ? "border-emerald-500/45 bg-emerald-500/[0.03]"
+            : isExpanded
+            ? "border-primary/30"
+            : "border-border/50 hover:border-primary/20"
         )}
       >
         {/* COMPACT ROW */}
         <div
-          className="p-4 flex items-center justify-between cursor-pointer hover:bg-muted/30 transition-colors"
+          className="p-4 flex items-start justify-between gap-3 cursor-pointer hover:bg-muted/30 transition-colors"
           onClick={() => toggleRow(rule.id)}
         >
-          <div className="flex items-center gap-4 min-w-0 flex-1 pr-4">
+          <div className="flex items-start gap-3.5 min-w-0 flex-1">
             <div
               className={cn(
-                "w-12 h-12 rounded-2xl flex items-center justify-center shadow-sm flex-shrink-0 transition-colors",
+                "w-11 h-11 rounded-2xl flex items-center justify-center shadow-sm flex-shrink-0 transition-colors mt-0.5",
                 rule.type === "income"
                   ? "bg-income/10 text-income"
                   : ruleKind === "essential"
@@ -336,56 +506,118 @@ export const RecurringExpensesManager = () => {
               )}
             >
               {rule.type === "income" ? (
-                <Repeat className="w-6 h-6" />
+                <Repeat className="w-5 h-5" />
               ) : ruleKind === "essential" ? (
                 <Zap className="w-5 h-5" />
               ) : (
                 <Sparkles className="w-5 h-5" />
               )}
             </div>
-            <div className="min-w-0">
-              <p className="font-extrabold text-base truncate text-foreground/90">{rule.name}</p>
-              <div className="text-xs font-bold uppercase tracking-widest text-muted-foreground flex items-center gap-2 flex-wrap mt-1">
-                <span>{getFrequencyLabel(rule)}</span>
-                <span className="w-1 h-1 rounded-full bg-border" />
-                <span className="truncate">{rule.category}</span>
-                {rule.type === "expense" && (
-                  <>
-                    <span className="w-1 h-1 rounded-full bg-border" />
-                    <span
-                      className={cn(
-                        "normal-case tracking-normal text-[11px] font-bold px-2 py-0.5 rounded-full border",
-                        ruleKind === "essential"
-                          ? "bg-sky-500/10 text-sky-700 dark:text-sky-300 border-sky-500/20"
-                          : "bg-violet-500/10 text-violet-700 dark:text-violet-300 border-violet-500/20"
-                      )}
-                    >
-                      {ruleKind === "essential" ? "Suministro / Recibo" : "Suscripción"}
-                    </span>
-                  </>
+            <div className="min-w-0 flex-1">
+              <p
+                className={cn(
+                  "font-extrabold text-base truncate text-foreground/90",
+                  isSimulatedCancelled && "line-through text-muted-foreground"
                 )}
+              >
+                {rule.name}
+              </p>
+
+              <div className="text-[11px] font-bold text-muted-foreground flex items-center gap-1.5 flex-wrap mt-1">
+                <span className="uppercase tracking-wider">{getFrequencyLabel(rule)}</span>
+                <span className="w-1 h-1 rounded-full bg-border" />
+                <span className="truncate uppercase tracking-wider">{rule.category}</span>
+
+                {rule.type === "expense" && (
+                  <span
+                    className={cn(
+                      "inline-flex items-center gap-1 px-2 py-0.5 rounded-full border",
+                      progression.status === "up"
+                        ? "bg-rose-500/10 text-rose-700 dark:text-rose-300 border-rose-500/25"
+                        : progression.status === "down"
+                        ? "bg-emerald-500/10 text-emerald-700 dark:text-emerald-300 border-emerald-500/25"
+                        : "bg-muted/60 text-muted-foreground border-border/60"
+                    )}
+                  >
+                    {progression.status === "up" ? (
+                      <>
+                        <TrendingUp className="w-3 h-3" />
+                        <span>
+                          Subiendo +{formatCurrency(Math.abs(progression.diff))} (+
+                          {Math.abs(progression.pct).toFixed(1)}%)
+                        </span>
+                      </>
+                    ) : progression.status === "down" ? (
+                      <>
+                        <TrendingDown className="w-3 h-3" />
+                        <span>
+                          Bajando -{formatCurrency(Math.abs(progression.diff))} (-
+                          {Math.abs(progression.pct).toFixed(1)}%)
+                        </span>
+                      </>
+                    ) : (
+                      <>
+                        <Minus className="w-3 h-3" />
+                        <span>Pagando lo mismo</span>
+                      </>
+                    )}
+                  </span>
+                )}
+
                 {isRuleIncludedInSavings(rule) && (
-                  <>
-                    <span className="w-1 h-1 rounded-full bg-border" />
-                    <span className="text-primary font-bold inline-flex items-center gap-1 normal-case tracking-normal text-xs bg-primary/10 px-2.5 py-0.5 rounded-full border border-primary/20">
-                      <PiggyBank className="w-3 h-3" />
-                      Ahorros y Provisiones
-                    </span>
-                  </>
+                  <span className="text-primary font-bold inline-flex items-center gap-1 px-2 py-0.5 rounded-full border border-primary/20 bg-primary/10">
+                    <PiggyBank className="w-3 h-3" />
+                    Provisiones
+                  </span>
                 )}
               </div>
+
+              {rule.type === "expense" && ruleKind === "subscription" && (
+                <button
+                  type="button"
+                  onClick={(e) => toggleSimulatedCancel(rule.id, e)}
+                  className={cn(
+                    "mt-2 inline-flex items-center gap-1.5 px-2.5 py-1 rounded-xl text-[11px] font-bold border transition-all cursor-pointer",
+                    isSimulatedCancelled
+                      ? "bg-emerald-500/15 text-emerald-700 dark:text-emerald-300 border-emerald-500/40"
+                      : "bg-muted/40 text-muted-foreground border-border/60 hover:border-violet-500/40 hover:text-foreground"
+                  )}
+                >
+                  <Scissors className="w-3 h-3 shrink-0" />
+                  <span>
+                    {isSimulatedCancelled
+                      ? `Baja simulada · Ahorras ${formatCurrency(annualSaving)}/año`
+                      : `¿Y si la dejo? · Ahorras ${formatCurrency(annualSaving)}/año`}
+                  </span>
+                </button>
+              )}
             </div>
           </div>
-          <div className="text-right flex-shrink-0">
-            <p
-              className={cn(
-                "font-black text-xl tabular-nums",
-                rule.type === "income" ? "text-income" : "text-expense"
+
+          <div className="flex items-center gap-1.5 flex-shrink-0">
+            <div className="text-right">
+              <p
+                className={cn(
+                  "font-black text-lg sm:text-xl tabular-nums leading-none",
+                  isSimulatedCancelled
+                    ? "text-emerald-600 dark:text-emerald-400"
+                    : rule.type === "income"
+                    ? "text-income"
+                    : "text-expense"
+                )}
+              >
+                {rule.type === "income" ? "+" : "-"}
+                {formatCurrency(rule.amount)}
+              </p>
+              {rule.frequency !== "monthly" && (
+                <span className="text-[10px] font-semibold text-muted-foreground block mt-0.5 tabular-nums">
+                  equiv. {formatCurrency(monthlyEq)}/mes
+                </span>
               )}
-            >
-              {rule.type === "income" ? "+" : "-"}
-              {formatCurrency(rule.amount)}
-            </p>
+            </div>
+            <span className="text-muted-foreground p-1">
+              {isExpanded ? <ChevronUp className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />}
+            </span>
           </div>
         </div>
 
@@ -421,6 +653,33 @@ export const RecurringExpensesManager = () => {
                   </div>
                   <span className="font-bold text-foreground">{rule.category}</span>
                 </div>
+
+                {rule.type === "expense" && (
+                  <div className="pt-2 border-t border-border/30 space-y-1.5">
+                    <span className="text-xs font-bold text-foreground block">
+                      Historial reciente de recibos
+                    </span>
+                    {progression.recentHistory.length === 0 ? (
+                      <span className="text-[11px] text-muted-foreground block">
+                        Aún no hay recibos confirmados anteriores para comparar evolución.
+                      </span>
+                    ) : (
+                      <div className="flex items-center gap-2 flex-wrap">
+                        {progression.recentHistory.map((tx) => (
+                          <span
+                            key={tx.id}
+                            className="text-[11px] px-2.5 py-1 rounded-xl bg-muted/60 border border-border/50 tabular-nums"
+                          >
+                            {format(new Date(tx.date), "dd MMM yyyy", { locale: es })}:{" "}
+                            <strong className="text-foreground">
+                              {formatCurrency(tx.amount)}
+                            </strong>
+                          </span>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                )}
 
                 {rule.type === "expense" && (
                   <div className="flex items-center justify-between gap-2 pt-2 border-t border-border/30">
@@ -512,6 +771,77 @@ export const RecurringExpensesManager = () => {
     );
   };
 
+  const renderPeriodicitySections = (list: RecurringExpenseRule[]) => {
+    const groups = groupRulesByPeriodicity(list);
+    return (
+      <div className="space-y-4">
+        {groups.map((group) => (
+          <div key={group.key} className="space-y-2">
+            <div className="flex items-center justify-between px-1">
+              <span className="text-[11px] font-bold uppercase tracking-wider text-muted-foreground">
+                {group.label} ({group.rules.length})
+              </span>
+              <span className="text-[11px] font-bold text-muted-foreground tabular-nums">
+                {formatCurrency(group.monthlyTotal)} / mes
+              </span>
+            </div>
+            <div className="flex flex-col gap-3">{group.rules.map(renderRuleRow)}</div>
+          </div>
+        ))}
+      </div>
+    );
+  };
+
+  const renderSubscriptionSimulatorBanner = (alwaysShowHint: boolean) => {
+    if (simulatedStats.count === 0) {
+      if (!alwaysShowHint || summary.subscription.length === 0) return null;
+      return (
+        <div className="rounded-2xl border border-violet-500/25 bg-violet-500/5 px-4 py-3 text-xs text-muted-foreground flex items-center gap-2">
+          <Scissors className="w-4 h-4 text-violet-600 dark:text-violet-400 shrink-0" />
+          <span>
+            Pulsa <strong className="text-foreground">&ldquo;¿Y si la dejo?&rdquo;</strong> en cualquier suscripción para simular exactamente cuánto ahorrarías al mes y al año al cancelarla.
+          </span>
+        </div>
+      );
+    }
+
+    return (
+      <div className="rounded-2xl border border-emerald-500/40 bg-emerald-500/10 p-4 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+        <div className="space-y-1">
+          <div className="flex items-center gap-2 text-xs font-black uppercase tracking-wider text-emerald-700 dark:text-emerald-300">
+            <Scissors className="w-3.5 h-3.5" />
+            <span>
+              Simulación de baja ({simulatedStats.count}{" "}
+              {simulatedStats.count === 1 ? "suscripción" : "suscripciones"})
+            </span>
+          </div>
+          <p className="text-sm font-bold text-foreground tabular-nums">
+            Ahorrarías +{formatCurrency(simulatedStats.monthlySaving)} / mes ·{" "}
+            <span className="text-emerald-700 dark:text-emerald-300">
+              +{formatCurrency(simulatedStats.annualSaving)} / año
+            </span>
+          </p>
+          <p className="text-[11px] text-muted-foreground tabular-nums">
+            Nuevo gasto en suscripciones tras la baja:{" "}
+            <strong className="text-foreground">
+              {formatCurrency(simulatedStats.remainingMonthly)} / mes
+            </strong>
+          </p>
+        </div>
+        <Button
+          type="button"
+          size="sm"
+          variant="outline"
+          onClick={() => setSimulatedCancelIds([])}
+          className="rounded-xl text-xs font-bold border-emerald-500/40 bg-background hover:bg-emerald-500/15 shrink-0 gap-1.5"
+        >
+          <RotateCcw className="w-3.5 h-3.5" />
+          <span>Restablecer</span>
+        </Button>
+      </div>
+    );
+  };
+
   const visibleEssential = filteredRules.filter(
     (r) => r.type === "expense" && getRecurringRuleKind(r) === "essential"
   );
@@ -520,32 +850,88 @@ export const RecurringExpensesManager = () => {
   );
   const visibleIncome = filteredRules.filter((r) => r.type === "income");
 
+  const totalMonthlyCommitment =
+    summary.loansMonthly + summary.essentialMonthly + summary.subscriptionMonthly;
+
+  const handleOpenAddLoan = () => {
+    if (filterTab !== "all" && filterTab !== "loans") {
+      setFilterTab("loans");
+    }
+    setIsLoanModalOpen(true);
+  };
+
   return (
     <div className="space-y-6 animate-in fade-in slide-in-from-bottom-2 duration-300 pb-32">
       {/* Header and Actions */}
-      <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+      <div className="flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
         <div>
-          <h2 className="text-3xl font-black text-foreground flex items-center gap-2">
-            <Repeat className="w-8 h-8 text-primary" />
-            Gastos Fijos
+          <h2 className="text-2xl sm:text-3xl font-black text-foreground flex items-center gap-2.5">
+            <Repeat className="w-7 h-7 sm:w-8 sm:h-8 text-primary shrink-0" />
+            <span>Gastos Fijos y Préstamos</span>
           </h2>
           <p className="text-sm text-muted-foreground mt-1">
-            Suministros del hogar, suscripciones cancelables e ingresos automáticos.
+            Hipoteca, préstamos, suministros obligatorios y suscripciones en un único centro.
           </p>
+          {(rules.length > 0 || summary.activeLoansCount > 0) && (
+            <div className="mt-2.5 inline-flex items-center gap-2 px-3 py-1 rounded-full bg-primary/10 border border-primary/20 text-xs">
+              <span className="text-muted-foreground font-medium">Compromiso fijo mensual total:</span>
+              <strong className="font-black text-foreground tabular-nums">
+                {formatCurrency(totalMonthlyCommitment)} / mes
+              </strong>
+            </div>
+          )}
         </div>
 
-        <Button
-          onClick={handleOpenAdd}
-          className="font-bold rounded-2xl h-12 px-6 shadow-sm bg-primary text-primary-foreground hover:bg-primary/90 transition-all w-full sm:w-auto"
-        >
-          <PlusCircle className="w-5 h-5 mr-2" />
-          Añadir Gasto Fijo
-        </Button>
+        <div className="flex items-center gap-2 w-full md:w-auto flex-wrap sm:flex-nowrap">
+          <Button
+            variant="outline"
+            onClick={handleOpenAddLoan}
+            className="font-bold rounded-2xl h-11 px-4 border-primary/30 hover:bg-primary/5 transition-all flex-1 sm:flex-initial"
+          >
+            <Landmark className="w-4 h-4 mr-2 text-primary" />
+            Préstamo / Hipoteca
+          </Button>
+          <Button
+            onClick={handleOpenAdd}
+            className="font-bold rounded-2xl h-11 px-5 shadow-sm bg-primary text-primary-foreground hover:bg-primary/90 transition-all flex-1 sm:flex-initial"
+          >
+            <PlusCircle className="w-4 h-4 mr-2" />
+            Añadir Gasto Fijo
+          </Button>
+        </div>
       </div>
 
       {/* KPI Summary Cards */}
       {(rules.length > 0 || summary.activeLoansCount > 0) && (
         <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+          <button
+            type="button"
+            onClick={() => setFilterTab((prev) => (prev === "loans" ? "all" : "loans"))}
+            className={cn(
+              "text-left p-4 rounded-2xl border bg-card transition-all cursor-pointer",
+              filterTab === "loans"
+                ? "border-primary/60 ring-1 ring-primary/30"
+                : "border-border/60 hover:border-primary/40"
+            )}
+          >
+            <div className="flex items-center justify-between">
+              <span className="text-xs font-bold uppercase tracking-wider text-primary flex items-center gap-1.5">
+                <Landmark className="w-3.5 h-3.5" />
+                Préstamos e Hipoteca
+              </span>
+              <span className="text-[11px] font-bold text-muted-foreground">
+                {summary.activeLoansCount} activos
+              </span>
+            </div>
+            <p className="text-2xl font-black mt-1.5 tabular-nums">
+              {formatCurrency(summary.loansMonthly)}
+              <span className="text-xs font-medium text-muted-foreground"> / mes</span>
+            </p>
+            <p className="text-[11px] text-muted-foreground mt-1">
+              Hipoteca, cuotas y pagos fraccionados
+            </p>
+          </button>
+
           <button
             type="button"
             onClick={() => setFilterTab((prev) => (prev === "essential" ? "all" : "essential"))}
@@ -601,27 +987,6 @@ export const RecurringExpensesManager = () => {
               Margen recortable: {formatCurrency(summary.subscriptionMonthly * 12)} / año
             </p>
           </button>
-
-          <button
-            type="button"
-            onClick={() => navigate({ to: "/prestamos" } as any)}
-            className="text-left p-4 rounded-2xl border border-border/60 hover:border-primary/40 bg-card transition-all cursor-pointer group"
-          >
-            <div className="flex items-center justify-between">
-              <span className="text-xs font-bold uppercase tracking-wider text-primary flex items-center gap-1.5">
-                <Landmark className="w-3.5 h-3.5" />
-                Préstamos e Hipoteca
-              </span>
-              <ArrowRight className="w-4 h-4 text-muted-foreground group-hover:translate-x-0.5 transition-transform" />
-            </div>
-            <p className="text-2xl font-black mt-1.5 tabular-nums">
-              {formatCurrency(summary.loansMonthly)}
-              <span className="text-xs font-medium text-muted-foreground"> / mes</span>
-            </p>
-            <p className="text-[11px] text-muted-foreground mt-1">
-              {summary.activeLoansCount} activos · Se gestionan aparte en Préstamos
-            </p>
-          </button>
         </div>
       )}
 
@@ -632,10 +997,10 @@ export const RecurringExpensesManager = () => {
             <AlertTriangle className="w-5 h-5 text-amber-600 dark:text-amber-400 shrink-0 mt-0.5" />
             <div>
               <p className="text-sm font-bold text-foreground">
-                Tienes &ldquo;{summary.mortgageRules[0].name}&rdquo; todavía en Gastos Fijos
+                Tienes &ldquo;{summary.mortgageRules[0].name}&rdquo; todavía como regla recurrente
               </p>
               <p className="text-xs text-muted-foreground mt-0.5">
-                Ahora las hipotecas se gestionan de forma autónoma desde Préstamos e Hipoteca (generando sus propios recibos sin estar aquí).
+                Pásala a la sección de Préstamos e Hipoteca aquí arriba para ver su amortización, intereses y cuotas sin duplicar recibos.
               </p>
             </div>
           </div>
@@ -643,20 +1008,20 @@ export const RecurringExpensesManager = () => {
             size="sm"
             variant="outline"
             className="rounded-xl font-bold shrink-0 border-amber-500/40 bg-background hover:bg-amber-500/15"
-            onClick={() => navigate({ to: "/prestamos" } as any)}
+            onClick={() => setFilterTab("loans")}
           >
-            Mover en Préstamos
+            Ir a Préstamos e Hipoteca
           </Button>
         </div>
       )}
 
       {/* Search & Filter Bar */}
-      {rules.length > 0 && (
-        <div className="flex flex-col md:flex-row md:items-center justify-between gap-3">
-          <div className="relative w-full md:max-w-xs">
+      {(rules.length > 0 || loans.length > 0) && (
+        <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-3">
+          <div className="relative w-full lg:max-w-xs">
             <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-muted-foreground" />
             <Input
-              placeholder="Buscar regla o categoría..."
+              placeholder="Buscar préstamo, suministro o suscripción..."
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
               className="pl-12 pr-11 h-11 bg-card border-border/50 font-medium rounded-2xl shadow-sm focus-visible:ring-primary/20 transition-all text-sm"
@@ -674,7 +1039,8 @@ export const RecurringExpensesManager = () => {
 
           <div className="flex items-center gap-1.5 flex-wrap">
             {[
-              { id: "all" as const, label: `Todos (${rules.length})` },
+              { id: "all" as const, label: `Todos (${rules.length + summary.activeLoansCount})` },
+              { id: "loans" as const, label: `Préstamos e Hipoteca (${summary.activeLoansCount})` },
               { id: "essential" as const, label: `Suministros (${summary.essential.length})` },
               { id: "subscription" as const, label: `Suscripciones (${summary.subscription.length})` },
               { id: "income" as const, label: `Ingresos (${summary.income.length})` },
@@ -697,71 +1063,103 @@ export const RecurringExpensesManager = () => {
         </div>
       )}
 
-      {/* Rules List */}
-      {rules.length === 0 ? (
-        <div className="bg-card/50 rounded-3xl border border-dashed border-border/60 p-12 text-center flex flex-col items-center justify-center mt-8">
-          <Repeat className="w-16 h-16 text-muted-foreground/20 mb-4" />
-          <p className="text-lg font-bold text-foreground">No hay gastos fijos</p>
-          <p className="text-sm text-muted-foreground mt-2 max-w-md">
-            Crea reglas automáticas para tus suscripciones, suministros o recibos recurrentes y se añadirán solos a tu previsión.
-          </p>
-          <Button onClick={handleOpenAdd} variant="outline" className="mt-6 rounded-2xl h-11 px-6 font-bold">
-            Añadir mi primer gasto fijo
-          </Button>
+      {/* Unified Body */}
+      {filterTab === "loans" ? (
+        <LoansSection
+          embedded
+          searchQuery={searchQuery}
+          externalModalOpen={isLoanModalOpen}
+          onExternalModalClose={() => setIsLoanModalOpen(false)}
+          onExternalModalOpen={() => setIsLoanModalOpen(true)}
+        />
+      ) : filterTab === "all" ? (
+        <div className="space-y-8">
+          <LoansSection
+            embedded
+            searchQuery={searchQuery}
+            externalModalOpen={isLoanModalOpen}
+            onExternalModalClose={() => setIsLoanModalOpen(false)}
+            onExternalModalOpen={() => setIsLoanModalOpen(true)}
+          />
+
+          {rules.length === 0 ? (
+            <div className="bg-card/50 rounded-3xl border border-dashed border-border/60 p-8 text-center flex flex-col items-center justify-center">
+              <Repeat className="w-12 h-12 text-muted-foreground/25 mb-3" />
+              <p className="text-base font-bold text-foreground">No hay suministros ni suscripciones</p>
+              <p className="text-xs text-muted-foreground mt-1.5 max-w-md">
+                Añade aquí tus recibos del hogar (luz, agua, internet) y suscripciones para ver tu compromiso fijo completo.
+              </p>
+              <Button onClick={handleOpenAdd} variant="outline" className="mt-4 rounded-2xl h-10 px-5 font-bold text-xs">
+                Añadir primer gasto fijo
+              </Button>
+            </div>
+          ) : filteredRules.length === 0 ? (
+            <div className="text-center py-6 text-sm text-muted-foreground">
+              No se encontraron suministros ni suscripciones para &ldquo;{searchQuery}&rdquo;
+            </div>
+          ) : (
+            <div className="space-y-6">
+              {visibleEssential.length > 0 && (
+                <div className="space-y-3">
+                  <div className="flex items-center justify-between px-1">
+                    <h3 className="text-xs font-black uppercase tracking-wider text-sky-600 dark:text-sky-400 flex items-center gap-1.5">
+                      <Zap className="w-3.5 h-3.5" />
+                      Suministros y Recibos Obligatorios ({visibleEssential.length})
+                    </h3>
+                    <span className="text-xs font-bold text-muted-foreground tabular-nums">
+                      {formatCurrency(
+                        visibleEssential.reduce((sum, r) => sum + getMonthlyEquivalent(r), 0)
+                      )}{" "}
+                      / mes
+                    </span>
+                  </div>
+                  {renderPeriodicitySections(visibleEssential)}
+                </div>
+              )}
+
+              {visibleSubscription.length > 0 && (
+                <div className="space-y-3">
+                  <div className="flex items-center justify-between px-1">
+                    <h3 className="text-xs font-black uppercase tracking-wider text-violet-600 dark:text-violet-400 flex items-center gap-1.5">
+                      <Sparkles className="w-3.5 h-3.5" />
+                      Suscripciones Cancelables ({visibleSubscription.length})
+                    </h3>
+                    <span className="text-xs font-bold text-muted-foreground tabular-nums">
+                      {formatCurrency(
+                        visibleSubscription.reduce((sum, r) => sum + getMonthlyEquivalent(r), 0)
+                      )}{" "}
+                      / mes
+                    </span>
+                  </div>
+                  {renderSubscriptionSimulatorBanner(false)}
+                  {renderPeriodicitySections(visibleSubscription)}
+                </div>
+              )}
+
+              {visibleIncome.length > 0 && (
+                <div className="space-y-2.5">
+                  <div className="flex items-center justify-between px-1">
+                    <h3 className="text-xs font-black uppercase tracking-wider text-income flex items-center gap-1.5">
+                      <Repeat className="w-3.5 h-3.5" />
+                      Ingresos Automáticos ({visibleIncome.length})
+                    </h3>
+                  </div>
+                  <div className="flex flex-col gap-3">{visibleIncome.map(renderRuleRow)}</div>
+                </div>
+              )}
+            </div>
+          )}
         </div>
       ) : filteredRules.length === 0 ? (
         <div className="text-center py-12 text-muted-foreground">
           No se encontraron reglas con los filtros actuales
         </div>
-      ) : filterTab === "all" ? (
-        <div className="space-y-6">
-          {visibleEssential.length > 0 && (
-            <div className="space-y-2.5">
-              <div className="flex items-center justify-between px-1">
-                <h3 className="text-xs font-black uppercase tracking-wider text-sky-600 dark:text-sky-400 flex items-center gap-1.5">
-                  <Zap className="w-3.5 h-3.5" />
-                  Suministros y Recibos Obligatorios ({visibleEssential.length})
-                </h3>
-                <span className="text-xs font-bold text-muted-foreground tabular-nums">
-                  {formatCurrency(
-                    visibleEssential.reduce((sum, r) => sum + getMonthlyEquivalent(r), 0)
-                  )}{" "}
-                  / mes
-                </span>
-              </div>
-              <div className="flex flex-col gap-3">{visibleEssential.map(renderRuleRow)}</div>
-            </div>
-          )}
-
-          {visibleSubscription.length > 0 && (
-            <div className="space-y-2.5">
-              <div className="flex items-center justify-between px-1">
-                <h3 className="text-xs font-black uppercase tracking-wider text-violet-600 dark:text-violet-400 flex items-center gap-1.5">
-                  <Sparkles className="w-3.5 h-3.5" />
-                  Suscripciones Cancelables ({visibleSubscription.length})
-                </h3>
-                <span className="text-xs font-bold text-muted-foreground tabular-nums">
-                  {formatCurrency(
-                    visibleSubscription.reduce((sum, r) => sum + getMonthlyEquivalent(r), 0)
-                  )}{" "}
-                  / mes
-                </span>
-              </div>
-              <div className="flex flex-col gap-3">{visibleSubscription.map(renderRuleRow)}</div>
-            </div>
-          )}
-
-          {visibleIncome.length > 0 && (
-            <div className="space-y-2.5">
-              <div className="flex items-center justify-between px-1">
-                <h3 className="text-xs font-black uppercase tracking-wider text-income flex items-center gap-1.5">
-                  <Repeat className="w-3.5 h-3.5" />
-                  Ingresos Automáticos ({visibleIncome.length})
-                </h3>
-              </div>
-              <div className="flex flex-col gap-3">{visibleIncome.map(renderRuleRow)}</div>
-            </div>
-          )}
+      ) : filterTab === "essential" ? (
+        <div className="space-y-4">{renderPeriodicitySections(filteredRules)}</div>
+      ) : filterTab === "subscription" ? (
+        <div className="space-y-4">
+          {renderSubscriptionSimulatorBanner(true)}
+          {renderPeriodicitySections(filteredRules)}
         </div>
       ) : (
         <div className="flex flex-col gap-3">{filteredRules.map(renderRuleRow)}</div>

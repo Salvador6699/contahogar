@@ -3,7 +3,6 @@ import {
   CalendarDays,
   History,
   Home,
-  Landmark,
   Layers,
   BarChart3,
   PiggyBank,
@@ -68,15 +67,9 @@ export function getNavPillars(includeCashflowLab: boolean): NavPillar[] {
         },
         {
           icon: Repeat,
-          label: 'Gastos Fijos',
+          label: 'Gastos Fijos y Préstamos',
           path: '/gastos-fijos',
-          description: 'Reglas recurrentes automáticas',
-        },
-        {
-          icon: Landmark,
-          label: 'Préstamos',
-          path: '/prestamos',
-          description: 'Cuotas y fraccionamientos',
+          description: 'Hipoteca, cuotas, suministros y suscripciones',
         },
       ],
     },
@@ -156,9 +149,10 @@ export function getNavPillars(includeCashflowLab: boolean): NavPillar[] {
 }
 
 export function findActivePillar(pathname: string, pillars: NavPillar[]): NavPillar | undefined {
+  const effectivePath = pathname.startsWith('/prestamos') ? '/gastos-fijos' : pathname
   return pillars.find((p) =>
     p.items.some((item) =>
-      item.exact ? pathname === item.path : pathname.startsWith(item.path)
+      item.exact ? effectivePath === item.path : effectivePath.startsWith(item.path)
     )
   )
 }

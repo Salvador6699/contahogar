@@ -63,6 +63,15 @@ const UpcomingPage = () => {
   };
 
   const handleEditTransaction = (transaction: Transaction) => {
+    if (transaction.isPending && transaction.id.startsWith("rec_loan_")) {
+      toast.info("Este recibo futuro se gestiona desde Gastos Fijos y Préstamos. Te redirigimos allí...");
+      navigate({
+        to: '/gastos-fijos',
+        search: { tab: 'loans' },
+      } as any);
+      return;
+    }
+
     if (transaction.isPending && transaction.id.startsWith("rec_")) {
       const parts = transaction.id.split("_");
       const ruleId = parts.length >= 2 ? parts[1] : null;
