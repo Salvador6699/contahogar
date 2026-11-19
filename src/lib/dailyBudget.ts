@@ -90,17 +90,8 @@ export function computeDailyBudgetAllowance(params: {
       .toFixed(2)
   )
 
-  // 3. Monthly savings provision suggestion
-  const savingsProvision =
-    savingsTimeframe === 'none'
-      ? 0
-      : calculateSavingsProvisions(
-          accounts,
-          transactions,
-          goals || [],
-          recurringRules || [],
-          savingsTimeframe
-        ).totalSuggestedMonthly
+  // 3. Monthly savings provision is no longer deducted from daily spending allowance
+  const savingsProvision = 0
 
   // 4. Active budget envelopes & current month expenses
   const budgetMap = new Map<string, Budget>()

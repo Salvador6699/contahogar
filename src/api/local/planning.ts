@@ -6,12 +6,15 @@ import { supabase } from "@/lib/supabase";
 export const SETTING_SAVINGS_TIMEFRAME_ID = '__setting_savings_timeframe__';
 export const SETTING_EXCLUDED_NEXT_MONTH_ID = '__setting_excluded_next_month_ids__';
 export const SETTING_CASH_BREAKDOWN_ID = '__setting_cash_breakdown__';
+export const SETTING_ENVELOPE_BALANCES_ID = '__setting_envelope_balances__';
 
 export interface CashBreakdown {
   mine: number;
   yasmina: number;
   home: number;
 }
+
+export type EnvelopeBalances = Record<string, number>;
 
 // Helper to normalize category key per month
 const getBudgetKey = (month: string, category: string) =>

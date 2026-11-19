@@ -31,7 +31,6 @@ import { useTransactions } from '@/hooks/useTransactions';
 import { useCategories } from '@/hooks/useCategories';
 import { usePlanning } from '@/hooks/usePlanning';
 import { useRecurringRules } from '@/hooks/useRecurringRules';
-import { calculateSavingsProvisions } from '@/lib/savingsCalculations';
 import { BudgetAssignmentModal } from '@/components/BudgetAssignmentModal';
 
 const normalizeCatKey = (name: string) => name.trim().toLowerCase();
@@ -42,11 +41,8 @@ const BudgetPage = () => {
     const { categories, isLoading: isCatLoading } = useCategories();
     const {
       budgets,
-      goals,
       saveBudgets,
-      savingsTimeframe,
       excludedNextMonthIds,
-      updateSavingsTimeframe,
       updateExcludedNextMonthIds,
       isBudgetsLoading: isBudLoading,
     } = usePlanning();
@@ -109,10 +105,6 @@ const BudgetPage = () => {
         [categories]
     );
 
-    const handleSavingsTimeframeChange = (val: string) => {
-        updateSavingsTimeframe(val).catch(console.error);
-    };
-
     const handleToggleNextMonthExpense = (txId: string) => {
         const exists = excludedNextMonthIds.includes(txId);
         const next = exists
@@ -120,21 +112,6 @@ const BudgetPage = () => {
             : [...excludedNextMonthIds, txId];
         updateExcludedNextMonthIds(next).catch(console.error);
     };
-
-    const savingsCalculation = useMemo(() => {
-        return calculateSavingsProvisions(
-            accounts,
-            transactions,
-            goals || [],
-            recurringRules || [],
-            savingsTimeframe
-        );
-    }, [accounts, transactions, goals, recurringRules, savingsTimeframe]);
-
-    const savingsProvisionsAmount = useMemo(() => {
-        if (!isCurrentMonth || savingsTimeframe === 'none') return 0;
-        return savingsCalculation.totalSuggestedMonthly;
-    }, [isCurrentMonth, savingsTimeframe, savingsCalculation.totalSuggestedMonthly]);
 
     // Sincronizar asignaciones locales con los presupuestos guardados en la BD para el mes activo
     useEffect(() => {
@@ -604,10 +581,9 @@ const BudgetPage = () => {
         }
 
         noAsignada -= nextMonthBudgetsTotal;
-        noAsignada -= savingsProvisionsAmount;
 
         return Number(noAsignada.toFixed(2));
-    }, [activeMonth, currentMonthKey, capitalDisponible, sumTotalBudgets, accounts, transactions, budgets, nextMonthBudgetsTotal, savingsProvisionsAmount]);
+    }, [activeMonth, currentMonthKey, capitalDisponible, sumTotalBudgets, accounts, transactions, budgets, nextMonthBudgetsTotal]);
 
     const filteredEnPeligro = enPeligro.filter(cat => cat.toLowerCase().includes(searchQuery.toLowerCase()));
     const filteredSaludables = saludables.filter(cat => cat.toLowerCase().includes(searchQuery.toLowerCase()));
@@ -869,12 +845,6 @@ const BudgetPage = () => {
                             <span>Ingresos: <span className="text-income/90">{formatCurrency(ingresosDelMes)}</span></span>
                             <span className="opacity-40">•</span>
                             <span>Saldo Previsto: <span className="text-foreground/80">{formatCurrency(capitalDisponible)}</span></span>
-                            {isCurrentMonth && savingsProvisionsAmount > 0 && (
-                                <>
-                                    <span className="opacity-40">•</span>
-                                    <span>Prov. Ahorros: <span className="text-amber-500 font-bold">{formatCurrency(savingsProvisionsAmount)}</span></span>
-                                </>
-                            )}
                         </div>
                     </div>
 
@@ -1025,49 +995,6 @@ const BudgetPage = () => {
                                         })}
                                     </div>
                                 )}
-                            </div>
-                        </div>
-                    )}
-
-                    {/* Provisión Ahorros y Provisiones */}
-                    {isCurrentMonth && (
-                        <div className="mb-8">
-                            <div className="flex items-center justify-between mb-3 px-2">
-                                <div className="flex items-center gap-2">
-                                    <span className="w-3 h-3 rounded-full bg-amber-500 shadow-[0_0_8px_rgba(245,158,11,0.5)]" />
-                                    <h2 className="text-lg font-bold text-foreground">Provisión Ahorros y Provisiones</h2>
-                                </div>
-                                <div className="flex items-center gap-1.5 bg-muted/40 px-2.5 py-1 rounded-xl border border-border/50">
-                                    <Select value={savingsTimeframe} onValueChange={handleSavingsTimeframeChange}>
-                                        <SelectTrigger className="h-7 border-none bg-transparent font-bold text-xs focus:ring-0 gap-1.5 px-1 text-foreground/90">
-                                            <SelectValue placeholder="Horizonte" />
-                                        </SelectTrigger>
-                                        <SelectContent>
-                                            <SelectItem value="none">Sin provisión (0 €)</SelectItem>
-                                            <SelectItem value="3">Próximos 3 meses</SelectItem>
-                                            <SelectItem value="6">Próximos 6 meses</SelectItem>
-                                            <SelectItem value="12">Próximos 12 meses</SelectItem>
-                                            <SelectItem value="13">Próximos 13 meses</SelectItem>
-                                            <SelectItem value="15">Próximos 15 meses</SelectItem>
-                                            <SelectItem value="24">Próximos 24 meses</SelectItem>
-                                        </SelectContent>
-                                    </Select>
-                                </div>
-                            </div>
-                            <div className="bg-card/80 backdrop-blur-md rounded-3xl border border-amber-500/20 shadow-sm overflow-hidden p-5 flex items-center justify-between">
-                                <div className="flex flex-col gap-1">
-                                    <span className="font-bold text-base text-foreground/90">
-                                        Cuota mensual para metas y previsiones
-                                    </span>
-                                    <span className="text-xs text-muted-foreground">
-                                        {savingsTimeframe === 'none' 
-                                            ? "Provisión desactivada (no se descuenta dinero para ahorros)"
-                                            : `Calculada según el horizonte de ${savingsTimeframe} meses`}
-                                    </span>
-                                </div>
-                                <span className={cn("font-black text-xl", savingsProvisionsAmount > 0 ? "text-amber-500" : "text-muted-foreground")}>
-                                    {formatCurrency(savingsProvisionsAmount)}
-                                </span>
                             </div>
                         </div>
                     )}

@@ -457,16 +457,7 @@ export function computeHomeBudgetAnalysis(params: {
     const baseCapital = realBalance + currentMonthPendingImpact
     const baseGastos = Number(curMonthExpenses.reduce((sum, t) => sum + t.amount, 0).toFixed(2))
     const baseBudgets = Number(activeBudgets.reduce((sum, b) => sum + b.amount, 0).toFixed(2))
-    const savingsProvisionsAmount =
-      savingsTimeframe === 'none'
-        ? 0
-        : calculateSavingsProvisions(
-            accounts,
-            transactions,
-            goals || [],
-            recurringRules || [],
-            savingsTimeframe
-          ).totalSuggestedMonthly
+    const savingsProvisionsAmount = 0
 
     disponibleParaAsignar = Number(
       (

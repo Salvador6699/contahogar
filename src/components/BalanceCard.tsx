@@ -17,6 +17,7 @@ import { usePlanning } from '@/hooks/usePlanning';
 import { useRecurringRules } from '@/hooks/useRecurringRules';
 import { formatCurrency } from '@/lib/calculations';
 import { computeDailyBudgetAllowance } from '@/lib/dailyBudget';
+import { calculateSavingsProvisions } from '@/lib/savingsCalculations';
 import { cn } from '@/lib/utils';
 import {
   Account,
@@ -61,9 +62,24 @@ const BalanceCard = ({
   budgets,
 }: BalanceCardProps) => {
   const navigate = useNavigate();
-  const { goals, savingsTimeframe, excludedNextMonthIds } = usePlanning();
+  const { goals, savingsTimeframe, excludedNextMonthIds, envelopeBalances } = usePlanning();
   const { rules: recurringRules } = useRecurringRules();
   const [isExpanded, setIsExpanded] = useState(false);
+
+  const unplacedSavings = useMemo(() => {
+    if (!accounts || accounts.length === 0) return 0;
+    return calculateSavingsProvisions(
+      accounts,
+      transactions ?? EMPTY_TRANSACTIONS,
+      goals ?? EMPTY_GOALS,
+      recurringRules ?? EMPTY_RULES,
+      savingsTimeframe,
+      {
+        useEnvelopeBalances: true,
+        envelopeBalances,
+      }
+    ).envelopesSummary.unassignedSavingsCapital;
+  }, [accounts, transactions, goals, recurringRules, savingsTimeframe, envelopeBalances]);
 
   const metrics = useMemo(() => {
     if (!accounts || accounts.length === 0) return null;
@@ -174,9 +190,16 @@ const BalanceCard = ({
               </span>
 
               {isTotalSelected && Math.abs(savingsBalance) > 0.005 && (
-                <span className="inline-flex items-center gap-1.5 rounded-full bg-white/12 px-2.5 py-0.5 text-[10px] font-bold text-white/90 border border-white/15">
+                <span
+                  onClick={() => navigate({ to: '/ahorros' })}
+                  className="inline-flex items-center gap-1.5 rounded-full bg-white/12 px-2.5 py-0.5 text-[10px] font-bold text-white/90 border border-white/15 cursor-pointer hover:bg-white/20 transition-colors flex-wrap"
+                >
                   <PiggyBank className="w-3 h-3 text-emerald-200 shrink-0" />
                   <span>Ahorro: {formatCurrency(savingsBalance)}</span>
+                  <span className="text-white/40">·</span>
+                  <span className={unplacedSavings < -0.005 ? 'text-red-200' : 'text-emerald-200'}>
+                    Sin colocar: {formatCurrency(unplacedSavings)}
+                  </span>
                   <span className="text-white/40">·</span>
                   <span>Patrimonio: {formatCurrency(balance + savingsBalance)}</span>
                 </span>

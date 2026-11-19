@@ -3,15 +3,17 @@ import { useNavigate } from '@tanstack/react-router';
 
 import { SavingsGoal } from '@/types/finance';
 import { formatCurrency } from '@/lib/calculations';
-import { calculateSavingsProvisions, UnifiedSavingsGoal } from '@/lib/savingsCalculations';
+import { calculateSavingsProvisions, getSavingsYearOptions, UnifiedSavingsGoal } from '@/lib/savingsCalculations';
 import { useAccounts } from '@/hooks/useAccounts';
 import { useTransactions } from '@/hooks/useTransactions';
 import { usePlanning } from '@/hooks/usePlanning';
 import { useRecurringRules } from '@/hooks/useRecurringRules';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+import { Badge } from '@/components/ui/badge';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { PiggyBank, Plus, Target, CalendarDays, ArrowUpCircle, ArrowDownCircle, Info, Edit2, Trash2, Filter, Eye, EyeOff, Calculator } from 'lucide-react';
+import { PiggyBank, Plus, Target, CalendarDays, Info, Edit2, Trash2, Filter, Eye, EyeOff, Calculator, Check, X, Wallet } from 'lucide-react';
 import SavingsGoalModal from '@/components/SavingsGoalModal';
 import { parseISO } from 'date-fns';
 import { appToast as toast, swalConfirm } from "@/lib/swal";
@@ -23,13 +25,15 @@ export const SavingsPage = () => {
     const {
         goals,
         savingsTimeframe: timeframeMonths,
+        envelopeBalances,
         updateSavingsTimeframe,
+        updateEnvelopeBalance,
         addGoal: rqAddGoal,
         updateGoal: rqUpdateGoal,
         deleteGoal: rqDeleteGoal,
         isGoalsLoading
     } = usePlanning();
-    const { rules: recurringRules, updateRule: rqUpdateRule, isLoading: isRulesLoading } = useRecurringRules();
+    const { rules: recurringRules, isLoading: isRulesLoading } = useRecurringRules();
     
     const data = useMemo(() => ({
         accounts,
@@ -40,84 +44,30 @@ export const SavingsPage = () => {
 
     const [isModalOpen, setIsModalOpen] = useState(false);
     const [editingGoal, setEditingGoal] = useState<SavingsGoal | null>(null);
+    const [editingEnvelopeId, setEditingEnvelopeId] = useState<string | null>(null);
+    const [envelopeDraft, setEnvelopeDraft] = useState<string>('');
     const setTimeframeMonths = (val: string) => {
         updateSavingsTimeframe(val).catch(console.error);
     };
-
-
 
     const {
         totalSavingsCapital,
         unifiedGoals,
         totalSuggestedMonthly,
+        envelopesSummary,
     } = useMemo(() => {
         return calculateSavingsProvisions(
             data.accounts,
             data.transactions,
             data.savingsGoals || [],
             data.recurringRules || [],
-            timeframeMonths
+            timeframeMonths,
+            {
+                useEnvelopeBalances: true,
+                envelopeBalances,
+            }
         );
-    }, [data.accounts, data.transactions, data.savingsGoals, data.recurringRules, timeframeMonths]);
-
-    const activeGoalsCount = useMemo(
-        () => unifiedGoals.filter(g => !g.isIgnored).length,
-        [unifiedGoals]
-    );
-
-    const handleMovePriority = async (index: number, direction: 'up' | 'down') => {
-        const activeGoals = unifiedGoals.filter(g => !g.isIgnored);
-        if (index < 0 || index >= activeGoals.length) return;
-
-        const targetIndex = direction === 'up' ? index - 1 : index + 1;
-        if (targetIndex < 0 || targetIndex >= activeGoals.length) return;
-
-        const movedGoal = activeGoals[index];
-        const reordered = [...activeGoals];
-        [reordered[index], reordered[targetIndex]] = [reordered[targetIndex], reordered[index]];
-
-        const rulePriorities = new Map<string, number>();
-        if (movedGoal.isVirtual && movedGoal.ruleId) {
-            rulePriorities.set(movedGoal.ruleId, targetIndex + 1);
-        }
-
-        const manualPriorities = new Map<string, number>();
-        reordered.forEach((g, idx) => {
-            const nextPriority = idx + 1;
-            if (g.isVirtual && g.ruleId) {
-                if (!rulePriorities.has(g.ruleId)) {
-                    rulePriorities.set(g.ruleId, nextPriority);
-                }
-            } else {
-                manualPriorities.set(g.id, nextPriority);
-            }
-        });
-
-        const updates: Promise<unknown>[] = [];
-
-        manualPriorities.forEach((nextPriority, goalId) => {
-            const manualGoal = data.savingsGoals?.find(g => g.id === goalId);
-            if (manualGoal && manualGoal.priority !== nextPriority) {
-                updates.push(rqUpdateGoal({ ...manualGoal, priority: nextPriority }));
-            }
-        });
-
-        rulePriorities.forEach((nextPriority, ruleId) => {
-            const rule = data.recurringRules?.find(r => r.id === ruleId);
-            if (rule && rule.savingsPriority !== nextPriority) {
-                updates.push(rqUpdateRule({ ...rule, savingsPriority: nextPriority }));
-            }
-        });
-
-        if (updates.length > 0) {
-            try {
-                await Promise.all(updates);
-            } catch (error) {
-                console.error('Error updating goal priorities:', error);
-                toast.error('No se pudo actualizar el orden de prioridades');
-            }
-        }
-    };
+    }, [data.accounts, data.transactions, data.savingsGoals, data.recurringRules, timeframeMonths, envelopeBalances]);
 
     const handleToggleIgnore = async (goal: UnifiedSavingsGoal) => {
         if (goal.isVirtual) {
@@ -149,12 +99,33 @@ export const SavingsPage = () => {
             await rqUpdateGoal(goalData as SavingsGoal);
             toast.success('Meta actualizada');
         } else {
-            const activePriorities = unifiedGoals
-                .filter(g => !g.isIgnored && g.priority < 999)
-                .map(g => g.priority);
-            const nextPriority = Math.max(activeGoalsCount, ...activePriorities, 0) + 1;
-            await rqAddGoal({ ...goalData, priority: nextPriority, currentAmount: 0 });
+            await rqAddGoal({ ...goalData, currentAmount: goalData.currentAmount ?? 0 });
             toast.success('Meta creada');
+        }
+    };
+
+    const unplacedCapital = envelopesSummary.unassignedSavingsCapital;
+    const availableToPlace = Math.max(0, unplacedCapital);
+
+    const handleSetEnvelopeBalance = async (goal: UnifiedSavingsGoal, nextAmount: number) => {
+        const maxAllowed = Math.max(goal.allocatedAmount, Number((goal.allocatedAmount + unplacedCapital).toFixed(2)));
+        const requested = Math.max(0, Number((Number(nextAmount) || 0).toFixed(2)));
+        if (requested > maxAllowed + 0.005) {
+            toast.warning(`Solo te quedan ${formatCurrency(availableToPlace)} sin colocar en ahorros.`);
+        }
+        const clamped = Math.min(maxAllowed, requested);
+        try {
+            if (goal.isVirtual) {
+                await updateEnvelopeBalance(goal.id, clamped);
+            } else {
+                const manualGoal = data.savingsGoals?.find(g => g.id === goal.id);
+                if (manualGoal) {
+                    await rqUpdateGoal({ ...manualGoal, currentAmount: clamped });
+                }
+            }
+        } catch (error) {
+            console.error('Error updating envelope balance:', error);
+            toast.error('No se pudo actualizar el importe colocado');
         }
     };
 
@@ -183,49 +154,113 @@ export const SavingsPage = () => {
                         </Button>
                 </div>
 
-                {/* Capital Card */}
-                <Card className="border-none shadow-sm bg-gradient-to-br from-primary/10 to-transparent">
-                    <CardContent className="p-6">
-                        <div className="flex items-center gap-4 mb-2">
-                            <div className="w-12 h-12 rounded-full bg-primary/20 flex items-center justify-center">
-                                <PiggyBank className="w-6 h-6 text-primary" />
+                {/* Summary Cards Grid */}
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    {/* Capital in Savings Card */}
+                    <Card className="border-none shadow-sm bg-gradient-to-br from-primary/10 to-transparent">
+                        <CardContent className="p-6 space-y-4">
+                            <div className="flex items-center gap-4">
+                                <div className="w-12 h-12 rounded-full bg-primary/20 flex items-center justify-center shrink-0">
+                                    <PiggyBank className="w-6 h-6 text-primary" />
+                                </div>
+                                <div>
+                                    <p className="text-sm font-bold text-muted-foreground uppercase tracking-wider">Total en Ahorros</p>
+                                    <h2 className="text-4xl font-black text-primary">
+                                        {formatCurrency(totalSavingsCapital)}
+                                    </h2>
+                                </div>
                             </div>
-                            <div>
-                                <p className="text-sm font-bold text-muted-foreground uppercase tracking-wider">Capital Total en Ahorros</p>
-                                <h2 className="text-4xl font-black text-primary">
-                                    {formatCurrency(totalSavingsCapital)}
-                                </h2>
-                            </div>
-                        </div>
-                        <p className="text-sm text-muted-foreground mt-2 flex items-center gap-1.5">
-                            <Info className="w-4 h-4" />
-                            Suma de todas las cuentas marcadas como "Cuenta de Ahorro".
-                        </p>
-                    </CardContent>
-                </Card>
 
-                {/* Total Monthly Suggestion Card */}
-                <Card className="border-none shadow-sm bg-gradient-to-br from-secondary/10 to-transparent">
-                    <CardContent className="p-6">
-                        <div className="flex items-center gap-4 mb-2">
-                            <div className="w-12 h-12 rounded-full bg-secondary/20 flex items-center justify-center">
-                                <Calculator className="w-6 h-6 text-secondary-foreground" />
+                            {/* Placed vs Unplaced */}
+                            <div className="grid grid-cols-2 gap-3">
+                                <div className="rounded-2xl bg-background/60 border border-border/50 p-3">
+                                    <p className="text-[11px] font-bold uppercase text-muted-foreground">Ya colocado</p>
+                                    <p className="text-xl font-black text-foreground mt-0.5">
+                                        {formatCurrency(envelopesSummary.totalInEnvelopes)}
+                                    </p>
+                                </div>
+                                <div className={`rounded-2xl border p-3 ${unplacedCapital < 0 ? 'bg-destructive/10 border-destructive/30' : 'bg-emerald-500/10 border-emerald-500/25'}`}>
+                                    <p className="text-[11px] font-bold uppercase text-muted-foreground">Sin colocar</p>
+                                    <p className={`text-xl font-black mt-0.5 ${unplacedCapital < 0 ? 'text-destructive' : 'text-emerald-600 dark:text-emerald-400'}`}>
+                                        {formatCurrency(unplacedCapital)}
+                                    </p>
+                                </div>
                             </div>
-                            <div>
-                                <p className="text-sm font-bold text-muted-foreground uppercase tracking-wider">Total a apartar este mes</p>
-                                <h2 className="text-4xl font-black text-secondary-foreground">
-                                    {formatCurrency(totalSuggestedMonthly)}
-                                </h2>
+
+                            {unplacedCapital < 0 && (
+                                <p className="text-xs font-semibold text-destructive flex items-center gap-1.5">
+                                    <Info className="w-3.5 h-3.5 shrink-0" />
+                                    Has colocado {formatCurrency(Math.abs(unplacedCapital))} más de lo que tienes en ahorros. Reduce algún importe abajo.
+                                </p>
+                            )}
+
+                            {/* Stacked breakdown bar over totalSavingsCapital */}
+                            {totalSavingsCapital > 0 && (
+                                <div className="space-y-2">
+                                    <div className="h-2.5 w-full rounded-full bg-muted overflow-hidden flex">
+                                        {envelopesSummary.provisionsAllocated > 0 && (
+                                            <div
+                                                className="h-full bg-blue-500 transition-all"
+                                                style={{ width: `${Math.min(100, (envelopesSummary.provisionsAllocated / totalSavingsCapital) * 100)}%` }}
+                                            />
+                                        )}
+                                        {envelopesSummary.manualGoalsAllocated > 0 && (
+                                            <div
+                                                className="h-full bg-violet-500 transition-all"
+                                                style={{ width: `${Math.min(100, (envelopesSummary.manualGoalsAllocated / totalSavingsCapital) * 100)}%` }}
+                                            />
+                                        )}
+                                        {envelopesSummary.placedOutsideFilter > 0 && (
+                                            <div
+                                                className="h-full bg-amber-500 transition-all"
+                                                style={{ width: `${Math.min(100, (envelopesSummary.placedOutsideFilter / totalSavingsCapital) * 100)}%` }}
+                                            />
+                                        )}
+                                    </div>
+                                    <div className="flex flex-wrap gap-x-4 gap-y-1 text-xs font-medium text-muted-foreground">
+                                        <span className="flex items-center gap-1.5">
+                                            <span className="w-2.5 h-2.5 rounded-full bg-blue-500" />
+                                            Previstos: <strong className="text-foreground">{formatCurrency(envelopesSummary.provisionsAllocated)}</strong>
+                                        </span>
+                                        <span className="flex items-center gap-1.5">
+                                            <span className="w-2.5 h-2.5 rounded-full bg-violet-500" />
+                                            Metas: <strong className="text-foreground">{formatCurrency(envelopesSummary.manualGoalsAllocated)}</strong>
+                                        </span>
+                                        {envelopesSummary.placedOutsideFilter > 0 && (
+                                            <span className="flex items-center gap-1.5">
+                                                <span className="w-2.5 h-2.5 rounded-full bg-amber-500" />
+                                                Años posteriores: <strong className="text-foreground">{formatCurrency(envelopesSummary.placedOutsideFilter)}</strong>
+                                            </span>
+                                        )}
+                                    </div>
+                                </div>
+                            )}
+                        </CardContent>
+                    </Card>
+
+                    {/* Total Monthly Suggestion Card */}
+                    <Card className="border-none shadow-sm bg-gradient-to-br from-secondary/10 to-transparent">
+                        <CardContent className="p-6">
+                            <div className="flex items-center gap-4 mb-2">
+                                <div className="w-12 h-12 rounded-full bg-secondary/20 flex items-center justify-center shrink-0">
+                                    <Calculator className="w-6 h-6 text-secondary-foreground" />
+                                </div>
+                                <div>
+                                    <p className="text-sm font-bold text-muted-foreground uppercase tracking-wider">Total a apartar este mes</p>
+                                    <h2 className="text-4xl font-black text-secondary-foreground">
+                                        {formatCurrency(totalSuggestedMonthly)}
+                                    </h2>
+                                </div>
                             </div>
-                        </div>
-                        <p className="text-sm text-muted-foreground mt-2 flex items-center gap-1.5">
-                            <Info className="w-4 h-4" />
-                            {timeframeMonths === 'none'
-                                ? 'Modo "Sin provisión" activo: tus metas siguen visibles, pero este mes se reservan 0 €.'
-                                : 'Suma de las sugerencias mensuales de las metas activas.'}
-                        </p>
-                    </CardContent>
-                </Card>
+                            <p className="text-sm text-muted-foreground mt-2 flex items-center gap-1.5">
+                                <Info className="w-4 h-4 shrink-0" />
+                                {timeframeMonths === 'none'
+                                    ? 'Modo "Sin provisión" activo: tus previstos y metas siguen visibles, pero este mes se reservan 0 €.'
+                                    : 'Suma mensual recomendada para cubrir los pagos y metas pendientes antes de su fecha.'}
+                            </p>
+                        </CardContent>
+                    </Card>
+                </div>
 
                 {/* List of Goals */}
                 <div className="space-y-4">
@@ -243,19 +278,18 @@ export const SavingsPage = () => {
                                 </SelectTrigger>
                                 <SelectContent>
                                     <SelectItem value="none">Sin provisión (0 €)</SelectItem>
-                                    <SelectItem value="3">Próximos 3 meses</SelectItem>
-                                    <SelectItem value="6">Próximos 6 meses</SelectItem>
-                                    <SelectItem value="12">Próximos 12 meses</SelectItem>
-                                    <SelectItem value="13">Próximos 13 meses</SelectItem>
-                                    <SelectItem value="15">Próximos 15 meses</SelectItem>
-                                    <SelectItem value="24">Próximos 24 meses</SelectItem>
+                                    {getSavingsYearOptions().map((opt) => (
+                                        <SelectItem key={opt.value} value={opt.value}>
+                                            {opt.label}
+                                        </SelectItem>
+                                    ))}
                                 </SelectContent>
                             </Select>
                         </div>
                     </div>
                     
                     <p className="text-sm text-muted-foreground -mt-1 mb-4">
-                        El sistema llena primero las metas con mayor prioridad (las primeras de la lista) dentro del horizonte seleccionado.
+                        Cada sobre guarda su propio saldo en efectivo. La sugerencia mensual se calcula según lo que falta para llegar a la fecha de cada pago o meta.
                     </p>
 
                     {unifiedGoals.length === 0 ? (
@@ -268,36 +302,26 @@ export const SavingsPage = () => {
                         </div>
                     ) : (
                         <div className="space-y-3">
-                            {unifiedGoals.map((goal, index) => {
+                            {unifiedGoals.map((goal) => {
                                 const isComplete = goal.allocatedAmount >= goal.targetAmount;
-                                const progress = Math.min(100, Math.round((goal.allocatedAmount / goal.targetAmount) * 100));
+                                const progress = goal.targetAmount > 0
+                                    ? Math.min(100, Math.round((goal.allocatedAmount / goal.targetAmount) * 100))
+                                    : 100;
+                                const isHalfOrMore = !isComplete && progress >= 50;
+                                const barColorClass = isComplete
+                                    ? 'bg-emerald-500'
+                                    : isHalfOrMore
+                                        ? 'bg-amber-500'
+                                        : 'bg-red-500';
+                                const statusTextClass = isComplete
+                                    ? 'text-emerald-600 dark:text-emerald-400'
+                                    : isHalfOrMore
+                                        ? 'text-amber-600 dark:text-amber-400'
+                                        : 'text-red-600 dark:text-red-400';
 
                                 return (
-                                    <Card key={goal.id} className={`border-none shadow-sm transition-all ${isComplete ? 'opacity-80' : ''} ${goal.isIgnored ? 'opacity-50 grayscale' : ''}`}>
+                                    <Card key={goal.id} className={`border-none shadow-sm transition-all ${isComplete ? 'opacity-85' : ''} ${goal.isIgnored ? 'opacity-50 grayscale' : ''}`}>
                                         <CardContent className="p-4 sm:p-5 flex flex-col sm:flex-row gap-4 sm:items-center">
-                                            {/* Priority Controls */}
-                                            <div className="flex sm:flex-col gap-1 items-center justify-center order-first">
-                                                <Button 
-                                                        variant="ghost" 
-                                                        size="icon" 
-                                                        className="w-8 h-8 rounded-full" 
-                                                        disabled={index === 0 || goal.isIgnored}
-                                                        onClick={() => handleMovePriority(index, 'up')}
-                                                    >
-                                                        <ArrowUpCircle className="w-5 h-5 text-muted-foreground" />
-                                                    </Button>
-                                                <span className="text-xs font-bold text-muted-foreground w-4 text-center">{goal.displayPriority}</span>
-                                                <Button 
-                                                        variant="ghost" 
-                                                        size="icon" 
-                                                        className="w-8 h-8 rounded-full" 
-                                                        disabled={goal.isIgnored || index >= activeGoalsCount - 1}
-                                                        onClick={() => handleMovePriority(index, 'down')}
-                                                    >
-                                                        <ArrowDownCircle className="w-5 h-5 text-muted-foreground" />
-                                                    </Button>
-                                            </div>
-
                                             {/* Info */}
                                             <div className="flex-1 space-y-1">
                                                 <div className="flex items-center gap-2">
@@ -317,18 +341,140 @@ export const SavingsPage = () => {
                                                 {/* Progress Bar */}
                                                 <div className="pt-2 pb-1">
                                                     <div className="flex justify-between text-xs font-bold mb-1.5">
-                                                        <span className={isComplete ? "text-primary" : ""}>
-                                                            {formatCurrency(goal.allocatedAmount)} asignado
+                                                        <span className={statusTextClass}>
+                                                            {formatCurrency(goal.allocatedAmount)} en sobre ({progress}%)
                                                         </span>
                                                         <span className="text-muted-foreground">de {formatCurrency(goal.targetAmount)}</span>
                                                     </div>
                                                     <div className="h-2.5 bg-muted rounded-full overflow-hidden">
                                                         <div 
-                                                            className={`h-full rounded-full transition-all duration-500 ${isComplete ? 'bg-primary' : 'bg-blue-500'}`}
+                                                            className={`h-full rounded-full transition-all duration-500 ${barColorClass}`}
                                                             style={{ width: `${progress}%` }}
                                                         />
                                                     </div>
                                                 </div>
+
+                                                {/* Quick Envelope Cash Controls */}
+                                                {!goal.isIgnored && (
+                                                    <div className="flex flex-wrap items-center gap-1.5 pt-1.5">
+                                                        {editingEnvelopeId === goal.id ? (
+                                                            <div className="flex items-center gap-1.5">
+                                                                <Input
+                                                                    type="number"
+                                                                    step="0.01"
+                                                                    min="0"
+                                                                    autoFocus
+                                                                    value={envelopeDraft}
+                                                                    onFocus={(e) => e.target.select()}
+                                                                    onChange={(e) => setEnvelopeDraft(e.target.value)}
+                                                                    onKeyDown={(e) => {
+                                                                        if (e.key === 'Enter') {
+                                                                            handleSetEnvelopeBalance(goal, parseFloat(envelopeDraft) || 0);
+                                                                            setEditingEnvelopeId(null);
+                                                                        } else if (e.key === 'Escape') {
+                                                                            setEditingEnvelopeId(null);
+                                                                        }
+                                                                    }}
+                                                                    className="h-7 w-28 text-xs font-bold"
+                                                                    placeholder="0"
+                                                                />
+                                                                <Button
+                                                                    size="sm"
+                                                                    className="h-7 px-2"
+                                                                    onClick={() => {
+                                                                        handleSetEnvelopeBalance(goal, parseFloat(envelopeDraft) || 0);
+                                                                        setEditingEnvelopeId(null);
+                                                                    }}
+                                                                >
+                                                                    <Check className="w-3.5 h-3.5" />
+                                                                </Button>
+                                                                <Button
+                                                                    size="sm"
+                                                                    variant="ghost"
+                                                                    className="h-7 px-1.5"
+                                                                    onClick={() => setEditingEnvelopeId(null)}
+                                                                >
+                                                                    <X className="w-3.5 h-3.5" />
+                                                                </Button>
+                                                            </div>
+                                                        ) : (
+                                                            <>
+                                                                <Button
+                                                                    size="sm"
+                                                                    variant="outline"
+                                                                    className="h-7 px-2 rounded-lg text-[11px] font-bold"
+                                                                    onClick={() => handleSetEnvelopeBalance(goal, goal.allocatedAmount - 10)}
+                                                                    disabled={goal.allocatedAmount <= 0}
+                                                                >
+                                                                    -10 €
+                                                                </Button>
+                                                                <Button
+                                                                    size="sm"
+                                                                    variant="outline"
+                                                                    className="h-7 px-2 rounded-lg text-[11px] font-bold"
+                                                                    onClick={() => handleSetEnvelopeBalance(goal, goal.allocatedAmount + 10)}
+                                                                    disabled={availableToPlace < 10}
+                                                                >
+                                                                    +10 €
+                                                                </Button>
+                                                                <Button
+                                                                    size="sm"
+                                                                    variant="outline"
+                                                                    className="h-7 px-2 rounded-lg text-[11px] font-bold"
+                                                                    onClick={() => handleSetEnvelopeBalance(goal, goal.allocatedAmount + 50)}
+                                                                    disabled={availableToPlace < 50}
+                                                                >
+                                                                    +50 €
+                                                                </Button>
+                                                                <Button
+                                                                    size="sm"
+                                                                    variant="outline"
+                                                                    className="h-7 px-2 rounded-lg text-[11px] font-bold text-emerald-700 dark:text-emerald-400 border-emerald-500/30 hover:bg-emerald-500/10"
+                                                                    onClick={() =>
+                                                                        handleSetEnvelopeBalance(
+                                                                            goal,
+                                                                            Math.min(
+                                                                                goal.targetAmount,
+                                                                                goal.allocatedAmount + availableToPlace
+                                                                            )
+                                                                        )
+                                                                    }
+                                                                    disabled={
+                                                                        goal.missingAmount <= 0 ||
+                                                                        availableToPlace <= 0
+                                                                    }
+                                                                >
+                                                                    Llenar
+                                                                </Button>
+                                                                <Button
+                                                                    size="sm"
+                                                                    variant="outline"
+                                                                    className="h-7 px-2 rounded-lg text-[11px] font-bold text-muted-foreground hover:text-destructive"
+                                                                    onClick={() => handleSetEnvelopeBalance(goal, 0)}
+                                                                    disabled={goal.allocatedAmount <= 0}
+                                                                >
+                                                                    Vaciar
+                                                                </Button>
+                                                                <Button
+                                                                    size="sm"
+                                                                    variant="ghost"
+                                                                    className="h-7 px-2 rounded-lg text-[11px] font-bold text-muted-foreground"
+                                                                    onClick={() => {
+                                                                        setEnvelopeDraft(
+                                                                            goal.allocatedAmount === 0
+                                                                                ? ''
+                                                                                : String(goal.allocatedAmount)
+                                                                        );
+                                                                        setEditingEnvelopeId(goal.id);
+                                                                    }}
+                                                                >
+                                                                    <Wallet className="w-3 h-3 mr-1" />
+                                                                    Editar saldo
+                                                                </Button>
+                                                            </>
+                                                        )}
+                                                    </div>
+                                                )}
                                             </div>
 
                                             {/* Action / Suggestion */}
@@ -341,11 +487,11 @@ export const SavingsPage = () => {
                                                         </p>
                                                     </div>
                                                 ) : (
-                                                    <div className="bg-primary/10 p-2 sm:p-3 rounded-2xl flex items-center gap-2">
-                                                        <div className="w-6 h-6 rounded-full bg-primary flex items-center justify-center">
+                                                    <div className="bg-emerald-500/10 p-2 sm:p-3 rounded-2xl flex items-center gap-2">
+                                                        <div className="w-6 h-6 rounded-full bg-emerald-500 flex items-center justify-center">
                                                             <Target className="w-3.5 h-3.5 text-white" />
                                                         </div>
-                                                        <p className="font-bold text-primary text-sm">¡Meta Cubierta!</p>
+                                                        <p className="font-bold text-emerald-600 dark:text-emerald-400 text-sm">¡Cubierta!</p>
                                                     </div>
                                                 )}
 

@@ -7,13 +7,16 @@ import {
   SETTING_SAVINGS_TIMEFRAME_ID,
   SETTING_EXCLUDED_NEXT_MONTH_ID,
   SETTING_CASH_BREAKDOWN_ID,
+  SETTING_ENVELOPE_BALANCES_ID,
   CashBreakdown,
+  EnvelopeBalances,
   getSavingsGoals,
   addSavingsGoal,
   updateSavingsGoal,
   deleteSavingsGoal,
 } from "@/api/local/planning";
 import { Budget, SavingsGoal } from "@/types/finance";
+import { normalizeSavingsTimeframe } from "@/lib/savingsCalculations";
 
 const EMPTY_BUDGETS: Budget[] = [];
 const EMPTY_GOALS: SavingsGoal[] = [];
@@ -21,6 +24,26 @@ const DEFAULT_CASH_BREAKDOWN: CashBreakdown = {
   mine: 78.85,
   yasmina: 16.15,
   home: 0,
+};
+
+const parseEnvelopeBalances = (raw: string | null | undefined): EnvelopeBalances | null => {
+  if (!raw) return null;
+  try {
+    const parsed = JSON.parse(raw);
+    if (parsed && typeof parsed === "object" && !Array.isArray(parsed)) {
+      const normalized: EnvelopeBalances = {};
+      for (const [key, val] of Object.entries(parsed)) {
+        const num = Number(val);
+        if (Number.isFinite(num) && num >= 0) {
+          normalized[key] = Number(num.toFixed(2));
+        }
+      }
+      return normalized;
+    }
+  } catch {
+    // ignore parse failure
+  }
+  return null;
 };
 
 const parseCashBreakdown = (raw: string | null | undefined): CashBreakdown | null => {
@@ -62,9 +85,9 @@ export const usePlanning = () => {
   const savingsTimeframe = useMemo(() => {
     const cloudRow = rawBudgets.find((b) => b.id === SETTING_SAVINGS_TIMEFRAME_ID);
     if (cloudRow?.category) {
-      return cloudRow.category;
+      return normalizeSavingsTimeframe(cloudRow.category);
     }
-    return localStorage.getItem("savingsTimeframe") || "13";
+    return normalizeSavingsTimeframe(localStorage.getItem("savingsTimeframe"));
   }, [rawBudgets]);
 
   const excludedNextMonthIds = useMemo<string[]>(() => {
@@ -94,6 +117,15 @@ export const usePlanning = () => {
     return DEFAULT_CASH_BREAKDOWN;
   }, [rawBudgets]);
 
+  const envelopeBalances = useMemo<EnvelopeBalances>(() => {
+    const cloudRow = rawBudgets.find((b) => b.id === SETTING_ENVELOPE_BALANCES_ID);
+    const parsedCloud = parseEnvelopeBalances(cloudRow?.category);
+    if (parsedCloud) return parsedCloud;
+    const parsedLocal = parseEnvelopeBalances(localStorage.getItem("envelopeBalances"));
+    if (parsedLocal) return parsedLocal;
+    return {};
+  }, [rawBudgets]);
+
   // Mantener localStorage sincronizado con la nube y migrar ajustes locales si aún no existen en Supabase
   useEffect(() => {
     if (budgetsQuery.isLoading || !budgetsQuery.isSuccess) return;
@@ -101,6 +133,7 @@ export const usePlanning = () => {
     const cloudTimeframeRow = rawBudgets.find((b) => b.id === SETTING_SAVINGS_TIMEFRAME_ID);
     const cloudExcludedRow = rawBudgets.find((b) => b.id === SETTING_EXCLUDED_NEXT_MONTH_ID);
     const cloudCashRow = rawBudgets.find((b) => b.id === SETTING_CASH_BREAKDOWN_ID);
+    const cloudEnvelopesRow = rawBudgets.find((b) => b.id === SETTING_ENVELOPE_BALANCES_ID);
 
     if (cloudTimeframeRow?.category) {
       localStorage.setItem("savingsTimeframe", cloudTimeframeRow.category);
@@ -110,6 +143,9 @@ export const usePlanning = () => {
     }
     if (cloudCashRow?.category) {
       localStorage.setItem("cashBreakdown", cloudCashRow.category);
+    }
+    if (cloudEnvelopesRow?.category) {
+      localStorage.setItem("envelopeBalances", cloudEnvelopesRow.category);
     }
 
     if (!hasMigratedSettingsRef.current) {
@@ -131,6 +167,13 @@ export const usePlanning = () => {
       const localCash = localStorage.getItem("cashBreakdown");
       if (!cloudCashRow && localCash) {
         savePlanningSetting(SETTING_CASH_BREAKDOWN_ID, localCash).then(() => {
+          queryClient.invalidateQueries({ queryKey: ["budgets"] });
+        }).catch(console.error);
+      }
+
+      const localEnvelopes = localStorage.getItem("envelopeBalances");
+      if (!cloudEnvelopesRow && localEnvelopes) {
+        savePlanningSetting(SETTING_ENVELOPE_BALANCES_ID, localEnvelopes).then(() => {
           queryClient.invalidateQueries({ queryKey: ["budgets"] });
         }).catch(console.error);
       }
@@ -211,6 +254,20 @@ export const usePlanning = () => {
     });
   };
 
+  const updateEnvelopeBalance = async (goalId: string, amount: number) => {
+    const next: EnvelopeBalances = {
+      ...envelopeBalances,
+      [goalId]: Math.max(0, Number((Number(amount) || 0).toFixed(2))),
+    };
+    const serialized = JSON.stringify(next);
+    localStorage.setItem("envelopeBalances", serialized);
+    window.dispatchEvent(new Event("storage"));
+    await updateSettingMutation.mutateAsync({
+      settingId: SETTING_ENVELOPE_BALANCES_ID,
+      value: serialized,
+    });
+  };
+
   const goalsQuery = useQuery({
     queryKey: ["goals"],
     queryFn: getSavingsGoals,
@@ -245,9 +302,11 @@ export const usePlanning = () => {
     savingsTimeframe,
     excludedNextMonthIds,
     cashBreakdown,
+    envelopeBalances,
     updateSavingsTimeframe,
     updateExcludedNextMonthIds,
     updateCashBreakdown,
+    updateEnvelopeBalance,
     saveBudgets: saveBudgetsMutation.mutateAsync,
     addGoal: addGoalMutation.mutateAsync,
     updateGoal: updateGoalMutation.mutateAsync,
