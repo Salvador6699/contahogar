@@ -551,6 +551,48 @@ const SettingsPage = () => {
 
               <Card className="border-none shadow-sm bg-card/50 backdrop-blur-sm">
                 <CardHeader>
+                  <CardTitle className="flex items-center gap-2 text-lg">
+                    <Icons.Sparkles className="w-5 h-5 text-primary" />
+                    Modo Simple (Solo apuntar gastos)
+                  </CardTitle>
+                  <CardDescription>
+                    Una página sin menús ni gráficas pensada para quien solo quiera apuntar gastos rápido (importe, banco o efectivo y categoría).
+                  </CardDescription>
+                </CardHeader>
+                <CardContent className="flex flex-col sm:flex-row gap-3">
+                  <Button
+                    type="button"
+                    variant="default"
+                    className="rounded-xl flex-1"
+                    onClick={async () => {
+                      const url = `${window.location.origin}/gasto`;
+                      try {
+                        await navigator.clipboard.writeText(url);
+                        toast.success("Enlace copiado", url);
+                      } catch {
+                        toast.info("Enlace de acceso rápido", url);
+                      }
+                    }}
+                  >
+                    <Icons.Copy className="w-4 h-4 mr-2" />
+                    Copiar enlace (/gasto)
+                  </Button>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    className="rounded-xl"
+                    onClick={() => {
+                      window.open("/gasto", "_blank", "noopener,noreferrer");
+                    }}
+                  >
+                    <Icons.ExternalLink className="w-4 h-4 mr-2" />
+                    Abrir vista simple
+                  </Button>
+                </CardContent>
+              </Card>
+
+              <Card className="border-none shadow-sm bg-card/50 backdrop-blur-sm">
+                <CardHeader>
                   <div className="flex items-center justify-between gap-2 flex-wrap">
                     <CardTitle className="flex items-center gap-2 text-lg">
                       <Icons.FlaskConical className="w-5 h-5 text-primary" />

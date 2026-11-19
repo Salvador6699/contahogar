@@ -10,6 +10,7 @@
 
 import { Route as rootRouteImport } from './routes/__root'
 import { Route as AppRouteImport } from './routes/_app'
+import { Route as GastoRouteImport } from './routes/gasto'
 import { Route as AppIndexRouteImport } from './routes/_app.index'
 import { Route as AppAhorrosRouteImport } from './routes/_app.ahorros'
 import { Route as AppAjustesRouteImport } from './routes/_app.ajustes'
@@ -28,6 +29,11 @@ import { Route as AppTransferirRouteImport } from './routes/_app.transferir'
 
 const AppRoute = AppRouteImport.update({
   id: '/_app',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const GastoRoute = GastoRouteImport.update({
+  id: '/gasto',
+  path: '/gasto',
   getParentRoute: () => rootRouteImport,
 } as any)
 const AppIndexRoute = AppIndexRouteImport.update({
@@ -108,6 +114,7 @@ const AppTransferirRoute = AppTransferirRouteImport.update({
 
 export interface FileRoutesByFullPath {
   '/': typeof AppIndexRoute
+  '/gasto': typeof GastoRoute
   '/ahorros': typeof AppAhorrosRoute
   '/ajustes': typeof AppAjustesRoute
   '/backup': typeof AppBackupRoute
@@ -124,6 +131,7 @@ export interface FileRoutesByFullPath {
   '/transferir': typeof AppTransferirRoute
 }
 export interface FileRoutesByTo {
+  '/gasto': typeof GastoRoute
   '/ahorros': typeof AppAhorrosRoute
   '/ajustes': typeof AppAjustesRoute
   '/backup': typeof AppBackupRoute
@@ -143,6 +151,7 @@ export interface FileRoutesByTo {
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/_app': typeof AppRouteWithChildren
+  '/gasto': typeof GastoRoute
   '/_app/ahorros': typeof AppAhorrosRoute
   '/_app/ajustes': typeof AppAjustesRoute
   '/_app/backup': typeof AppBackupRoute
@@ -163,6 +172,7 @@ export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
   fullPaths:
     | '/'
+    | '/gasto'
     | '/ahorros'
     | '/ajustes'
     | '/backup'
@@ -179,6 +189,7 @@ export interface FileRouteTypes {
     | '/transferir'
   fileRoutesByTo: FileRoutesByTo
   to:
+    | '/gasto'
     | '/ahorros'
     | '/ajustes'
     | '/backup'
@@ -197,6 +208,7 @@ export interface FileRouteTypes {
   id:
     | '__root__'
     | '/_app'
+    | '/gasto'
     | '/_app/ahorros'
     | '/_app/ajustes'
     | '/_app/backup'
@@ -216,6 +228,7 @@ export interface FileRouteTypes {
 }
 export interface RootRouteChildren {
   AppRoute: typeof AppRouteWithChildren
+  GastoRoute: typeof GastoRoute
 }
 
 declare module '@tanstack/react-router' {
@@ -225,6 +238,13 @@ declare module '@tanstack/react-router' {
       path: ''
       fullPath: '/'
       preLoaderRoute: typeof AppRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/gasto': {
+      id: '/gasto'
+      path: '/gasto'
+      fullPath: '/gasto'
+      preLoaderRoute: typeof GastoRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/_app/': {
@@ -375,6 +395,7 @@ const AppRouteWithChildren = AppRoute._addFileChildren(AppRouteChildren)
 
 const rootRouteChildren: RootRouteChildren = {
   AppRoute: AppRouteWithChildren,
+  GastoRoute: GastoRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)

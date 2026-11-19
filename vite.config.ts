@@ -41,6 +41,13 @@ export default defineConfig({
         ],
         shortcuts: [
           {
+            name: 'Apuntar Gasto Rápido',
+            short_name: 'Gasto Rápido',
+            description: 'Pantalla simple para apuntar un gasto',
+            url: '/gasto',
+            icons: [{ src: 'logo.png', sizes: '192x192' }],
+          },
+          {
             name: 'Nueva Transacción',
             short_name: 'Transacción',
             description: 'Ir a la pantalla principal',
