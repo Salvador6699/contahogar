@@ -24,7 +24,6 @@ import CategoryBreakdown from "@/components/CategoryBreakdown";
 import TransactionModal from "@/components/TransactionModal";
 import TransactionList from "@/components/TransactionList";
 import AccountSelector from "@/components/AccountSelector";
-import { CashBreakdownBar } from "@/components/CashBreakdownBar";
 import QuickAmountModal from "@/components/QuickAmountModal";
 import { VoiceButton } from "@/components/VoiceButton";
 import { format, parseISO, addMonths, subMonths } from "date-fns";
@@ -386,13 +385,6 @@ const Index = () => {
       openExpenseModal();
     }
   };
-
-  const cashAccountObj = data.accounts.find(
-    (a) => a.id === "default-cash-id" || a.name.toLowerCase().includes("efectivo"),
-  );
-  const currentCashBalance = cashAccountObj
-    ? calculateAccountBalance(cashAccountObj, data.transactions, false)
-    : 0;
 
   // Determine the month key for balance calculations
   const balanceMonthKey = selectedMonth || currentMonthKey;
@@ -833,20 +825,13 @@ const Index = () => {
           </div>
 
           {/* Account Selector */}
-          <div className="mb-3 space-y-2">
+          <div className="mb-3">
             <AccountSelector
               selectedAccount={selectedAccount}
               onSelectAccount={setSelectedAccount}
               accounts={data.accounts}
               accountBalances={accountBalances}
             />
-            {isCurrentMonth && cashAccountObj && (
-              <CashBreakdownBar
-                cashAccountBalance={currentCashBalance}
-                isCashSelected={selectedAccount === cashAccountObj.id}
-                compact={selectedAccount !== cashAccountObj.id}
-              />
-            )}
           </div>
 
           <div className={cn("flex flex-col mb-8", isCompactHome ? "gap-4 lg:gap-6" : "gap-6 lg:gap-8")}>

@@ -6,9 +6,7 @@ import {
   savePlanningSetting,
   SETTING_SAVINGS_TIMEFRAME_ID,
   SETTING_EXCLUDED_NEXT_MONTH_ID,
-  SETTING_CASH_BREAKDOWN_ID,
   SETTING_ENVELOPE_BALANCES_ID,
-  CashBreakdown,
   EnvelopeBalances,
   getSavingsGoals,
   addSavingsGoal,
@@ -20,11 +18,6 @@ import { normalizeSavingsTimeframe } from "@/lib/savingsCalculations";
 
 const EMPTY_BUDGETS: Budget[] = [];
 const EMPTY_GOALS: SavingsGoal[] = [];
-const DEFAULT_CASH_BREAKDOWN: CashBreakdown = {
-  mine: 78.85,
-  yasmina: 16.15,
-  home: 0,
-};
 
 const parseEnvelopeBalances = (raw: string | null | undefined): EnvelopeBalances | null => {
   if (!raw) return null;
@@ -39,23 +32,6 @@ const parseEnvelopeBalances = (raw: string | null | undefined): EnvelopeBalances
         }
       }
       return normalized;
-    }
-  } catch {
-    // ignore parse failure
-  }
-  return null;
-};
-
-const parseCashBreakdown = (raw: string | null | undefined): CashBreakdown | null => {
-  if (!raw) return null;
-  try {
-    const parsed = JSON.parse(raw);
-    if (parsed && typeof parsed === "object") {
-      return {
-        mine: Number(parsed.mine) || 0,
-        yasmina: Number(parsed.yasmina) || 0,
-        home: Number(parsed.home) || 0,
-      };
     }
   } catch {
     // ignore parse failure
@@ -108,15 +84,6 @@ export const usePlanning = () => {
     }
   }, [rawBudgets]);
 
-  const cashBreakdown = useMemo<CashBreakdown>(() => {
-    const cloudRow = rawBudgets.find((b) => b.id === SETTING_CASH_BREAKDOWN_ID);
-    const parsedCloud = parseCashBreakdown(cloudRow?.category);
-    if (parsedCloud) return parsedCloud;
-    const parsedLocal = parseCashBreakdown(localStorage.getItem("cashBreakdown"));
-    if (parsedLocal) return parsedLocal;
-    return DEFAULT_CASH_BREAKDOWN;
-  }, [rawBudgets]);
-
   const envelopeBalances = useMemo<EnvelopeBalances>(() => {
     const cloudRow = rawBudgets.find((b) => b.id === SETTING_ENVELOPE_BALANCES_ID);
     const parsedCloud = parseEnvelopeBalances(cloudRow?.category);
@@ -132,7 +99,6 @@ export const usePlanning = () => {
 
     const cloudTimeframeRow = rawBudgets.find((b) => b.id === SETTING_SAVINGS_TIMEFRAME_ID);
     const cloudExcludedRow = rawBudgets.find((b) => b.id === SETTING_EXCLUDED_NEXT_MONTH_ID);
-    const cloudCashRow = rawBudgets.find((b) => b.id === SETTING_CASH_BREAKDOWN_ID);
     const cloudEnvelopesRow = rawBudgets.find((b) => b.id === SETTING_ENVELOPE_BALANCES_ID);
 
     if (cloudTimeframeRow?.category) {
@@ -140,9 +106,6 @@ export const usePlanning = () => {
     }
     if (cloudExcludedRow?.category) {
       localStorage.setItem("excludedNextMonthProvisionIds", cloudExcludedRow.category);
-    }
-    if (cloudCashRow?.category) {
-      localStorage.setItem("cashBreakdown", cloudCashRow.category);
     }
     if (cloudEnvelopesRow?.category) {
       localStorage.setItem("envelopeBalances", cloudEnvelopesRow.category);
@@ -160,13 +123,6 @@ export const usePlanning = () => {
       const localEx = localStorage.getItem("excludedNextMonthProvisionIds");
       if (!cloudExcludedRow && localEx && localEx !== "[]") {
         savePlanningSetting(SETTING_EXCLUDED_NEXT_MONTH_ID, localEx).then(() => {
-          queryClient.invalidateQueries({ queryKey: ["budgets"] });
-        }).catch(console.error);
-      }
-
-      const localCash = localStorage.getItem("cashBreakdown");
-      if (!cloudCashRow && localCash) {
-        savePlanningSetting(SETTING_CASH_BREAKDOWN_ID, localCash).then(() => {
           queryClient.invalidateQueries({ queryKey: ["budgets"] });
         }).catch(console.error);
       }
@@ -239,21 +195,6 @@ export const usePlanning = () => {
     });
   };
 
-  const updateCashBreakdown = async (next: CashBreakdown) => {
-    const normalized: CashBreakdown = {
-      mine: Number((Number(next.mine) || 0).toFixed(2)),
-      yasmina: Number((Number(next.yasmina) || 0).toFixed(2)),
-      home: Number((Number(next.home) || 0).toFixed(2)),
-    };
-    const serialized = JSON.stringify(normalized);
-    localStorage.setItem("cashBreakdown", serialized);
-    window.dispatchEvent(new Event("storage"));
-    await updateSettingMutation.mutateAsync({
-      settingId: SETTING_CASH_BREAKDOWN_ID,
-      value: serialized,
-    });
-  };
-
   const updateEnvelopeBalance = async (goalId: string, amount: number) => {
     const next: EnvelopeBalances = {
       ...envelopeBalances,
@@ -301,11 +242,9 @@ export const usePlanning = () => {
     isGoalsLoading: goalsQuery.isLoading,
     savingsTimeframe,
     excludedNextMonthIds,
-    cashBreakdown,
     envelopeBalances,
     updateSavingsTimeframe,
     updateExcludedNextMonthIds,
-    updateCashBreakdown,
     updateEnvelopeBalance,
     saveBudgets: saveBudgetsMutation.mutateAsync,
     addGoal: addGoalMutation.mutateAsync,
