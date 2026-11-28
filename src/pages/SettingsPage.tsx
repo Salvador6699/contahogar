@@ -68,11 +68,21 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Switch } from "@/components/ui/switch";
-import { Category, Account } from "@/types/finance";
+import {
+  Category,
+  CategoryKind,
+  CategoryNature,
+  CATEGORY_KIND_LABELS,
+  CATEGORY_NATURE_LABELS,
+  getCategoryKind,
+  getCategoryNature,
+} from "@/types/finance";
 import { appToast as toast } from "@/lib/swal";
 import { cn } from "@/lib/utils";
 import { format, addMonths } from "date-fns";
 import { AccountManager } from "@/components/AccountManager";
+import { CategoryMigrationDialog } from "@/components/CategoryMigrationDialog";
+import { TagManager } from "@/components/TagManager";
 import { useAccounts } from "@/hooks/useAccounts";
 import { useCategories } from "@/hooks/useCategories";
 import { useFeatureFlags } from "@/hooks/useFeatureFlags";
@@ -85,10 +95,16 @@ const SettingsPage = () => {
   const { flags, toggleFlag, resetAll: resetFeatureFlags } = useFeatureFlags();
 
   const [activeTab, setActiveTab] = useState<
-    "cuentas" | "categorias" | "notificaciones" | "apariencia"
+    "cuentas" | "categorias" | "etiquetas" | "notificaciones" | "apariencia"
   >(() => {
     const tabParam = searchParams.get("tab");
-    if (tabParam === "cuentas" || tabParam === "categorias" || tabParam === "notificaciones" || tabParam === "apariencia") {
+    if (
+      tabParam === "cuentas" ||
+      tabParam === "categorias" ||
+      tabParam === "etiquetas" ||
+      tabParam === "notificaciones" ||
+      tabParam === "apariencia"
+    ) {
       return tabParam as any;
     }
     return "cuentas";
@@ -96,13 +112,26 @@ const SettingsPage = () => {
 
   useEffect(() => {
     const tabParam = searchParams.get("tab");
-    if (tabParam === "cuentas" || tabParam === "categorias" || tabParam === "notificaciones" || tabParam === "apariencia") {
+    if (
+      tabParam === "cuentas" ||
+      tabParam === "categorias" ||
+      tabParam === "etiquetas" ||
+      tabParam === "notificaciones" ||
+      tabParam === "apariencia"
+    ) {
       setActiveTab(tabParam as any);
     }
   }, [searchParams]);
 
   const { accounts } = useAccounts();
-  const { categories, addCategory: rqAddCategory, updateCategory: rqUpdateCategory, deleteCategory: rqDeleteCategory } = useCategories();
+  const {
+    categories,
+    addCategory: rqAddCategory,
+    updateCategory: rqUpdateCategory,
+    mergeCategories: rqMergeCategories,
+    deleteCategory: rqDeleteCategory,
+    isMerging,
+  } = useCategories();
 
   const [isForcingUpdate, setIsForcingUpdate] = useState(false);
 
@@ -139,6 +168,18 @@ const SettingsPage = () => {
   const [catCustomIcon, setCatCustomIcon] = useState<string | undefined>(
     undefined,
   );
+  const [catIsGroup, setCatIsGroup] = useState(false);
+  const [catParentId, setCatParentId] = useState<string>("none");
+  const [catKind, setCatKind] = useState<CategoryKind>("expense");
+  const [catNature, setCatNature] = useState<CategoryNature>("essential");
+  const [catIsArchived, setCatIsArchived] = useState(false);
+
+  // Category list filters & Merge dialog state
+  const [catSearch, setCatSearch] = useState("");
+  const [showArchivedCats, setShowArchivedCats] = useState(false);
+  const [mergeSourceCat, setMergeSourceCat] = useState<Category | null>(null);
+  const [mergeTargetId, setMergeTargetId] = useState<string>("");
+  const [isMigrationOpen, setIsMigrationOpen] = useState(false);
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -293,49 +334,156 @@ const SettingsPage = () => {
     "Coins",
   ];
 
+  // Derived category groups & helpers
+  const categoryGroups = categories
+    .filter((c) => Boolean(c.isGroup))
+    .sort((a, b) => a.name.localeCompare(b.name));
+
+  const nonGroupCategories = categories.filter((c) => !c.isGroup);
+  const archivedCount = categories.filter((c) => Boolean(c.isArchived)).length;
+
+  const matchesSearch = (c: Category) => {
+    const q = catSearch.trim().toLowerCase();
+    if (!q) return true;
+    return c.name.toLowerCase().includes(q);
+  };
+
+  const isVisibleCategory = (c: Category) =>
+    (showArchivedCats || !c.isArchived) && matchesSearch(c);
+
+  const getNatureBadgeClass = (nature: CategoryNature | null) => {
+    switch (nature) {
+      case "essential":
+        return "bg-blue-500/10 text-blue-700 dark:text-blue-300 border-blue-500/20";
+      case "discretionary":
+        return "bg-amber-500/10 text-amber-700 dark:text-amber-300 border-amber-500/20";
+      case "debt":
+        return "bg-rose-500/10 text-rose-700 dark:text-rose-300 border-rose-500/20";
+      case "extraordinary":
+        return "bg-purple-500/10 text-purple-700 dark:text-purple-300 border-purple-500/20";
+      default:
+        return "bg-muted text-muted-foreground border-border/50";
+    }
+  };
+
+  const getKindBadgeClass = (kind: CategoryKind) => {
+    switch (kind) {
+      case "income":
+        return "bg-emerald-500/10 text-emerald-700 dark:text-emerald-300 border-emerald-500/20";
+      case "financing":
+        return "bg-indigo-500/10 text-indigo-700 dark:text-indigo-300 border-indigo-500/20";
+      default:
+        return "bg-muted/80 text-muted-foreground border-border/50";
+    }
+  };
+
   // Category Handlers
-  const handleOpenCatDialog = (cat: Category | null = null) => {
+  const handleOpenCatDialog = (
+    cat: Category | null = null,
+    defaults?: { isGroup?: boolean; parentId?: string }
+  ) => {
     if (cat) {
       setEditingCat(cat);
       setCatName(cat.name);
       setCatColor(cat.color || "#94a3b8");
       setCatIcon(cat.icon || "Tag");
       setCatCustomIcon(cat.customIcon);
+      setCatIsGroup(Boolean(cat.isGroup));
+      setCatParentId(cat.parentId || "none");
+      setCatKind(getCategoryKind(cat, categories));
+      setCatNature(getCategoryNature(cat, categories) || "essential");
+      setCatIsArchived(Boolean(cat.isArchived));
     } else {
+      const parentGroup = defaults?.parentId
+        ? categories.find((c) => c.id === defaults.parentId)
+        : undefined;
       setEditingCat(null);
       setCatName("");
-      setCatColor("#94a3b8");
-      setCatIcon("Tag");
+      setCatColor(parentGroup?.color || "#94a3b8");
+      setCatIcon(defaults?.isGroup ? "Folder" : "Tag");
       setCatCustomIcon(undefined);
+      setCatIsGroup(Boolean(defaults?.isGroup));
+      setCatParentId(defaults?.parentId || "none");
+      setCatKind(parentGroup?.kind || "expense");
+      setCatNature(parentGroup?.nature || "essential");
+      setCatIsArchived(false);
     }
     setIsCatDialogOpen(true);
   };
 
   const handleSaveCategory = async () => {
-    if (!catName.trim()) {
+    const trimmed = catName.trim();
+    if (!trimmed) {
       toast.error("El nombre es obligatorio");
       return;
     }
 
-    if (editingCat) {
-      await rqUpdateCategory({
-        ...editingCat,
-        name: catName,
-        color: catColor,
-        icon: catIcon,
-        customIcon: catCustomIcon,
-      });
-      toast.success("Categoría actualizada");
-    } else {
-      await rqAddCategory({
-        name: catName,
-        color: catColor,
-        icon: catIcon,
-        customIcon: catCustomIcon,
-      });
-      toast.success("Categoría creada");
+    const parentIdValue = catIsGroup || catParentId === "none" ? null : catParentId;
+    const natureValue: CategoryNature | null = catKind === "expense" ? catNature : null;
+
+    try {
+      if (editingCat) {
+        await rqUpdateCategory({
+          ...editingCat,
+          name: trimmed,
+          color: catColor,
+          icon: catIcon,
+          customIcon: catCustomIcon,
+          isGroup: catIsGroup,
+          parentId: parentIdValue,
+          kind: catKind,
+          nature: natureValue,
+          isArchived: catIsArchived,
+        });
+        toast.success(catIsGroup ? "Grupo actualizado" : "Categoría actualizada");
+      } else {
+        await rqAddCategory({
+          name: trimmed,
+          color: catColor,
+          icon: catIcon,
+          customIcon: catCustomIcon,
+          isGroup: catIsGroup,
+          parentId: parentIdValue,
+          kind: catKind,
+          nature: natureValue,
+          isArchived: catIsArchived,
+        });
+        toast.success(catIsGroup ? "Grupo creado" : "Categoría creada");
+      }
+      setIsCatDialogOpen(false);
+    } catch (e: any) {
+      toast.error(e.message || "Error al guardar la categoría");
     }
-    setIsCatDialogOpen(false);
+  };
+
+  const handleToggleArchiveCategory = async (cat: Category) => {
+    try {
+      await rqUpdateCategory({
+        ...cat,
+        isArchived: !cat.isArchived,
+      });
+      toast.success(cat.isArchived ? "Categoría restaurada" : "Categoría archivada");
+    } catch (e: any) {
+      toast.error(e.message || "Error al archivar la categoría");
+    }
+  };
+
+  const handleConfirmMerge = async () => {
+    if (!mergeSourceCat || !mergeTargetId) {
+      toast.error("Selecciona una categoría destino");
+      return;
+    }
+    try {
+      const res = await rqMergeCategories({
+        sourceId: mergeSourceCat.id,
+        targetId: mergeTargetId,
+      });
+      toast.success(`"${res.sourceName}" fusionada en "${res.targetName}"`);
+      setMergeSourceCat(null);
+      setMergeTargetId("");
+    } catch (e: any) {
+      toast.error(e.message || "Error al fusionar categorías");
+    }
   };
 
   const handleDeleteCategory = async (id: string) => {
@@ -346,6 +494,11 @@ const SettingsPage = () => {
       toast.error(e.message);
     }
   };
+
+  const editingGroupHasChildren = Boolean(
+    editingCat?.isGroup &&
+      categories.some((c) => c.parentId === editingCat.id)
+  );
 
   return (
     <div className="w-full">
@@ -363,7 +516,7 @@ const SettingsPage = () => {
         </div>
 
         {/* Custom Tabs Navigation */}
-        <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 mb-6">
+        <div className="grid grid-cols-2 sm:grid-cols-5 gap-2 mb-6">
           <Button
             variant={activeTab === "cuentas" ? "default" : "outline"}
             onClick={() => setActiveTab("cuentas")}
@@ -381,6 +534,14 @@ const SettingsPage = () => {
             <span>Categorías</span>
           </Button>
           <Button
+            variant={activeTab === "etiquetas" ? "default" : "outline"}
+            onClick={() => setActiveTab("etiquetas")}
+            className="w-full flex items-center justify-center rounded-xl"
+          >
+            <Icons.Hash className="w-4 h-4 mr-2" />
+            <span>Etiquetas</span>
+          </Button>
+          <Button
             variant={activeTab === "notificaciones" ? "default" : "outline"}
             onClick={() => setActiveTab("notificaciones")}
             className="w-full flex items-center justify-center rounded-xl"
@@ -391,7 +552,7 @@ const SettingsPage = () => {
           <Button
             variant={activeTab === "apariencia" ? "default" : "outline"}
             onClick={() => setActiveTab("apariencia")}
-            className="w-full flex items-center justify-center rounded-xl"
+            className="w-full flex items-center justify-center rounded-xl col-span-2 sm:col-span-1"
           >
             <Sun className="w-4 h-4 mr-2" />
             <span>Apariencia</span>
@@ -413,98 +574,292 @@ const SettingsPage = () => {
             </div>
           )}
 
+          {/* TAB: ETIQUETAS */}
+          {activeTab === "etiquetas" && <TagManager />}
+
 
           {/* TAB: CATEGORÍAS */}
           {activeTab === "categorias" && (
             <section className="space-y-4 animate-in fade-in slide-in-from-bottom-2 duration-300">
-              <div className="flex items-center justify-between">
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
                 <div>
                   <h2 className="text-lg font-bold">Mis Categorías</h2>
                   <p className="text-sm text-muted-foreground">
-                    Administra las categorías de tus transacciones.
+                    Organiza tus categorías en Grupos (Nivel 1) y Subcategorías (Nivel 2), con su tipo y naturaleza contable.
                   </p>
                 </div>
-                <Button
-                  size="sm"
-                  onClick={() => handleOpenCatDialog()}
-                  className="h-9 gap-1 rounded-xl"
-                >
-                  <Plus className="w-4 h-4" />
-                  Nueva
-                </Button>
+                <div className="flex items-center gap-2 shrink-0 flex-wrap">
+                  <Button
+                    size="sm"
+                    variant="secondary"
+                    onClick={() => setIsMigrationOpen(true)}
+                    className="h-9 gap-1.5 rounded-xl"
+                  >
+                    <Icons.Sparkles className="w-4 h-4 text-primary" />
+                    Asistente contable
+                  </Button>
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    onClick={() => handleOpenCatDialog(null, { isGroup: true })}
+                    className="h-9 gap-1.5 rounded-xl"
+                  >
+                    <Icons.FolderPlus className="w-4 h-4" />
+                    Nuevo Grupo
+                  </Button>
+                  <Button
+                    size="sm"
+                    onClick={() => handleOpenCatDialog(null, { isGroup: false })}
+                    className="h-9 gap-1.5 rounded-xl"
+                  >
+                    <Plus className="w-4 h-4" />
+                    Nueva
+                  </Button>
+                </div>
               </div>
 
-              <Card className="border-none shadow-sm overflow-hidden bg-card/50 backdrop-blur-sm">
-                <CardContent className="p-0">
-                  <div className="divide-y divide-border/50">
-                    {categories.map((cat) => (
-                      <div
-                        key={cat.id}
-                        className="flex items-center justify-between p-4 hover:bg-muted/30 transition-colors group"
-                      >
-                        <div className="flex items-center gap-4">
-                          {(() => {
-                            if (cat.customIcon) {
-                              return (
-                                <div className="w-12 h-12 rounded-2xl overflow-hidden shadow-sm border border-border/50 shrink-0">
-                                  <img
-                                    src={cat.customIcon}
-                                    alt={cat.name}
-                                    className="w-full h-full object-cover"
-                                  />
-                                </div>
-                              );
-                            }
-                            const IconComponent =
-                              (Icons as any)[cat.icon || "Tag"] || Icons.Tag;
-                            return (
-                              <div
-                                className="w-12 h-12 rounded-2xl flex items-center justify-center text-white shadow-sm shrink-0"
-                                style={{
-                                  backgroundColor: cat.color || "#94a3b8",
-                                }}
-                              >
-                                <IconComponent className="w-6 h-6" />
-                              </div>
-                            );
-                          })()}
-                          <div>
-                            <p className="font-bold text-base">{cat.name}</p>
-                            <p className="text-xs text-muted-foreground font-medium flex items-center gap-1">
-                              Color:{" "}
-                              <span
-                                className="w-2 h-2 rounded-full inline-block"
-                                style={{
-                                  backgroundColor: cat.color || "#94a3b8",
-                                }}
-                              />{" "}
-                              {cat.color}
-                            </p>
+              {/* Search & Archived filter */}
+              <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2">
+                <div className="relative flex-1">
+                  <Icons.Search className="w-4 h-4 text-muted-foreground absolute left-3 top-1/2 -translate-y-1/2" />
+                  <Input
+                    value={catSearch}
+                    onChange={(e) => setCatSearch(e.target.value)}
+                    placeholder="Buscar grupo o categoría..."
+                    className="pl-9 h-9 rounded-xl"
+                  />
+                </div>
+                {archivedCount > 0 && (
+                  <Button
+                    type="button"
+                    variant={showArchivedCats ? "secondary" : "outline"}
+                    size="sm"
+                    onClick={() => setShowArchivedCats((v) => !v)}
+                    className="h-9 rounded-xl gap-1.5 shrink-0"
+                  >
+                    <Icons.Archive className="w-4 h-4" />
+                    {showArchivedCats ? "Ocultar archivadas" : `Ver archivadas (${archivedCount})`}
+                  </Button>
+                )}
+              </div>
+
+              {/* Helper renderer for a single category row */}
+              {(() => {
+                const renderCategoryIcon = (cat: Category, size: "md" | "sm" = "md") => {
+                  const boxClass = size === "md" ? "w-10 h-10 rounded-xl" : "w-9 h-9 rounded-xl";
+                  const iconClass = size === "md" ? "w-5 h-5" : "w-4 h-4";
+                  if (cat.customIcon) {
+                    return (
+                      <div className={cn(boxClass, "overflow-hidden shadow-sm border border-border/50 shrink-0")}>
+                        <img src={cat.customIcon} alt={cat.name} className="w-full h-full object-cover" />
+                      </div>
+                    );
+                  }
+                  const IconComponent = (Icons as any)[cat.icon || (cat.isGroup ? "Folder" : "Tag")] || Icons.Tag;
+                  return (
+                    <div
+                      className={cn(boxClass, "flex items-center justify-center text-white shadow-sm shrink-0")}
+                      style={{ backgroundColor: cat.color || "#94a3b8" }}
+                    >
+                      <IconComponent className={iconClass} />
+                    </div>
+                  );
+                };
+
+                const renderSubcategoryRow = (cat: Category) => {
+                  const effKind = getCategoryKind(cat, categories);
+                  const effNature = effKind === "expense" ? getCategoryNature(cat, categories) : null;
+                  return (
+                    <div
+                      key={cat.id}
+                      className={cn(
+                        "flex items-center justify-between gap-2 px-4 py-3 hover:bg-muted/30 transition-colors",
+                        cat.isArchived && "opacity-60"
+                      )}
+                    >
+                      <div className="flex items-center gap-3 min-w-0">
+                        {renderCategoryIcon(cat, "sm")}
+                        <div className="min-w-0">
+                          <div className="flex items-center gap-1.5 flex-wrap">
+                            <p className="font-semibold text-sm truncate">{cat.name}</p>
+                            {cat.isArchived && (
+                              <Badge variant="outline" className="text-[10px] py-0 px-1.5">
+                                Archivada
+                              </Badge>
+                            )}
+                          </div>
+                          <div className="flex items-center gap-1.5 flex-wrap mt-0.5">
+                            {effKind !== "expense" && (
+                              <Badge variant="outline" className={cn("text-[10px] py-0 px-1.5", getKindBadgeClass(effKind))}>
+                                {CATEGORY_KIND_LABELS[effKind]}
+                              </Badge>
+                            )}
+                            {effNature && (
+                              <Badge variant="outline" className={cn("text-[10px] py-0 px-1.5", getNatureBadgeClass(effNature))}>
+                                {CATEGORY_NATURE_LABELS[effNature]}
+                              </Badge>
+                            )}
                           </div>
                         </div>
-                        <div className="flex items-center gap-1">
-                          <Button
-                            variant="ghost"
-                            size="icon"
-                            className="h-10 w-10 text-muted-foreground hover:bg-background"
-                            onClick={() => handleOpenCatDialog(cat)}
-                          >
-                            <Edit2 className="w-4 h-4" />
-                          </Button>
-                          <Button
-                            variant="ghost"
-                            size="icon"
-                            className="h-10 w-10 text-destructive/70 hover:text-destructive hover:bg-destructive/10"
-                            onClick={() => handleDeleteCategory(cat.id)}
-                          >
-                            <Trash2 className="w-4 h-4" />
-                          </Button>
-                        </div>
                       </div>
-                    ))}
+                      <div className="flex items-center gap-0.5 shrink-0">
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          className="h-8 w-8 text-muted-foreground hover:text-primary hover:bg-primary/10"
+                          title="Fusionar en otra categoría"
+                          onClick={() => {
+                            setMergeSourceCat(cat);
+                            setMergeTargetId("");
+                          }}
+                        >
+                          <Icons.GitMerge className="w-4 h-4" />
+                        </Button>
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          className="h-8 w-8 text-muted-foreground hover:bg-background"
+                          title={cat.isArchived ? "Restaurar categoría" : "Archivar categoría"}
+                          onClick={() => handleToggleArchiveCategory(cat)}
+                        >
+                          {cat.isArchived ? (
+                            <Icons.ArchiveRestore className="w-4 h-4" />
+                          ) : (
+                            <Icons.Archive className="w-4 h-4" />
+                          )}
+                        </Button>
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          className="h-8 w-8 text-muted-foreground hover:bg-background"
+                          title="Editar"
+                          onClick={() => handleOpenCatDialog(cat)}
+                        >
+                          <Edit2 className="w-4 h-4" />
+                        </Button>
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          className="h-8 w-8 text-destructive/70 hover:text-destructive hover:bg-destructive/10"
+                          title="Eliminar"
+                          onClick={() => handleDeleteCategory(cat.id)}
+                        >
+                          <Trash2 className="w-4 h-4" />
+                        </Button>
+                      </div>
+                    </div>
+                  );
+                };
+
+                const ungroupedCats = nonGroupCategories
+                  .filter((c) => !c.parentId || !categoryGroups.some((g) => g.id === c.parentId))
+                  .filter(isVisibleCategory);
+
+                return (
+                  <div className="space-y-4">
+                    {/* Grupos (Nivel 1) con sus Subcategorías (Nivel 2) */}
+                    {categoryGroups.map((group) => {
+                      const children = nonGroupCategories
+                        .filter((c) => c.parentId === group.id)
+                        .filter(isVisibleCategory);
+                      const groupVisible = isVisibleCategory(group) || children.length > 0;
+                      if (!groupVisible) return null;
+
+                      const groupKind = group.kind || "expense";
+                      const groupNature = groupKind === "expense" ? (group.nature ?? null) : null;
+
+                      return (
+                        <Card key={group.id} className="border border-border/60 shadow-sm overflow-hidden bg-card/60 backdrop-blur-sm">
+                          <div className="flex items-center justify-between gap-2 p-3.5 bg-muted/40 border-b border-border/50">
+                            <div className="flex items-center gap-3 min-w-0">
+                              {renderCategoryIcon(group, "md")}
+                              <div className="min-w-0">
+                                <div className="flex items-center gap-2 flex-wrap">
+                                  <p className="font-extrabold text-sm sm:text-base truncate">{group.name}</p>
+                                  <Badge variant="outline" className={cn("text-[10px] py-0 px-1.5", getKindBadgeClass(groupKind))}>
+                                    {CATEGORY_KIND_LABELS[groupKind]}
+                                  </Badge>
+                                  {groupNature && (
+                                    <Badge variant="outline" className={cn("text-[10px] py-0 px-1.5", getNatureBadgeClass(groupNature))}>
+                                      {CATEGORY_NATURE_LABELS[groupNature]}
+                                    </Badge>
+                                  )}
+                                </div>
+                                <p className="text-[11px] text-muted-foreground">
+                                  {children.length} {children.length === 1 ? "subcategoría" : "subcategorías"}
+                                </p>
+                              </div>
+                            </div>
+                            <div className="flex items-center gap-0.5 shrink-0">
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                className="h-8 px-2 text-xs gap-1 text-primary hover:bg-primary/10"
+                                title="Añadir subcategoría a este grupo"
+                                onClick={() => handleOpenCatDialog(null, { isGroup: false, parentId: group.id })}
+                              >
+                                <Plus className="w-3.5 h-3.5" />
+                                <span className="hidden sm:inline">Subcategoría</span>
+                              </Button>
+                              <Button
+                                variant="ghost"
+                                size="icon"
+                                className="h-8 w-8 text-muted-foreground hover:bg-background"
+                                title="Editar grupo"
+                                onClick={() => handleOpenCatDialog(group)}
+                              >
+                                <Edit2 className="w-4 h-4" />
+                              </Button>
+                              <Button
+                                variant="ghost"
+                                size="icon"
+                                className="h-8 w-8 text-destructive/70 hover:text-destructive hover:bg-destructive/10"
+                                title="Eliminar grupo"
+                                onClick={() => handleDeleteCategory(group.id)}
+                              >
+                                <Trash2 className="w-4 h-4" />
+                              </Button>
+                            </div>
+                          </div>
+                          {children.length > 0 ? (
+                            <div className="divide-y divide-border/40 pl-2 sm:pl-4">
+                              {children.map(renderSubcategoryRow)}
+                            </div>
+                          ) : (
+                            <p className="text-xs text-muted-foreground px-4 py-3 italic">
+                              Sin subcategorías asignadas todavía.
+                            </p>
+                          )}
+                        </Card>
+                      );
+                    })}
+
+                    {/* Categorías sin grupo asignado */}
+                    {ungroupedCats.length > 0 && (
+                      <Card className="border-none shadow-sm overflow-hidden bg-card/50 backdrop-blur-sm">
+                        {categoryGroups.length > 0 && (
+                          <div className="px-4 py-2.5 bg-muted/30 border-b border-border/50 flex items-center justify-between">
+                            <span className="text-xs font-bold uppercase tracking-wider text-muted-foreground">
+                              Sin grupo asignado ({ungroupedCats.length})
+                            </span>
+                          </div>
+                        )}
+                        <CardContent className="p-0">
+                          <div className="divide-y divide-border/50">
+                            {ungroupedCats.map(renderSubcategoryRow)}
+                          </div>
+                        </CardContent>
+                      </Card>
+                    )}
+
+                    {categoryGroups.length === 0 && ungroupedCats.length === 0 && (
+                      <Card className="border-none shadow-sm bg-card/50 p-8 text-center text-sm text-muted-foreground">
+                        No se encontraron categorías con el filtro actual.
+                      </Card>
+                    )}
                   </div>
-                </CardContent>
-              </Card>
+                );
+              })()}
             </section>
           )}
 
@@ -684,25 +1039,143 @@ const SettingsPage = () => {
 
       {/* CATEGORY DIALOG (Global to this page) */}
       <Dialog open={isCatDialogOpen} onOpenChange={setIsCatDialogOpen}>
-        <DialogContent className="sm:max-w-md">
+        <DialogContent className="sm:max-w-md max-h-[90vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle>
-              {editingCat ? "Editar Categoría" : "Nueva Categoría"}
+              {editingCat
+                ? catIsGroup
+                  ? "Editar Grupo"
+                  : "Editar Categoría"
+                : catIsGroup
+                  ? "Nuevo Grupo (Nivel 1)"
+                  : "Nueva Categoría"}
             </DialogTitle>
             <DialogDescription>
-              Personaliza el nombre y color de tu categoría.
+              Define el nivel jerárquico, clasificación contable, icono y color.
             </DialogDescription>
           </DialogHeader>
-          <div className="space-y-4 py-4">
+          <div className="space-y-4 py-3">
             <div className="space-y-2">
-              <Label htmlFor="catName">Nombre de la Categoría</Label>
+              <Label htmlFor="catName">Nombre</Label>
               <Input
                 id="catName"
                 value={catName}
                 onChange={(e) => setCatName(e.target.value)}
-                placeholder="Ej: Supermercado"
+                placeholder={catIsGroup ? "Ej: Vivienda" : "Ej: Supermercado"}
               />
             </div>
+
+            {/* Nivel jerárquico */}
+            <div className="flex items-center justify-between gap-3 p-3 rounded-xl bg-muted/40 border border-border/50">
+              <div className="space-y-0.5">
+                <Label htmlFor="catIsGroupSwitch" className="text-sm font-semibold">
+                  Es un Grupo padre (Nivel 1)
+                </Label>
+                <p className="text-[11px] text-muted-foreground">
+                  {editingGroupHasChildren
+                    ? "Este grupo contiene subcategorías y no puede convertirse en subcategoría."
+                    : "Los grupos agrupan subcategorías en informes y presupuestos."}
+                </p>
+              </div>
+              <Switch
+                id="catIsGroupSwitch"
+                checked={catIsGroup}
+                disabled={editingGroupHasChildren}
+                onCheckedChange={(checked) => {
+                  setCatIsGroup(checked);
+                  if (checked) setCatParentId("none");
+                }}
+              />
+            </div>
+
+            {/* Selector de Grupo padre (solo para subcategorías) */}
+            {!catIsGroup && (
+              <div className="space-y-2">
+                <Label>Grupo padre (Nivel 1)</Label>
+                <Select
+                  value={catParentId}
+                  onValueChange={(val) => {
+                    setCatParentId(val);
+                    if (val !== "none") {
+                      const parent = categoryGroups.find((g) => g.id === val);
+                      if (parent?.kind) setCatKind(parent.kind);
+                      if (parent?.nature) setCatNature(parent.nature);
+                    }
+                  }}
+                >
+                  <SelectTrigger className="rounded-xl">
+                    <SelectValue placeholder="Sin grupo asignado" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="none">Sin grupo asignado</SelectItem>
+                    {categoryGroups.map((g) => (
+                      <SelectItem key={g.id} value={g.id}>
+                        {g.name}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+            )}
+
+            {/* Tipo de flujo y Naturaleza */}
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+              <div className="space-y-2">
+                <Label>Tipo de flujo</Label>
+                <Select
+                  value={catKind}
+                  onValueChange={(v) => setCatKind(v as CategoryKind)}
+                >
+                  <SelectTrigger className="rounded-xl">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="expense">{CATEGORY_KIND_LABELS.expense}</SelectItem>
+                    <SelectItem value="income">{CATEGORY_KIND_LABELS.income}</SelectItem>
+                    <SelectItem value="financing">{CATEGORY_KIND_LABELS.financing}</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+
+              {catKind === "expense" && (
+                <div className="space-y-2">
+                  <Label>Naturaleza del gasto</Label>
+                  <Select
+                    value={catNature}
+                    onValueChange={(v) => setCatNature(v as CategoryNature)}
+                  >
+                    <SelectTrigger className="rounded-xl">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="essential">{CATEGORY_NATURE_LABELS.essential}</SelectItem>
+                      <SelectItem value="discretionary">{CATEGORY_NATURE_LABELS.discretionary}</SelectItem>
+                      <SelectItem value="debt">{CATEGORY_NATURE_LABELS.debt}</SelectItem>
+                      <SelectItem value="extraordinary">{CATEGORY_NATURE_LABELS.extraordinary}</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+              )}
+            </div>
+
+            {!catIsGroup && (
+              <div className="flex items-center justify-between gap-3 p-3 rounded-xl bg-muted/30 border border-border/40">
+                <div className="space-y-0.5">
+                  <Label htmlFor="catArchivedSwitch" className="text-sm font-semibold">
+                    Archivar categoría
+                  </Label>
+                  <p className="text-[11px] text-muted-foreground">
+                    Oculta esta categoría al registrar nuevos gastos, manteniendo su histórico intacto.
+                  </p>
+                </div>
+                <Switch
+                  id="catArchivedSwitch"
+                  checked={catIsArchived}
+                  onCheckedChange={setCatIsArchived}
+                />
+              </div>
+            )}
+
             <div className="space-y-3">
               <Label>Icono Personalizado o Selector</Label>
               <div className="flex items-center gap-4 p-4 rounded-xl border-2 border-dashed border-muted hover:border-primary transition-all">
@@ -796,6 +1269,72 @@ const SettingsPage = () => {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      {/* MERGE CATEGORY DIALOG */}
+      <Dialog
+        open={Boolean(mergeSourceCat)}
+        onOpenChange={(open) => {
+          if (!open) {
+            setMergeSourceCat(null);
+            setMergeTargetId("");
+          }
+        }}
+      >
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <Icons.GitMerge className="w-5 h-5 text-primary" />
+              Fusionar categoría
+            </DialogTitle>
+            <DialogDescription>
+              Todas las transacciones, presupuestos, gastos fijos, metas y favoritos de{" "}
+              <strong className="text-foreground">"{mergeSourceCat?.name}"</strong> pasarán a la
+              categoría destino y se eliminará la categoría origen.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-3 py-3">
+            <div className="space-y-2">
+              <Label>Categoría destino</Label>
+              <Select value={mergeTargetId} onValueChange={setMergeTargetId}>
+                <SelectTrigger className="rounded-xl">
+                  <SelectValue placeholder="Elige la categoría destino..." />
+                </SelectTrigger>
+                <SelectContent>
+                  {nonGroupCategories
+                    .filter((c) => c.id !== mergeSourceCat?.id)
+                    .sort((a, b) => a.name.localeCompare(b.name))
+                    .map((c) => (
+                      <SelectItem key={c.id} value={c.id}>
+                        {c.name}
+                      </SelectItem>
+                    ))}
+                </SelectContent>
+              </Select>
+            </div>
+          </div>
+          <DialogFooter>
+            <Button
+              variant="outline"
+              onClick={() => {
+                setMergeSourceCat(null);
+                setMergeTargetId("");
+              }}
+            >
+              Cancelar
+            </Button>
+            <Button
+              disabled={!mergeTargetId || isMerging}
+              onClick={handleConfirmMerge}
+            >
+              {isMerging ? "Fusionando..." : "Confirmar fusión"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+      <CategoryMigrationDialog
+        open={isMigrationOpen}
+        onOpenChange={setIsMigrationOpen}
+      />
     </div>
   );
 };

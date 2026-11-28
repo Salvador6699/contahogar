@@ -250,15 +250,22 @@ const Index = () => {
   const handleSaveQuickAmount = async (amount: number, accountId: string) => {
     if (!activeQuickFavorite) return;
 
+    const rawLabel = (activeQuickFavorite.description || activeQuickFavorite.name || "").trim();
+    const normLabel = rawLabel.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "");
+    const normCat = activeQuickFavorite.category.trim().toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "");
+    const isRedundant =
+      !normLabel ||
+      normLabel === normCat ||
+      (normCat === "supermercado" && (normLabel === "compra" || normLabel === "compras"));
+
     const newTransaction: Omit<Transaction, "id"> = {
       date: format(new Date(), "yyyy-MM-dd"),
       amount: amount,
       category: activeQuickFavorite.category,
       type: activeQuickFavorite.type,
       accountId: accountId,
-      description:
-        activeQuickFavorite.description ||
-        `Gasto rápido: ${activeQuickFavorite.name}`,
+      description: isRedundant ? "" : rawLabel,
+      tags: isRedundant ? [] : [rawLabel],
     };
     
     await rqAddTransaction(newTransaction);

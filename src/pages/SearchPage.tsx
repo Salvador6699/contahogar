@@ -11,8 +11,10 @@ import {
   ChevronDown,
   ChevronUp,
   Tag,
+  Hash,
   Filter
 } from 'lucide-react';
+import { computeTagStats, normalizeTagKey, suggestMatchingTags } from '@/lib/tags';
 
 import { useQueryClient } from '@tanstack/react-query';
 import { useTransactions } from '@/hooks/useTransactions';
@@ -49,11 +51,39 @@ const SearchPage = () => {
     endDate: '',
     categories: [],
     accounts: [],
+    tags: [],
     minAmount: undefined,
     maxAmount: undefined,
     type: 'all',
     includePending: true
   });
+
+  const tagCatalog = useMemo(() => computeTagStats(transactions), [transactions]);
+
+  const suggestedTags = useMemo(() => {
+    if (tagCatalog.length === 0) return [];
+    if (criteria.query?.trim()) {
+      return suggestMatchingTags(criteria.query, tagCatalog, criteria.tags || [], 8);
+    }
+    return tagCatalog
+      .filter((t) => t.count >= 2 && !(criteria.tags || []).some((s) => normalizeTagKey(s) === t.normKey))
+      .slice(0, 8);
+  }, [tagCatalog, criteria.query, criteria.tags]);
+
+  const toggleTag = (tagName: string) => {
+    const norm = normalizeTagKey(tagName);
+    setCriteria((prev) => {
+      const current = prev.tags || [];
+      const exists = current.some((t) => normalizeTagKey(t) === norm);
+      return {
+        ...prev,
+        query: exists ? prev.query : '',
+        tags: exists
+          ? current.filter((t) => normalizeTagKey(t) !== norm)
+          : [...current, tagName],
+      };
+    });
+  };
 
   const results = useMemo(() => {
     return filterTransactions(transactions, criteria);
@@ -134,6 +164,7 @@ const SearchPage = () => {
       endDate: '',
       categories: [],
       accounts: [],
+      tags: [],
       minAmount: undefined,
       maxAmount: undefined,
       type: 'all',
@@ -147,6 +178,7 @@ const SearchPage = () => {
     if (criteria.endDate) count++;
     if (criteria.categories?.length) count++;
     if (criteria.accounts?.length) count++;
+    if (criteria.tags?.length) count++;
     if (criteria.minAmount !== undefined) count++;
     if (criteria.maxAmount !== undefined) count++;
     if (criteria.type !== 'all') count++;
@@ -167,12 +199,41 @@ const SearchPage = () => {
             <SearchIcon className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-muted-foreground/50" />
             <Input
               type="text"
-              placeholder="Buscar transacción..."
+              placeholder="Buscar por etiqueta, categoría o detalle (ej: almuerzo)..."
               className="pl-10 h-14 bg-card/50 backdrop-blur-sm border-border/10 rounded-2xl text-lg focus:ring-primary/20 transition-all font-medium"
               value={criteria.query}
               onChange={(e) => setCriteria(prev => ({ ...prev, query: e.target.value }))}
             />
           </div>
+
+          {/* Active Tag Filters + Quick Tag Suggestions */}
+          {((criteria.tags && criteria.tags.length > 0) || suggestedTags.length > 0) && (
+            <div className="flex flex-wrap items-center gap-1.5">
+              {(criteria.tags || []).map((t) => (
+                <Badge
+                  key={normalizeTagKey(t)}
+                  className="gap-1 px-2.5 py-1 rounded-xl text-xs font-bold cursor-pointer bg-primary text-primary-foreground"
+                  onClick={() => toggleTag(t)}
+                >
+                  <Hash className="w-3 h-3" />
+                  {t}
+                  <X className="w-3 h-3 ml-0.5" />
+                </Badge>
+              ))}
+              {suggestedTags.map((sug) => (
+                <button
+                  key={sug.normKey}
+                  type="button"
+                  onClick={() => toggleTag(sug.name)}
+                  className="inline-flex items-center gap-1 px-2.5 py-1 rounded-xl text-xs font-semibold bg-card/70 hover:bg-primary/10 hover:text-primary border border-border/50 text-muted-foreground transition-colors"
+                >
+                  <Hash className="w-3 h-3 opacity-60" />
+                  <span>{sug.name}</span>
+                  <span className="text-[10px] opacity-60">({sug.count})</span>
+                </button>
+              ))}
+            </div>
+          )}
 
           <div className="flex items-center justify-between">
             <Button

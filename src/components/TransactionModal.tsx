@@ -46,6 +46,13 @@ import { useAccounts } from "@/hooks/useAccounts";
 import { useTransactions } from "@/hooks/useTransactions";
 import SplitTransactionModal from "./SplitTransactionModal";
 import { SplitSquareHorizontal } from "lucide-react";
+import { SmartTagInput } from "./SmartTagInput";
+import {
+  computeTagStats,
+  extractTransactionTags,
+  formatTagDisplay,
+  normalizeTagKey,
+} from "@/lib/tags";
 
 export interface FractionationData {
   isFractionated: boolean;
@@ -85,7 +92,9 @@ const TransactionModal = ({
   const scrollOnFocus = useScrollOnFocus();
   const [date, setDate] = useState("");
   const [amount, setAmount] = useState("");
+  const [selectedGroupId, setSelectedGroupId] = useState<string>("all");
   const [category, setCategory] = useState("");
+  const [tags, setTags] = useState<string[]>([]);
   const [description, setDescription] = useState("");
   const [accountId, setAccountId] = useState("");
   const [accounts, setAccounts] = useState<Account[]>([]);
@@ -99,7 +108,15 @@ const TransactionModal = ({
   
   // Split logic
   const [isSplitModalOpen, setIsSplitModalOpen] = useState(false);
-  const { updateTransaction: rqUpdateTransaction, addTransaction: rqAddTransaction } = useTransactions();
+  const {
+    transactions: allTransactions,
+    updateTransaction: rqUpdateTransaction,
+    addTransaction: rqAddTransaction,
+  } = useTransactions();
+  const tagCatalog = React.useMemo(
+    () => computeTagStats(allTransactions),
+    [allTransactions]
+  );
   const [isFractionated, setIsFractionated] = useState(false);
   const [installments, setInstallments] = useState("3");
   const [installmentAmount, setInstallmentAmount] = useState("");
@@ -182,12 +199,24 @@ const TransactionModal = ({
         setStep("account");
       }
 
+      const resolveGroupIdForCat = (catName: string) => {
+        if (!catName) return "all";
+        const objCats = categories.filter((c): c is Category => typeof c !== "string");
+        const match = objCats.find(
+          (c) => !c.isGroup && c.name.trim().toLowerCase() === catName.trim().toLowerCase()
+        );
+        return match?.parentId || "all";
+      };
+
       if (editingTransaction) {
         // Editing mode - populate with existing data
         setDate(editingTransaction.date);
         setAmount(editingTransaction.amount.toString());
         setCategory(editingTransaction.category);
-        setDescription(editingTransaction.description || "");
+        setSelectedGroupId(resolveGroupIdForCat(editingTransaction.category));
+        const extractedTags = extractTransactionTags(editingTransaction);
+        setTags(extractedTags);
+        setDescription(extractedTags.length > 0 ? "" : (editingTransaction.description || ""));
 
         // Priority: 1. Transacc account, 2. Global Default
         setAccountId(editingTransaction.accountId || contextualDefault);
@@ -201,6 +230,8 @@ const TransactionModal = ({
         
         setAmount(draftAmount);
         setCategory(draftCategory);
+        setSelectedGroupId(resolveGroupIdForCat(draftCategory));
+        setTags([]);
         setDescription(draftDescription);
         setAccountId(draftAccountId || contextualDefault);
         setIsPending(false);
@@ -215,10 +246,63 @@ const TransactionModal = ({
     }
   }, [isOpen, editingTransaction, defaultAccountId, type, hookAccounts, isAccLoading]);
 
+  const availableGroups = React.useMemo(() => {
+    const objCats = categories.filter((c): c is Category => typeof c !== "string");
+    return objCats
+      .filter((c) => {
+        if (!c.isGroup) return false;
+        const k = c.kind || "expense";
+        if (type === "expense") return k === "expense";
+        return k === "income" || k === "financing";
+      })
+      .sort((a, b) => a.name.localeCompare(b.name));
+  }, [categories, type]);
+
+  const selectableCategories = React.useMemo(() => {
+    const objCats = categories.filter((c): c is Category => typeof c !== "string");
+    return categories.filter((c) => {
+      if (typeof c === "string") return true;
+      if (c.isGroup || c.isArchived) return false;
+      if (c.kind) {
+        if (type === "expense") return c.kind === "expense";
+        return c.kind === "income" || c.kind === "financing";
+      }
+      if (c.parentId) {
+        const parent = objCats.find((p) => p.id === c.parentId);
+        if (parent?.kind) {
+          if (type === "expense") return parent.kind === "expense";
+          return parent.kind === "income" || parent.kind === "financing";
+        }
+      }
+      return true;
+    });
+  }, [categories, type]);
+
+  const filteredSubcategoryNames = React.useMemo(() => {
+    const list = selectableCategories
+      .filter((c) => {
+        if (selectedGroupId === "all") return true;
+        if (typeof c === "string") return false;
+        return c.parentId === selectedGroupId;
+      })
+      .map((c) => (typeof c === "string" ? c : c.name))
+      .sort((a, b) => a.localeCompare(b));
+
+    // Si estamos editando una transacción cuya categoría está archivada o fuera del filtro actual, conservarla visible
+    if (
+      category &&
+      !list.some((n) => n.trim().toLowerCase() === category.trim().toLowerCase()) &&
+      selectedGroupId === "all"
+    ) {
+      return [category, ...list];
+    }
+    return list;
+  }, [selectableCategories, selectedGroupId, category]);
+
   useEffect(() => {
     const timeoutId = setTimeout(() => {
       if (category) {
-        const filtered = getCategorySuggestions(category, categories);
+        const filtered = getCategorySuggestions(category, selectableCategories);
         setSuggestions(filtered);
         setShowSuggestions(filtered.length > 0 && category.length > 0);
       } else {
@@ -227,7 +311,7 @@ const TransactionModal = ({
       }
     }, 250);
     return () => clearTimeout(timeoutId);
-  }, [category, categories]);
+  }, [category, selectableCategories]);
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -274,6 +358,23 @@ const TransactionModal = ({
     const existingCategory =
       findSimilarCategory(category, categories) || category;
 
+    // Commit any pending text in the tag input as a tag too
+    const finalTagsMap = new Map<string, string>();
+    for (const t of tags) {
+      const clean = formatTagDisplay(t);
+      const norm = normalizeTagKey(clean);
+      if (norm && !finalTagsMap.has(norm)) finalTagsMap.set(norm, clean);
+    }
+    if (description.trim()) {
+      for (const part of description.split(",")) {
+        const clean = formatTagDisplay(part);
+        const norm = normalizeTagKey(clean);
+        if (norm && !finalTagsMap.has(norm)) finalTagsMap.set(norm, clean);
+      }
+    }
+    const finalTags = Array.from(finalTagsMap.values());
+    const finalDescription = finalTags.join(", ");
+
     onSave(
       {
         date,
@@ -282,7 +383,8 @@ const TransactionModal = ({
         type,
         accountId,
         isPending,
-        description,
+        tags: finalTags,
+        description: finalDescription,
       },
       copyToNextMonth,
       fractionData
@@ -295,7 +397,9 @@ const TransactionModal = ({
     if (!editingTransaction) {
       setDate(new Date().toISOString().split("T")[0]);
       setAmount("");
+      setSelectedGroupId("all");
       setCategory("");
+      setTags([]);
       setDescription("");
       // No reseteamos setAccountId para que recuerde la última cuenta seleccionada
       setIsPending(false);
@@ -499,89 +603,80 @@ const TransactionModal = ({
                     />
                   </div>
 
-                  <div className="space-y-2 relative">
-                    <Label
-                      htmlFor="category"
-                      className="flex items-center gap-2"
-                    >
-                      <Tag className="w-4 h-4" />
-                      Categoría
-                    </Label>
-                    <div className="relative">
-                      <Input
-                        id="category"
-                        type="text"
-                        value={category}
-                        onChange={(e) => {
-                          setCategory(e.target.value);
-                          if (showAllCategories) setShowAllCategories(false);
-                        }}
-                        placeholder="Ej: Supermercado"
-                        required
-                        className="w-full h-12 pr-12"
-                        autoComplete="off"
-                        onFocus={scrollOnFocus}
-                        enterKeyHint="next"
-                      />
-                      <button
-                        type="button"
-                        onClick={() => {
-                          setShowAllCategories(!showAllCategories);
-                          setShowSuggestions(false);
-                        }}
-                        className="absolute right-1 top-1/2 -translate-y-1/2 p-2 text-muted-foreground hover:text-primary transition-colors bg-background rounded-full"
-                      >
-                        <ChevronDown
-                          className={cn(
-                            "w-6 h-6 transition-transform",
-                            showAllCategories ? "rotate-180" : "",
-                          )}
-                        />
-                      </button>
-                    </div>
-
-                    {showAllCategories && categories.length > 0 && (
-                      <div className="flex flex-wrap gap-2 mt-2 max-h-48 overflow-y-auto custom-scrollbar p-3 border border-border/50 rounded-xl bg-muted/10 animate-in fade-in zoom-in-95 duration-200">
-                        {categories.map((cat, index) => {
-                          const catName =
-                            typeof cat === "string" ? cat : cat.name;
-                          return (
-                            <button
-                              key={index}
-                              type="button"
-                              onClick={() =>
-                                withKeyboardClose(() => {
-                                  selectSuggestion(catName);
-                                  setShowAllCategories(false);
-                                })
-                              }
-                              className="px-4 py-2 text-sm font-medium rounded-xl bg-background border border-border hover:border-primary hover:text-primary transition-all shadow-sm active:scale-95"
-                            >
-                              {catName}
-                            </button>
-                          );
-                        })}
-                      </div>
-                    )}
-
-                    {!showAllCategories && suggestions.length > 0 && (
-                      <div className="flex flex-wrap gap-2 mt-2">
-                        {suggestions.slice(0, 6).map((suggestion, index) => (
-                          <button
-                            key={index}
-                            type="button"
-                            onClick={() =>
-                              withKeyboardClose(() =>
-                                selectSuggestion(suggestion),
+                  <div className="space-y-3">
+                    {availableGroups.length > 0 && (
+                      <div className="space-y-1.5">
+                        <Label htmlFor="categoryGroup" className="flex items-center gap-2">
+                          <Tag className="w-4 h-4" />
+                          Grupo (filtro rápido)
+                        </Label>
+                        <Select
+                          value={selectedGroupId}
+                          onValueChange={(val) => {
+                            setSelectedGroupId(val);
+                            if (val === "all") return;
+                            const childrenInGroup = selectableCategories
+                              .filter((c): c is Category => typeof c !== "string" && c.parentId === val)
+                              .map((c) => c.name);
+                            if (childrenInGroup.length === 1) {
+                              setCategory(childrenInGroup[0]);
+                            } else if (
+                              category &&
+                              !childrenInGroup.some(
+                                (n) => n.trim().toLowerCase() === category.trim().toLowerCase()
                               )
+                            ) {
+                              setCategory("");
                             }
-                            className="min-h-[44px] px-4 py-2 text-sm rounded-full bg-secondary text-secondary-foreground hover:bg-primary hover:text-primary-foreground transition-all border border-border font-medium shadow-sm"
-                          >
-                            {suggestion}
-                          </button>
-                        ))}
+                          }}
+                        >
+                          <SelectTrigger id="categoryGroup" className="w-full h-12 rounded-xl">
+                            <SelectValue placeholder="Todos los grupos" />
+                          </SelectTrigger>
+                          <SelectContent className="max-h-64">
+                            <SelectItem value="all" className="font-semibold">
+                              Todos los grupos
+                            </SelectItem>
+                            {availableGroups.map((g) => (
+                              <SelectItem key={g.id} value={g.id}>
+                                {g.name}
+                              </SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
                       </div>
                     )}
+
+                    <div className="space-y-1.5">
+                      <Label htmlFor="categorySelect" className="flex items-center gap-2">
+                        <Tag className="w-4 h-4" />
+                        {availableGroups.length > 0 ? "Subcategoría" : "Categoría"}
+                      </Label>
+                      <Select
+                        value={category}
+                        onValueChange={(val) => {
+                          setCategory(val);
+                          const objCats = categories.filter((c): c is Category => typeof c !== "string");
+                          const matched = objCats.find(
+                            (c) => !c.isGroup && c.name.trim().toLowerCase() === val.trim().toLowerCase()
+                          );
+                          if (matched?.parentId && availableGroups.some((g) => g.id === matched.parentId)) {
+                            setSelectedGroupId(matched.parentId);
+                          }
+                        }}
+                      >
+                        <SelectTrigger id="categorySelect" className="w-full h-12 rounded-xl">
+                          <SelectValue placeholder="Selecciona una subcategoría..." />
+                        </SelectTrigger>
+                        <SelectContent className="max-h-64">
+                          {filteredSubcategoryNames.map((catName) => (
+                            <SelectItem key={catName} value={catName}>
+                              {catName}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </div>
                   </div>
 
                   <div className="space-y-2">
@@ -609,17 +704,20 @@ const TransactionModal = ({
                       className="flex items-center gap-2"
                     >
                       <MessageSquare className="w-4 h-4" />
-                      Notas / Detalles (Opcional)
+                      Etiquetas / Detalle (Opcional)
                     </Label>
-                    <Textarea
-                      id="description"
-                      value={description}
-                      onChange={(e) => setDescription(e.target.value)}
-                      placeholder="Ej: Compra del domingo..."
-                      className="w-full h-20 sm:h-full sm:min-h-[120px] bg-background/50"
+                    <SmartTagInput
+                      tags={tags}
+                      inputValue={description}
+                      onTagsChange={setTags}
+                      onInputValueChange={setDescription}
+                      catalog={tagCatalog}
+                      placeholder="Ej: Almuerzo, Almuerzo trabajo, Viaje..."
                       onFocus={scrollOnFocus}
-                      enterKeyHint="done"
                     />
+                    <p className="text-[11px] text-muted-foreground">
+                      Empieza a escribir para reutilizar una etiqueta parecida o crear una nueva. Pulsa Enter o coma para añadir varias.
+                    </p>
                   </div>
 
                   <div className="space-y-4 pt-4 border-t border-border/30 mt-auto">

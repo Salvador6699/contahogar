@@ -31,6 +31,11 @@ CREATE TABLE categories (
     color TEXT,
     "monthlyLimit" NUMERIC,
     "customIcon" TEXT,
+    "parentId" TEXT REFERENCES categories(id) ON DELETE SET NULL,
+    "isGroup" BOOLEAN DEFAULT false,
+    kind TEXT CHECK (kind IN ('expense', 'income', 'financing')),
+    nature TEXT CHECK (nature IN ('essential', 'discretionary', 'debt', 'extraordinary')),
+    "isArchived" BOOLEAN DEFAULT false,
     created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
 );
 
@@ -46,6 +51,7 @@ CREATE TABLE transactions (
     "isPending" BOOLEAN DEFAULT false,
     "isIgnored" BOOLEAN DEFAULT false,
     "linkedLoanId" TEXT,
+    tags TEXT[] DEFAULT '{}',
     created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
 );
 

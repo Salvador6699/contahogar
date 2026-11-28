@@ -18,10 +18,14 @@ export interface Transaction {
   type: TransactionType;
   accountId: string; // Link to the Account's id
   description?: string;
+  tags?: string[];
   isPending?: boolean;
   isIgnored?: boolean; // If true, this pending transaction is not included in forecast
   linkedLoanId?: string; // Link to a Loan or Fractionation
 }
+
+export type CategoryKind = "expense" | "income" | "financing";
+export type CategoryNature = "essential" | "discretionary" | "debt" | "extraordinary";
 
 export interface Category {
   id: string;
@@ -30,7 +34,84 @@ export interface Category {
   color?: string;
   monthlyLimit?: number;
   customIcon?: string; // Data URL for custom uploaded icon
+  parentId?: string | null; // ID del Grupo padre (Nivel 1) si es subcategoría
+  isGroup?: boolean; // true = Grupo (Nivel 1); false/undefined = Subcategoría o categoría suelta
+  kind?: CategoryKind | null; // 'expense' | 'income' | 'financing'
+  nature?: CategoryNature | null; // 'essential' | 'discretionary' | 'debt' | 'extraordinary'
+  isArchived?: boolean; // Oculta en selectores de nuevos movimientos pero conservada en histórico
 }
+
+export const CATEGORY_KIND_LABELS: Record<CategoryKind, string> = {
+  expense: "Gasto",
+  income: "Ingreso",
+  financing: "Financiación / Pasivo",
+};
+
+export const CATEGORY_NATURE_LABELS: Record<CategoryNature, string> = {
+  essential: "Esencial",
+  discretionary: "Estilo de vida",
+  debt: "Deuda / Financiero",
+  extraordinary: "Extraordinario",
+};
+
+export const normalizeCategoryName = (name?: string | null): string =>
+  (name ?? "").trim().toLowerCase();
+
+export const findCategoryByName = (
+  name: string,
+  categories: Category[]
+): Category | undefined => {
+  const norm = normalizeCategoryName(name);
+  if (!norm) return undefined;
+  return categories.find((c) => normalizeCategoryName(c.name) === norm);
+};
+
+export const getCategoryGroup = (
+  categoryOrName: string | Category,
+  categories: Category[]
+): Category | null => {
+  const cat =
+    typeof categoryOrName === "string"
+      ? findCategoryByName(categoryOrName, categories)
+      : categoryOrName;
+  if (!cat) return null;
+  if (cat.isGroup) return cat;
+  if (!cat.parentId) return null;
+  return categories.find((c) => c.id === cat.parentId) ?? null;
+};
+
+export const getCategoryKind = (
+  categoryOrName: string | Category,
+  categories: Category[]
+): CategoryKind => {
+  const cat =
+    typeof categoryOrName === "string"
+      ? findCategoryByName(categoryOrName, categories)
+      : categoryOrName;
+  if (!cat) return "expense";
+  if (cat.kind) return cat.kind;
+  const parent = cat.parentId ? categories.find((c) => c.id === cat.parentId) : undefined;
+  return parent?.kind ?? "expense";
+};
+
+export const getCategoryNature = (
+  categoryOrName: string | Category,
+  categories: Category[]
+): CategoryNature | null => {
+  const cat =
+    typeof categoryOrName === "string"
+      ? findCategoryByName(categoryOrName, categories)
+      : categoryOrName;
+  if (!cat) return null;
+  if (cat.nature) return cat.nature;
+  const parent = cat.parentId ? categories.find((c) => c.id === cat.parentId) : undefined;
+  return parent?.nature ?? null;
+};
+
+export const isFinancingCategory = (
+  categoryName: string,
+  categories: Category[]
+): boolean => getCategoryKind(categoryName, categories) === "financing";
 
 
 export interface CategorySummary {

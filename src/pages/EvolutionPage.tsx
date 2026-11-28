@@ -59,7 +59,13 @@ import { useCategories } from '@/hooks/useCategories'
 import { useAccounts } from '@/hooks/useAccounts'
 import { useSearchParams } from '@/hooks/useSearchParams'
 import { formatCurrency, isTransfer } from '@/lib/calculations'
-import { Transaction, Category } from '@/types/finance'
+import {
+  Transaction,
+  Category,
+  getCategoryKind,
+  getCategoryNature,
+  isFinancingCategory,
+} from '@/types/finance'
 import { cn } from '@/lib/utils'
 import {
   EvolutionMonthDiagnosis,
@@ -91,6 +97,7 @@ export default function EvolutionPage() {
   const isBalance = movementType === 'balance'
 
   // Por defecto arranca en "all" ("Todas las Categorías"), salvo que venga filtrada por URL
+  const [selectedGroupId, setSelectedGroupId] = useState<string>('all')
   const [selectedCategory, setSelectedCategory] = useState<string>(
     searchParams.get('category') || 'all'
   )
@@ -134,10 +141,11 @@ export default function EvolutionPage() {
     [categories]
   )
 
-  // Transacciones válidas hasta el mes actual (sin meses futuros y sin pendientes no confirmados en meses pasados cerrados)
+  // Transacciones válidas hasta el mes actual (sin transferencias, sin financiación, sin meses futuros)
   const baseValidTransactions = useMemo(() => {
     return transactions.filter((t) => {
       if (isTransfer(t.category)) return false
+      if (isFinancingCategory(t.category, categories)) return false
       if (t.amount <= 0) return false
       const txMonth = t.date.slice(0, 7)
       // Ignorar meses futuros proyectados
@@ -149,7 +157,7 @@ export default function EvolutionPage() {
       if (selectedAccountId !== 'all' && t.accountId !== selectedAccountId) return false
       return true
     })
-  }, [transactions, currentMonthKey, selectedAccountId])
+  }, [transactions, categories, currentMonthKey, selectedAccountId])
 
   // Extract all valid transactions for current movementType
   const validTransactions = useMemo(() => {
@@ -192,6 +200,9 @@ export default function EvolutionPage() {
 
     if (movementType === 'income') {
       const catalogIncome = Object.keys(canonicalByNorm).filter((norm) => {
+        const kind = getCategoryKind(canonicalByNorm[norm], categories)
+        if (kind === 'financing') return false
+        if (kind === 'income') return true
         return (
           norm.includes('nómina') ||
           norm.includes('nomina') ||
@@ -204,10 +215,14 @@ export default function EvolutionPage() {
       })
 
       filteredNormKeys = Array.from(new Set([...Object.keys(totals), ...catalogIncome])).filter(
-        (norm) => !expenseCats.has(norm) || incomeCats.has(norm)
+        (norm) =>
+          getCategoryKind(canonicalByNorm[norm], categories) !== 'financing' &&
+          (!expenseCats.has(norm) || incomeCats.has(norm))
       )
     } else {
       const catalogExpense = Object.keys(canonicalByNorm).filter((norm) => {
+        const kind = getCategoryKind(canonicalByNorm[norm], categories)
+        if (kind === 'financing' || kind === 'income') return false
         const isIncomeName =
           norm.includes('nómina') ||
           norm.includes('nomina') ||
@@ -217,7 +232,9 @@ export default function EvolutionPage() {
       })
 
       filteredNormKeys = Array.from(new Set([...Object.keys(totals), ...catalogExpense])).filter(
-        (norm) => !incomeCats.has(norm) || expenseCats.has(norm)
+        (norm) =>
+          getCategoryKind(canonicalByNorm[norm], categories) !== 'financing' &&
+          (!incomeCats.has(norm) || expenseCats.has(norm))
       )
     }
 
@@ -231,6 +248,71 @@ export default function EvolutionPage() {
         return a.localeCompare(b)
       })
   }, [validTransactions, baseValidTransactions, categories, movementType, isBalance, resolveCanonicalCategory])
+
+  // Available parent groups for current movementType (sorted by total in validTransactions)
+  const availableGroups = useMemo(() => {
+    if (isBalance) return []
+    const groups = categories.filter((c) => {
+      if (!c.isGroup) return false
+      const k = c.kind || 'expense'
+      if (k === 'financing') return false
+      return movementType === 'income' ? k === 'income' : k === 'expense'
+    })
+
+    const groupTotals = new Map<string, number>()
+    validTransactions.forEach((t) => {
+      const catObj = categories.find(
+        (c) => !c.isGroup && normalizeCatKey(c.name) === normalizeCatKey(t.category)
+      )
+      if (catObj?.parentId) {
+        groupTotals.set(catObj.parentId, (groupTotals.get(catObj.parentId) || 0) + t.amount)
+      }
+    })
+
+    return [...groups].sort((a, b) => {
+      const ta = groupTotals.get(a.id) || 0
+      const tb = groupTotals.get(b.id) || 0
+      if (tb !== ta) return tb - ta
+      return a.name.localeCompare(b.name)
+    })
+  }, [categories, movementType, isBalance, validTransactions])
+
+  // Subcategories (excluding group headers) filtered by selectedGroupId
+  const filteredSubcategories = useMemo(() => {
+    const groupNorms = new Set(availableGroups.map((g) => normalizeCatKey(g.name)))
+    const leafCats = availableCategories.filter((name) => !groupNorms.has(normalizeCatKey(name)))
+    if (selectedGroupId === 'all') return leafCats
+    return leafCats.filter((name) => {
+      const catObj = categories.find(
+        (c) => !c.isGroup && normalizeCatKey(c.name) === normalizeCatKey(name)
+      )
+      return catObj?.parentId === selectedGroupId
+    })
+  }, [availableCategories, availableGroups, selectedGroupId, categories])
+
+  // Keep selectedGroupId synchronized when selectedCategory or movementType changes
+  useEffect(() => {
+    if (isBalance) {
+      if (selectedGroupId !== 'all') setSelectedGroupId('all')
+      return
+    }
+    if (selectedCategory === 'all') {
+      if (selectedGroupId !== 'all') setSelectedGroupId('all')
+      return
+    }
+    const selNorm = normalizeCatKey(selectedCategory)
+    const matchedGroup = availableGroups.find((g) => normalizeCatKey(g.name) === selNorm)
+    if (matchedGroup) {
+      if (selectedGroupId !== matchedGroup.id) setSelectedGroupId(matchedGroup.id)
+      return
+    }
+    const matchedCat = categories.find((c) => !c.isGroup && normalizeCatKey(c.name) === selNorm)
+    if (matchedCat?.parentId && availableGroups.some((g) => g.id === matchedCat.parentId)) {
+      if (selectedGroupId !== matchedCat.parentId) setSelectedGroupId(matchedCat.parentId)
+    } else if (selectedGroupId !== 'all') {
+      setSelectedGroupId('all')
+    }
+  }, [selectedCategory, movementType, isBalance, availableGroups, categories])
 
   // Si la categoría seleccionada no existe al cambiar de modo, volver siempre a 'all'
   useEffect(() => {
@@ -267,10 +349,23 @@ export default function EvolutionPage() {
 
     const selectedNorm = normalizeCatKey(selectedCategory)
 
-    // Filter by selected category (or all)
+    // Filter by selected category (or group or all)
+    const activeGroupObj = categories.find(
+      (c) => c.isGroup && normalizeCatKey(c.name) === selectedNorm
+    )
+    const groupChildNorms = activeGroupObj
+      ? new Set(
+          categories
+            .filter((c) => c.parentId === activeGroupObj.id)
+            .map((c) => normalizeCatKey(c.name))
+        )
+      : null
+
     const filtered = validTransactions.filter((t) => {
       if (isBalance || selectedCategory === 'all') return true
-      return normalizeCatKey(t.category) === selectedNorm
+      const txNorm = normalizeCatKey(t.category)
+      if (groupChildNorms) return groupChildNorms.has(txNorm)
+      return txNorm === selectedNorm
     })
 
     // Group transactions by monthKey "yyyy-MM"
@@ -324,6 +419,32 @@ export default function EvolutionPage() {
       const expenseAmount = Number(expenseTxs.reduce((sum, t) => sum + t.amount, 0).toFixed(2))
       const netAmount = Number((incomeAmount - expenseAmount).toFixed(2))
 
+      const natureBreakdown = {
+        essential: 0,
+        discretionary: 0,
+        debt: 0,
+        extraordinary: 0,
+        unclassified: 0,
+      }
+      expenseTxs.forEach((t) => {
+        const nature = getCategoryNature(t.category, categories)
+        if (nature === 'essential') natureBreakdown.essential += t.amount
+        else if (nature === 'discretionary') natureBreakdown.discretionary += t.amount
+        else if (nature === 'debt') natureBreakdown.debt += t.amount
+        else if (nature === 'extraordinary') natureBreakdown.extraordinary += t.amount
+        else natureBreakdown.unclassified += t.amount
+      })
+      natureBreakdown.essential = Number(natureBreakdown.essential.toFixed(2))
+      natureBreakdown.discretionary = Number(natureBreakdown.discretionary.toFixed(2))
+      natureBreakdown.debt = Number(natureBreakdown.debt.toFixed(2))
+      natureBreakdown.extraordinary = Number(natureBreakdown.extraordinary.toFixed(2))
+      natureBreakdown.unclassified = Number(natureBreakdown.unclassified.toFixed(2))
+
+      const structuralExpense = Number((expenseAmount - natureBreakdown.extraordinary).toFixed(2))
+      const structuralNetAmount = Number((incomeAmount - structuralExpense).toFixed(2))
+      const structuralSavingsRate =
+        incomeAmount > 0 ? Number(((structuralNetAmount / incomeAmount) * 100).toFixed(1)) : null
+
       const realAmount = isBalance
         ? Number(
             (
@@ -355,6 +476,9 @@ export default function EvolutionPage() {
         incomeAmount,
         expenseAmount,
         netAmount,
+        structuralNetAmount,
+        structuralSavingsRate,
+        natureBreakdown,
         transactions: txs,
         realTxs,
         pendingTxs,
@@ -672,6 +796,9 @@ export default function EvolutionPage() {
         netAmount: current.netAmount,
         prevNetAmount: previous.netAmount,
         savingsRate,
+        structuralNetAmount: current.structuralNetAmount,
+        structuralSavingsRate: current.structuralSavingsRate,
+        natureBreakdown: current.natureBreakdown,
         txCount: current.txCount,
         realTxCount: current.realTxCount,
         pendingTxCount: current.pendingTxCount,
@@ -802,6 +929,135 @@ export default function EvolutionPage() {
       totalTransactions,
     }
   }, [evolutionData])
+
+  // Pulso de Hábitos (Últimos 3 meses vs. 3 meses anteriores) para modo Balance
+  const habitPulse = useMemo(() => {
+    if (!isBalance || baseValidTransactions.length === 0) return null
+
+    const now = new Date()
+    const currentMonthDate = startOfMonth(now)
+    const months6 = eachMonthOfInterval({
+      start: subMonths(currentMonthDate, 5),
+      end: currentMonthDate,
+    }).map((d) => ({
+      key: format(d, 'yyyy-MM'),
+      label: format(d, 'MMM', { locale: es }),
+    }))
+
+    const aggregateWindow = (monthKeys: string[]) => {
+      let activeMonths = 0
+      let totalIncome = 0
+      let totalExpense = 0
+      let totalDiscretionary = 0
+      let totalDebt = 0
+      let totalExtraordinary = 0
+
+      for (const mk of monthKeys) {
+        const mTxs = baseValidTransactions.filter((t) => t.date.startsWith(mk))
+        if (mTxs.length === 0) continue
+        activeMonths++
+        for (const t of mTxs) {
+          if (t.type === 'income') {
+            totalIncome += t.amount
+          } else {
+            totalExpense += t.amount
+            const nature = getCategoryNature(t.category, categories)
+            if (nature === 'discretionary') totalDiscretionary += t.amount
+            else if (nature === 'debt') totalDebt += t.amount
+            else if (nature === 'extraordinary') totalExtraordinary += t.amount
+          }
+        }
+      }
+
+      const denom = activeMonths || 1
+      const totalStructuralExpense = totalExpense - totalExtraordinary
+      const totalStructuralNet = totalIncome - totalStructuralExpense
+      const avgStructuralNet = Number((totalStructuralNet / denom).toFixed(2))
+      const avgDiscretionary = Number((totalDiscretionary / denom).toFixed(2))
+      const avgDebt = Number((totalDebt / denom).toFixed(2))
+      const discretionaryPct =
+        totalIncome > 0 ? Number(((totalDiscretionary / totalIncome) * 100).toFixed(1)) : 0
+      const debtPct =
+        totalIncome > 0 ? Number(((totalDebt / totalIncome) * 100).toFixed(1)) : 0
+      const structuralSavingsRate =
+        totalIncome > 0 ? Number(((totalStructuralNet / totalIncome) * 100).toFixed(1)) : 0
+
+      return {
+        activeMonths,
+        avgStructuralNet,
+        avgDiscretionary,
+        avgDebt,
+        discretionaryPct,
+        debtPct,
+        structuralSavingsRate,
+      }
+    }
+
+    const prevKeys = months6.slice(0, 3).map((m) => m.key)
+    const recentKeys = months6.slice(3, 6).map((m) => m.key)
+    const prev = aggregateWindow(prevKeys)
+    const recent = aggregateWindow(recentKeys)
+
+    if (recent.activeMonths === 0 || prev.activeMonths === 0) return null
+
+    // Comprobar si hubo nueva financiación/préstamo en los últimos 3 meses
+    const recentKeySet = new Set(recentKeys)
+    const hasNewDebtRecent = transactions.some(
+      (t) =>
+        !t.isPending &&
+        !t.isIgnored &&
+        t.type === 'income' &&
+        recentKeySet.has(t.date.slice(0, 7)) &&
+        isFinancingCategory(t.category, categories) &&
+        (selectedAccountId === 'all' || t.accountId === selectedAccountId)
+    )
+
+    const netDelta = Number((recent.avgStructuralNet - prev.avgStructuralNet).toFixed(2))
+    const discPctDelta = Number((recent.discretionaryPct - prev.discretionaryPct).toFixed(1))
+
+    let status: 'improving' | 'stable' | 'attention' = 'stable'
+    let title = 'En transición / Estable'
+    let explanation = ''
+
+    if (recent.avgStructuralNet > 0 && netDelta >= 50 && !hasNewDebtRecent) {
+      status = 'improving'
+      title = 'Vas por buen camino (En mejora)'
+      explanation = `Tu ahorro estructural medio subió +${formatCurrency(netDelta)}/mes frente al trimestre anterior${
+        discPctDelta < 0
+          ? ` y redujiste tu gasto en estilo de vida en ${Math.abs(discPctDelta)} puntos sobre tus ingresos.`
+          : ' sin recurrir a nueva deuda.'
+      }`
+    } else if (
+      recent.avgStructuralNet < 0 ||
+      hasNewDebtRecent ||
+      (netDelta <= -100 && discPctDelta > 2)
+    ) {
+      status = 'attention'
+      title = 'Atención: margen ajustado'
+      explanation = hasNewDebtRecent
+        ? 'Se registró nueva financiación en los últimos 3 meses. Conviene vigilar el bloque de Estilo de vida para volver a ahorrar sin crédito.'
+        : recent.avgStructuralNet < 0
+          ? `En los últimos 3 meses tu balance estructural medio es negativo (${formatCurrency(recent.avgStructuralNet)}/mes). Revisa el bloque de Estilo de vida (${recent.discretionaryPct}% de tus ingresos).`
+          : `Tu ahorro estructural bajó ${formatCurrency(Math.abs(netDelta))}/mes mientras subió el peso del Estilo de vida (+${discPctDelta} pts).`
+    } else {
+      status = 'stable'
+      title = recent.avgStructuralNet >= 0 ? 'Economía estable y positiva' : 'En transición'
+      explanation = `Mantienes un ahorro estructural medio de ${recent.avgStructuralNet >= 0 ? '+' : ''}${formatCurrency(recent.avgStructuralNet)}/mes (${recent.structuralSavingsRate}% de tus ingresos) con un ${recent.discretionaryPct}% en Estilo de vida.`
+    }
+
+    return {
+      status,
+      title,
+      explanation,
+      prevLabel: `${months6[0].label}–${months6[2].label}`,
+      recentLabel: `${months6[3].label}–${months6[5].label}`,
+      prev,
+      recent,
+      netDelta,
+      discPctDelta,
+      hasNewDebtRecent,
+    }
+  }, [isBalance, baseValidTransactions, transactions, categories, selectedAccountId])
 
   // Helper for category icon
   const renderCategoryIcon = (catName: string, sizeClass = 'w-5 h-5') => {
@@ -1130,72 +1386,249 @@ export default function EvolutionPage() {
       <Card className="border border-border/40 shadow-sm bg-card/60 backdrop-blur-sm rounded-2xl">
         <CardContent className="p-4 sm:p-5 space-y-4">
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-12 gap-4 items-center">
-            {/* Category selector (hidden or disabled in Balance mode) */}
-            {!isBalance && (
-              <div className="lg:col-span-8 space-y-1.5">
-                <label className="text-xs font-semibold text-muted-foreground flex items-center gap-1.5">
-                  <Tag className="w-3.5 h-3.5" />
-                  Categoría de {isExpense ? 'Gasto' : 'Ingreso'} a analizar
-                </label>
-                <Select value={selectedCategory} onValueChange={setSelectedCategory}>
-                  <SelectTrigger className="w-full h-11 rounded-xl bg-background border-border/60 text-sm font-semibold">
-                    <div className="flex items-center gap-2 truncate">
-                      {selectedCategory && (
-                        <div
-                          className="w-6 h-6 rounded-lg flex items-center justify-center text-white shrink-0 shadow-xs"
-                          style={{
-                            backgroundColor: selectedCategory === 'all' ? '#64748b' : activeColor,
-                          }}
-                        >
-                          {renderCategoryIcon(selectedCategory, 'w-3.5 h-3.5')}
-                        </div>
-                      )}
-                      <span className="capitalize truncate">
-                        {selectedCategory === 'all'
-                          ? `Todas las Categorías (${isExpense ? 'Gasto Total' : 'Ingreso Total'})`
-                          : selectedCategory || 'Seleccionar Categoría'}
-                      </span>
-                    </div>
-                  </SelectTrigger>
-                  <SelectContent className="max-h-72">
-                    <SelectItem value="all" className="font-bold py-2.5">
-                      <div className="flex items-center gap-2">
-                        <div className="w-6 h-6 rounded-lg bg-slate-500 text-white flex items-center justify-center">
-                          <Layers className="w-3.5 h-3.5" />
-                        </div>
-                        <span>
-                          Todas las Categorías ({isExpense ? 'Gasto Total' : 'Ingreso Total'})
-                        </span>
+            {/* Cascading Group -> Subcategory selectors (hidden in Balance mode) */}
+            {!isBalance && availableGroups.length > 0 ? (
+              <>
+                {/* Select 1: Grupo */}
+                <div className="lg:col-span-4 space-y-1.5">
+                  <label className="text-xs font-semibold text-muted-foreground flex items-center gap-1.5">
+                    <Layers className="w-3.5 h-3.5" />
+                    Grupo
+                  </label>
+                  <Select
+                    value={selectedGroupId}
+                    onValueChange={(val) => {
+                      setSelectedGroupId(val)
+                      if (val === 'all') {
+                        setSelectedCategory('all')
+                      } else {
+                        const grp = availableGroups.find((g) => g.id === val)
+                        if (grp) setSelectedCategory(grp.name)
+                      }
+                    }}
+                  >
+                    <SelectTrigger className="w-full h-11 rounded-xl bg-background border-border/60 text-sm font-semibold">
+                      <div className="flex items-center gap-2 truncate">
+                        {(() => {
+                          const activeGrp = availableGroups.find((g) => g.id === selectedGroupId)
+                          return (
+                            <>
+                              <div
+                                className="w-6 h-6 rounded-lg flex items-center justify-center text-white shrink-0 shadow-xs"
+                                style={{ backgroundColor: activeGrp?.color || '#64748b' }}
+                              >
+                                {activeGrp ? (
+                                  renderCategoryIcon(activeGrp.name, 'w-3.5 h-3.5')
+                                ) : (
+                                  <Layers className="w-3.5 h-3.5" />
+                                )}
+                              </div>
+                              <span className="truncate">
+                                {activeGrp ? activeGrp.name : 'Todos los grupos'}
+                              </span>
+                            </>
+                          )
+                        })()}
                       </div>
-                    </SelectItem>
-                    {availableCategories.map((catName) => {
-                      const catObj = categories.find(
-                        (c: any) =>
-                          normalizeCatKey(typeof c === 'string' ? c : c.name) ===
-                          normalizeCatKey(catName)
-                      )
-                      const color = catObj?.color || defaultTypeColor
-                      return (
-                        <SelectItem
-                          key={catName}
-                          value={catName}
-                          className="py-2 capitalize font-medium"
-                        >
+                    </SelectTrigger>
+                    <SelectContent className="max-h-72">
+                      <SelectItem value="all" className="font-bold py-2.5">
+                        <div className="flex items-center gap-2">
+                          <div className="w-6 h-6 rounded-lg bg-slate-500 text-white flex items-center justify-center">
+                            <Layers className="w-3.5 h-3.5" />
+                          </div>
+                          <span>Todos los grupos</span>
+                        </div>
+                      </SelectItem>
+                      {availableGroups.map((grp) => (
+                        <SelectItem key={grp.id} value={grp.id} className="py-2 font-medium">
                           <div className="flex items-center gap-2.5">
                             <div
-                              className="w-5 h-5 rounded-md flex items-center justify-center text-white text-[10px]"
-                              style={{ backgroundColor: color }}
+                              className="w-5 h-5 rounded-md flex items-center justify-center text-white"
+                              style={{ backgroundColor: grp.color || defaultTypeColor }}
                             >
-                              {renderCategoryIcon(catName, 'w-3 h-3')}
+                              {renderCategoryIcon(grp.name, 'w-3 h-3')}
                             </div>
-                            <span>{catName}</span>
+                            <span>{grp.name}</span>
                           </div>
                         </SelectItem>
-                      )
-                    })}
-                  </SelectContent>
-                </Select>
-              </div>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+
+                {/* Select 2: Subcategoría */}
+                <div className="lg:col-span-4 space-y-1.5">
+                  <label className="text-xs font-semibold text-muted-foreground flex items-center gap-1.5">
+                    <Tag className="w-3.5 h-3.5" />
+                    Subcategoría
+                  </label>
+                  {(() => {
+                    const activeGrp = availableGroups.find((g) => g.id === selectedGroupId)
+                    const isWholeGroupSelected =
+                      Boolean(activeGrp) &&
+                      normalizeCatKey(selectedCategory) === normalizeCatKey(activeGrp!.name)
+                    const subSelectValue =
+                      selectedGroupId !== 'all' && isWholeGroupSelected
+                        ? '__group_all__'
+                        : selectedCategory
+
+                    return (
+                      <Select
+                        value={subSelectValue}
+                        onValueChange={(val) => {
+                          if (val === '__group_all__' && activeGrp) {
+                            setSelectedCategory(activeGrp.name)
+                          } else {
+                            setSelectedCategory(val)
+                          }
+                        }}
+                      >
+                        <SelectTrigger className="w-full h-11 rounded-xl bg-background border-border/60 text-sm font-semibold">
+                          <div className="flex items-center gap-2 truncate">
+                            <div
+                              className="w-6 h-6 rounded-lg flex items-center justify-center text-white shrink-0 shadow-xs"
+                              style={{
+                                backgroundColor:
+                                  selectedCategory === 'all' ? '#64748b' : activeColor,
+                              }}
+                            >
+                              {renderCategoryIcon(selectedCategory, 'w-3.5 h-3.5')}
+                            </div>
+                            <span className="capitalize truncate">
+                              {selectedCategory === 'all'
+                                ? `Todas (${isExpense ? 'Gasto Total' : 'Ingreso Total'})`
+                                : isWholeGroupSelected && activeGrp
+                                  ? `Todo ${activeGrp.name}`
+                                  : selectedCategory}
+                            </span>
+                          </div>
+                        </SelectTrigger>
+                        <SelectContent className="max-h-72">
+                          {selectedGroupId === 'all' ? (
+                            <SelectItem value="all" className="font-bold py-2.5">
+                              <div className="flex items-center gap-2">
+                                <div className="w-6 h-6 rounded-lg bg-slate-500 text-white flex items-center justify-center">
+                                  <Layers className="w-3.5 h-3.5" />
+                                </div>
+                                <span>
+                                  Todas ({isExpense ? 'Gasto Total' : 'Ingreso Total'})
+                                </span>
+                              </div>
+                            </SelectItem>
+                          ) : (
+                            activeGrp && (
+                              <SelectItem value="__group_all__" className="font-bold py-2.5">
+                                <div className="flex items-center gap-2">
+                                  <div
+                                    className="w-6 h-6 rounded-lg text-white flex items-center justify-center"
+                                    style={{ backgroundColor: activeGrp.color || defaultTypeColor }}
+                                  >
+                                    {renderCategoryIcon(activeGrp.name, 'w-3.5 h-3.5')}
+                                  </div>
+                                  <span>Todo el grupo ({activeGrp.name})</span>
+                                </div>
+                              </SelectItem>
+                            )
+                          )}
+                          {filteredSubcategories.map((catName) => {
+                            const catObj = categories.find(
+                              (c: any) =>
+                                normalizeCatKey(typeof c === 'string' ? c : c.name) ===
+                                normalizeCatKey(catName)
+                            )
+                            const color = catObj?.color || defaultTypeColor
+                            return (
+                              <SelectItem
+                                key={catName}
+                                value={catName}
+                                className="py-2 capitalize font-medium"
+                              >
+                                <div className="flex items-center gap-2.5">
+                                  <div
+                                    className="w-5 h-5 rounded-md flex items-center justify-center text-white text-[10px]"
+                                    style={{ backgroundColor: color }}
+                                  >
+                                    {renderCategoryIcon(catName, 'w-3 h-3')}
+                                  </div>
+                                  <span>{catName}</span>
+                                </div>
+                              </SelectItem>
+                            )
+                          })}
+                        </SelectContent>
+                      </Select>
+                    )
+                  })()}
+                </div>
+              </>
+            ) : (
+              !isBalance && (
+                <div className="lg:col-span-8 space-y-1.5">
+                  <label className="text-xs font-semibold text-muted-foreground flex items-center gap-1.5">
+                    <Tag className="w-3.5 h-3.5" />
+                    Categoría de {isExpense ? 'Gasto' : 'Ingreso'} a analizar
+                  </label>
+                  <Select value={selectedCategory} onValueChange={setSelectedCategory}>
+                    <SelectTrigger className="w-full h-11 rounded-xl bg-background border-border/60 text-sm font-semibold">
+                      <div className="flex items-center gap-2 truncate">
+                        {selectedCategory && (
+                          <div
+                            className="w-6 h-6 rounded-lg flex items-center justify-center text-white shrink-0 shadow-xs"
+                            style={{
+                              backgroundColor: selectedCategory === 'all' ? '#64748b' : activeColor,
+                            }}
+                          >
+                            {renderCategoryIcon(selectedCategory, 'w-3.5 h-3.5')}
+                          </div>
+                        )}
+                        <span className="capitalize truncate">
+                          {selectedCategory === 'all'
+                            ? `Todas las Categorías (${isExpense ? 'Gasto Total' : 'Ingreso Total'})`
+                            : selectedCategory || 'Seleccionar Categoría'}
+                        </span>
+                      </div>
+                    </SelectTrigger>
+                    <SelectContent className="max-h-72">
+                      <SelectItem value="all" className="font-bold py-2.5">
+                        <div className="flex items-center gap-2">
+                          <div className="w-6 h-6 rounded-lg bg-slate-500 text-white flex items-center justify-center">
+                            <Layers className="w-3.5 h-3.5" />
+                          </div>
+                          <span>
+                            Todas las Categorías ({isExpense ? 'Gasto Total' : 'Ingreso Total'})
+                          </span>
+                        </div>
+                      </SelectItem>
+                      {availableCategories.map((catName) => {
+                        const catObj = categories.find(
+                          (c: any) =>
+                            normalizeCatKey(typeof c === 'string' ? c : c.name) ===
+                            normalizeCatKey(catName)
+                        )
+                        const color = catObj?.color || defaultTypeColor
+                        return (
+                          <SelectItem
+                            key={catName}
+                            value={catName}
+                            className="py-2 capitalize font-medium"
+                          >
+                            <div className="flex items-center gap-2.5">
+                              <div
+                                className="w-5 h-5 rounded-md flex items-center justify-center text-white text-[10px]"
+                                style={{ backgroundColor: color }}
+                              >
+                                {renderCategoryIcon(catName, 'w-3 h-3')}
+                              </div>
+                              <span>{catName}</span>
+                            </div>
+                          </SelectItem>
+                        )
+                      })}
+                    </SelectContent>
+                  </Select>
+                </div>
+              )
             )}
 
             {/* Account filter */}
@@ -1288,6 +1721,124 @@ export default function EvolutionPage() {
           )}
         </CardContent>
       </Card>
+
+      {/* Pulso de Hábitos (Últimos 3 meses vs. 3 anteriores) — Solo modo Balance */}
+      {isBalance && habitPulse && (
+        <Card
+          className={cn(
+            'rounded-2xl border shadow-xs overflow-hidden',
+            habitPulse.status === 'improving'
+              ? 'bg-emerald-500/5 border-emerald-500/30'
+              : habitPulse.status === 'attention'
+                ? 'bg-rose-500/5 border-rose-500/30'
+                : 'bg-blue-500/5 border-blue-500/30'
+          )}
+        >
+          <CardContent className="p-4 sm:p-5 space-y-4">
+            <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-3">
+              <div className="space-y-1">
+                <div className="flex items-center gap-2 flex-wrap">
+                  <Badge
+                    className={cn(
+                      'text-[11px] font-extrabold uppercase tracking-wider',
+                      habitPulse.status === 'improving'
+                        ? 'bg-emerald-600 text-white hover:bg-emerald-600'
+                        : habitPulse.status === 'attention'
+                          ? 'bg-rose-600 text-white hover:bg-rose-600'
+                          : 'bg-blue-600 text-white hover:bg-blue-600'
+                    )}
+                  >
+                    Pulso de Hábitos
+                  </Badge>
+                  <span className="text-xs font-semibold text-muted-foreground capitalize">
+                    {habitPulse.prevLabel} vs. {habitPulse.recentLabel}
+                  </span>
+                </div>
+                <h2 className="text-base sm:text-lg font-black text-foreground">
+                  {habitPulse.title}
+                </h2>
+                <p className="text-xs sm:text-sm text-muted-foreground leading-relaxed">
+                  {habitPulse.explanation}
+                </p>
+              </div>
+            </div>
+
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+              {/* 1. Ahorro estructural medio */}
+              <div className="p-3 rounded-xl bg-background/80 border border-border/50 space-y-1">
+                <span className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground block">
+                  Ahorro estructural / mes
+                </span>
+                <div className="flex items-baseline justify-between gap-2">
+                  <span
+                    className={cn(
+                      'text-lg font-black',
+                      habitPulse.recent.avgStructuralNet >= 0
+                        ? 'text-emerald-600 dark:text-emerald-400'
+                        : 'text-rose-600 dark:text-rose-400'
+                    )}
+                  >
+                    {habitPulse.recent.avgStructuralNet > 0 ? '+' : ''}
+                    {formatCurrency(habitPulse.recent.avgStructuralNet)}
+                  </span>
+                  <span className="text-[11px] font-bold text-muted-foreground">
+                    ({habitPulse.recent.structuralSavingsRate}%)
+                  </span>
+                </div>
+                <p className="text-[11px] text-muted-foreground">
+                  Antes: {habitPulse.prev.avgStructuralNet > 0 ? '+' : ''}
+                  {formatCurrency(habitPulse.prev.avgStructuralNet)}/mes
+                </p>
+              </div>
+
+              {/* 2. Estilo de vida (Hábitos) */}
+              <div className="p-3 rounded-xl bg-background/80 border border-border/50 space-y-1">
+                <span className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground block">
+                  Hábitos (Estilo de vida / mes)
+                </span>
+                <div className="flex items-baseline justify-between gap-2">
+                  <span className="text-lg font-black text-amber-600 dark:text-amber-400">
+                    {formatCurrency(habitPulse.recent.avgDiscretionary)}
+                  </span>
+                  <span
+                    className={cn(
+                      'text-[11px] font-bold',
+                      habitPulse.discPctDelta <= 0
+                        ? 'text-emerald-600 dark:text-emerald-400'
+                        : 'text-rose-600 dark:text-rose-400'
+                    )}
+                  >
+                    {habitPulse.recent.discretionaryPct}% ing.
+                  </span>
+                </div>
+                <p className="text-[11px] text-muted-foreground">
+                  Antes: {formatCurrency(habitPulse.prev.avgDiscretionary)}/mes ({habitPulse.prev.discretionaryPct}%)
+                </p>
+              </div>
+
+              {/* 3. Carga de Deuda */}
+              <div className="p-3 rounded-xl bg-background/80 border border-border/50 space-y-1">
+                <span className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground block">
+                  Carga de Deuda / mes
+                </span>
+                <div className="flex items-baseline justify-between gap-2">
+                  <span className="text-lg font-black text-rose-600 dark:text-rose-400">
+                    {formatCurrency(habitPulse.recent.avgDebt)}
+                  </span>
+                  <span className="text-[11px] font-bold text-muted-foreground">
+                    {habitPulse.recent.debtPct}% ing.
+                  </span>
+                </div>
+                <p className="text-[11px] text-muted-foreground">
+                  {habitPulse.hasNewDebtRecent
+                    ? 'Con nueva financiación reciente'
+                    : 'Sin nueva deuda en los últimos 3m'}
+                </p>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+      )}
 
       {/* KPI Cards Grid */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">

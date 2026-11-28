@@ -49,6 +49,15 @@ export interface MonthEvolutionData {
   netAmount?: number
   prevNetAmount?: number | null
   savingsRate?: number | null
+  structuralNetAmount?: number
+  structuralSavingsRate?: number | null
+  natureBreakdown?: {
+    essential: number
+    discretionary: number
+    debt: number
+    extraordinary: number
+    unclassified: number
+  }
   txCount: number
   realTxCount: number
   pendingTxCount: number
@@ -215,9 +224,66 @@ export function EvolutionMonthDiagnosis({
               {(data.netAmount || 0) > 0 ? '+' : ''}
               {formatCurrency(data.netAmount || 0)}
             </span>
+            {(data.natureBreakdown?.extraordinary ?? 0) > 0 && data.structuralNetAmount !== undefined && (
+              <span className="text-[10px] text-muted-foreground block">
+                Ahorro estructural:{' '}
+                <strong className={data.structuralNetAmount >= 0 ? 'text-emerald-600 dark:text-emerald-400' : 'text-rose-600 dark:text-rose-400'}>
+                  {data.structuralNetAmount > 0 ? '+' : ''}
+                  {formatCurrency(data.structuralNetAmount)}
+                  {data.structuralSavingsRate !== null && data.structuralSavingsRate !== undefined
+                    ? ` (${data.structuralSavingsRate}%)`
+                    : ''}
+                </strong>
+              </span>
+            )}
           </div>
         </div>
       )}
+
+      {/* 1C. Desglose por Naturaleza Contable (en modo Balance o Gastos Todas las categorías) */}
+      {(isBalance || (isExpense && isAllCategories)) && data.natureBreakdown && (() => {
+        const nb = data.natureBreakdown
+        const classified = nb.essential + nb.discretionary + nb.debt + nb.extraordinary
+        if (classified <= 0) return null
+        const totalExp = (isBalance ? data.expenseAmount : data.amount) || classified
+        const blocks = [
+          { label: 'Esencial', amount: nb.essential, barClass: 'bg-blue-500', textClass: 'text-blue-600 dark:text-blue-400' },
+          { label: 'Estilo de vida', amount: nb.discretionary, barClass: 'bg-amber-500', textClass: 'text-amber-600 dark:text-amber-400' },
+          { label: 'Deuda', amount: nb.debt, barClass: 'bg-rose-500', textClass: 'text-rose-600 dark:text-rose-400' },
+          { label: 'Extraordinarios', amount: nb.extraordinary, barClass: 'bg-purple-500', textClass: 'text-purple-600 dark:text-purple-400' },
+        ].filter((b) => b.amount > 0)
+
+        return (
+          <div className="p-3.5 rounded-2xl bg-card/60 border border-border/50 space-y-2">
+            <div className="flex items-center justify-between text-[10px] font-bold uppercase tracking-wider text-muted-foreground">
+              <span>Composición del gasto por naturaleza</span>
+              <span>{formatCurrency(totalExp)}</span>
+            </div>
+            <div className="w-full h-2 rounded-full bg-muted overflow-hidden flex">
+              {blocks.map((b) => (
+                <div
+                  key={b.label}
+                  className={cn('h-full', b.barClass)}
+                  style={{ width: `${Math.max(2, (b.amount / totalExp) * 100)}%` }}
+                />
+              ))}
+            </div>
+            <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 pt-0.5">
+              {blocks.map((b) => (
+                <div key={b.label} className="space-y-0.5">
+                  <span className="text-[10px] font-semibold text-muted-foreground flex items-center gap-1">
+                    <span className={cn('w-2 h-2 rounded-full', b.barClass)} />
+                    {b.label} ({Math.round((b.amount / totalExp) * 100)}%)
+                  </span>
+                  <span className={cn('text-xs font-black block', b.textClass)}>
+                    {formatCurrency(b.amount)}
+                  </span>
+                </div>
+              ))}
+            </div>
+          </div>
+        )
+      })()}
 
       {/* 2. Banner informativo para el Mes en Curso (Doble comparativa: a día de hoy + cierre previsto) */}
       {data.isCurrentMonth && !isBalance && (

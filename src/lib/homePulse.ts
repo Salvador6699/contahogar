@@ -14,6 +14,8 @@ import {
   RecurringExpenseRule,
   SavingsGoal,
   Transaction,
+  getCategoryNature,
+  isFinancingCategory,
 } from '@/types/finance'
 import {
   calculatePendingImpact,
@@ -28,6 +30,14 @@ export interface DiagnosisCategoryDiff {
   prevAmount: number
   diff: number
   percentageDiff: number | null
+}
+
+export interface NatureBreakdown {
+  essential: number
+  discretionary: number
+  debt: number
+  extraordinary: number
+  unclassified: number
 }
 
 export interface HomeDiagnosisResult {
@@ -48,6 +58,8 @@ export interface HomeDiagnosisResult {
   pendingIncomeAmount: number
   curMonthIncome: number
   expectedNetBalance: number
+  structuralNetBalance: number
+  natureBreakdown: NatureBreakdown
   mtdCurAmount: number
   mtdPrevAmount: number
   mtdDiff: number
@@ -126,6 +138,7 @@ export function computeHomeDiagnosis(
 
   const validTxs = transactions.filter((t) => {
     if (isTransfer(t.category)) return false
+    if (isFinancingCategory(t.category, categories)) return false
     if (t.amount <= 0) return false
     if (t.isPending && t.isIgnored) return false
     return true
@@ -171,6 +184,30 @@ export function computeHomeDiagnosis(
   }
 
   const expectedNetBalance = Number((curMonthIncome - expectedTotal).toFixed(2))
+
+  const natureBreakdown: NatureBreakdown = {
+    essential: 0,
+    discretionary: 0,
+    debt: 0,
+    extraordinary: 0,
+    unclassified: 0,
+  }
+  curMonthTxs.forEach((t) => {
+    const nature = getCategoryNature(t.category, categories)
+    if (nature === 'essential') natureBreakdown.essential += t.amount
+    else if (nature === 'discretionary') natureBreakdown.discretionary += t.amount
+    else if (nature === 'debt') natureBreakdown.debt += t.amount
+    else if (nature === 'extraordinary') natureBreakdown.extraordinary += t.amount
+    else natureBreakdown.unclassified += t.amount
+  })
+  natureBreakdown.essential = Number(natureBreakdown.essential.toFixed(2))
+  natureBreakdown.discretionary = Number(natureBreakdown.discretionary.toFixed(2))
+  natureBreakdown.debt = Number(natureBreakdown.debt.toFixed(2))
+  natureBreakdown.extraordinary = Number(natureBreakdown.extraordinary.toFixed(2))
+  natureBreakdown.unclassified = Number(natureBreakdown.unclassified.toFixed(2))
+
+  const structuralExpense = Number((expectedTotal - natureBreakdown.extraordinary).toFixed(2))
+  const structuralNetBalance = Number((curMonthIncome - structuralExpense).toFixed(2))
 
   const mtdPrevTxs = prevMonthTxs.filter((t) => getDate(parseISO(t.date)) <= targetPrevDay)
   const mtdCurAmount = realAmount
@@ -286,6 +323,8 @@ export function computeHomeDiagnosis(
     pendingIncomeAmount,
     curMonthIncome,
     expectedNetBalance,
+    structuralNetBalance,
+    natureBreakdown,
     mtdCurAmount,
     mtdPrevAmount,
     mtdDiff,

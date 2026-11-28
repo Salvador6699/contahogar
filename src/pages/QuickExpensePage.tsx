@@ -35,6 +35,8 @@ import {
 } from "@/lib/calculations";
 import { cn, parseAmount, withKeyboardClose } from "@/lib/utils";
 import { appToast as toast, swalConfirm } from "@/lib/swal";
+import { SmartTagInput } from "@/components/SmartTagInput";
+import { computeTagStats, formatTagDisplay, normalizeTagKey } from "@/lib/tags";
 
 const LAST_ACCOUNT_KEY = "contahogar_quick_last_account";
 const LAST_CATEGORY_KEY = "contahogar_quick_last_category";
@@ -71,7 +73,9 @@ const QuickExpensePage = () => {
       return "";
     }
   });
+  const [tags, setTags] = useState<string[]>([]);
   const [note, setNote] = useState("");
+  const tagCatalog = useMemo(() => computeTagStats(transactions), [transactions]);
   const [date, setDate] = useState(todayStr);
   const [showCustomDate, setShowCustomDate] = useState(false);
   const [isFutureExpense, setIsFutureExpense] = useState(false);
@@ -114,32 +118,43 @@ const QuickExpensePage = () => {
     }
   }, []);
 
+  const activeExpenseCategories = useMemo(
+    () =>
+      categories.filter(
+        (c) =>
+          !c.isGroup &&
+          !c.isArchived &&
+          (!c.kind || c.kind === "expense")
+      ),
+    [categories]
+  );
+
   // Initialize visible categories on first visit with up to 3 common ones
   useEffect(() => {
-    if (isCatLoading || categories.length === 0) return;
+    if (isCatLoading || activeExpenseCategories.length === 0) return;
     if (visibleCategoryIds !== null) return;
 
     const priorityKeywords = ["super", "aliment", "compra", "restaur", "casa"];
-    const prioritized = categories.filter((c) =>
+    const prioritized = activeExpenseCategories.filter((c) =>
       priorityKeywords.some((kw) => c.name.toLowerCase().includes(kw))
     );
-    const initial = (prioritized.length > 0 ? prioritized : categories)
+    const initial = (prioritized.length > 0 ? prioritized : activeExpenseCategories)
       .slice(0, 3)
       .map((c) => c.id);
     persistVisibleCategoryIds(initial);
-  }, [categories, isCatLoading, visibleCategoryIds, persistVisibleCategoryIds]);
+  }, [activeExpenseCategories, isCatLoading, visibleCategoryIds, persistVisibleCategoryIds]);
 
   const visibleCategories = useMemo(() => {
     if (visibleCategoryIds === null) return [];
     const idSet = new Set(visibleCategoryIds);
-    return categories.filter((c) => idSet.has(c.id));
-  }, [categories, visibleCategoryIds]);
+    return activeExpenseCategories.filter((c) => idSet.has(c.id));
+  }, [activeExpenseCategories, visibleCategoryIds]);
 
   const hiddenCategories = useMemo(() => {
-    if (visibleCategoryIds === null) return categories;
+    if (visibleCategoryIds === null) return activeExpenseCategories;
     const idSet = new Set(visibleCategoryIds);
-    return categories.filter((c) => !idSet.has(c.id));
-  }, [categories, visibleCategoryIds]);
+    return activeExpenseCategories.filter((c) => !idSet.has(c.id));
+  }, [activeExpenseCategories, visibleCategoryIds]);
 
   // Default account if none saved or saved one was deleted
   useEffect(() => {
@@ -283,13 +298,30 @@ const QuickExpensePage = () => {
 
     setIsSaving(true);
     try {
+      const finalTagsMap = new Map<string, string>();
+      for (const t of tags) {
+        const clean = formatTagDisplay(t);
+        const norm = normalizeTagKey(clean);
+        if (norm && !finalTagsMap.has(norm)) finalTagsMap.set(norm, clean);
+      }
+      if (note.trim()) {
+        for (const part of note.split(",")) {
+          const clean = formatTagDisplay(part);
+          const norm = normalizeTagKey(clean);
+          if (norm && !finalTagsMap.has(norm)) finalTagsMap.set(norm, clean);
+        }
+      }
+      const finalTags = Array.from(finalTagsMap.values());
+      const finalDesc = finalTags.join(", ");
+
       await addTransaction({
         type: "expense",
         amount: parsedAmount,
         accountId: selectedAccountId,
         category: selectedCategory,
         date,
-        description: note.trim() || undefined,
+        tags: finalTags,
+        description: finalDesc || undefined,
         isPending: isFutureExpense,
       });
 
@@ -300,6 +332,7 @@ const QuickExpensePage = () => {
       setLastSavedBanner(summaryText);
       toast.success("Gasto guardado", summaryText);
       setAmount("");
+      setTags([]);
       setNote("");
       setDate(todayStr);
       setShowCustomDate(false);
@@ -654,14 +687,15 @@ const QuickExpensePage = () => {
               )}
             </div>
 
-            {/* 4. OPTIONAL NOTE & DATE */}
+            {/* 4. SMART TAGS & DATE */}
             <div className="space-y-2.5">
-              <Input
-                type="text"
-                placeholder="Nota opcional (ej: Mercadona, pan...)"
-                value={note}
-                onChange={(e) => setNote(e.target.value)}
-                className="h-12 rounded-2xl bg-card/80 border-border/60 text-base px-4"
+              <SmartTagInput
+                tags={tags}
+                inputValue={note}
+                onTagsChange={setTags}
+                onInputValueChange={setNote}
+                catalog={tagCatalog}
+                placeholder="Etiqueta opcional (ej: Almuerzo, Café, Viaje...)"
               />
 
               <div className="flex items-center justify-between gap-2 flex-wrap px-1">

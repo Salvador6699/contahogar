@@ -1,6 +1,7 @@
 import { Transaction, CategorySummary, Account, AlertSettings } from '../types/finance.js';
 import { format } from 'date-fns';
 import { isTransfer } from './utils.js';
+import { extractTransactionTags, isFuzzyTagMatch, normalizeTagKey } from './tags.js';
 export { parseAmount, isTransfer } from './utils.js';
 
 export const calculateBalance = (
@@ -154,13 +155,15 @@ export const calculateCategorySummaries = (
       return match;
     })
     .forEach(transaction => {
-      const existing = categoryMap.get(transaction.category);
+      const displayCat = transaction.category.trim();
+      const normKey = displayCat.toLowerCase();
+      const existing = categoryMap.get(normKey);
       if (existing) {
         existing.total += transaction.amount;
         existing.count += 1;
       } else {
-        categoryMap.set(transaction.category, {
-          category: transaction.category,
+        categoryMap.set(normKey, {
+          category: displayCat,
           total: transaction.amount,
           count: 1,
         });
@@ -190,26 +193,28 @@ export interface CategoryMonthlyAverage {
 
 
 export const calculateMonthlyAverages = (transactions: Transaction[]): CategoryMonthlyAverage[] => {
-  const categories: Record<string, { total: number; months: Set<string>; count: number; type: 'income' | 'expense', lastDate: string }> = {};
+  const categories: Record<string, { displayName: string; total: number; months: Set<string>; count: number; type: 'income' | 'expense', lastDate: string }> = {};
 
   transactions.forEach(t => {
-    if (t.category === 'Transferencia') return;
+    if (isTransfer(t.category)) return;
+    const displayName = t.category.trim();
+    const normKey = displayName.toLowerCase();
     const month = t.date.substring(0, 7);
-    if (!categories[t.category]) {
-      categories[t.category] = { total: 0, months: new Set(), count: 0, type: t.type, lastDate: t.date };
+    if (!categories[normKey]) {
+      categories[normKey] = { displayName, total: 0, months: new Set(), count: 0, type: t.type, lastDate: t.date };
     }
-    categories[t.category].total += t.amount;
-    categories[t.category].months.add(month);
-    categories[t.category].count += 1;
-    if (t.date > categories[t.category].lastDate) {
-      categories[t.category].lastDate = t.date;
+    categories[normKey].total += t.amount;
+    categories[normKey].months.add(month);
+    categories[normKey].count += 1;
+    if (t.date > categories[normKey].lastDate) {
+      categories[normKey].lastDate = t.date;
     }
   });
 
-  return Object.entries(categories).map(([category, data]) => {
+  return Object.values(categories).map((data) => {
     const monthsCount = data.months.size;
     return {
-      category,
+      category: data.displayName,
       average: Math.round(data.total / (monthsCount || 1)),
       totalAmount: data.total,
       transactionCount: data.count,
@@ -228,6 +233,7 @@ export interface FilterCriteria {
   endDate?: string;
   categories?: string[];
   accounts?: string[];
+  tags?: string[];
   minAmount?: number;
   maxAmount?: number;
   type?: 'income' | 'expense' | 'all';
@@ -246,12 +252,23 @@ export const filterTransactions = (
     // Filter by type
     if (criteria.type && criteria.type !== 'all' && t.type !== criteria.type) return false;
 
-    // Filter by search query (description or category)
+    const txTags = extractTransactionTags(t);
+    const txTagNorms = txTags.map(normalizeTagKey);
+
+    // Filter by selected tags (intersection: must contain ALL selected tags)
+    if (criteria.tags && criteria.tags.length > 0) {
+      const requiredNorms = criteria.tags.map(normalizeTagKey);
+      const hasAll = requiredNorms.every((req) => txTagNorms.includes(req));
+      if (!hasAll) return false;
+    }
+
+    // Filter by search query (description, category, or fuzzy tag match)
     if (criteria.query) {
-      const q = criteria.query.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '');
+      const q = normalizeTagKey(criteria.query);
       const desc = (t.description || '').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '');
       const cat = t.category.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '');
-      if (!desc.includes(q) && !cat.includes(q)) return false;
+      const matchesTag = txTagNorms.some((tn) => isFuzzyTagMatch(q, tn).match);
+      if (!desc.includes(q) && !cat.includes(q) && !matchesTag) return false;
     }
 
     // Filter by date range
@@ -647,7 +664,7 @@ export const calculateCategoryHistory = (
       t.date.startsWith(monthKey) && 
       !t.isPending && 
       t.type === type &&
-      t.category.toLowerCase() === categoryName.toLowerCase() &&
+      t.category.trim().toLowerCase() === categoryName.trim().toLowerCase() &&
       (!accountId || t.accountId === accountId)
     );
     

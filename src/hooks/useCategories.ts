@@ -1,5 +1,11 @@
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { getCategories, addCategory, updateCategory, deleteCategory } from "@/api/local/categories";
+import {
+  getCategories,
+  addCategory,
+  updateCategory,
+  deleteCategory,
+  mergeCategories,
+} from "@/api/local/categories";
 import { Category } from "@/types/finance";
 
 const EMPTY_CATEGORIES: Category[] = [];
@@ -12,6 +18,15 @@ export const useCategories = () => {
     queryFn: getCategories,
   });
 
+  const invalidateCategoryDependents = () => {
+    queryClient.invalidateQueries({ queryKey: ["categories"] });
+    queryClient.invalidateQueries({ queryKey: ["transactions"] });
+    queryClient.invalidateQueries({ queryKey: ["budgets"] });
+    queryClient.invalidateQueries({ queryKey: ["goals"] });
+    queryClient.invalidateQueries({ queryKey: ["favorites"] });
+    queryClient.invalidateQueries({ queryKey: ["recurring_rules"] });
+  };
+
   const addCategoryMutation = useMutation({
     mutationFn: addCategory,
     onSuccess: () => {
@@ -21,14 +36,13 @@ export const useCategories = () => {
 
   const updateCategoryMutation = useMutation({
     mutationFn: updateCategory,
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["categories"] });
-      queryClient.invalidateQueries({ queryKey: ["transactions"] });
-      queryClient.invalidateQueries({ queryKey: ["budgets"] });
-      queryClient.invalidateQueries({ queryKey: ["goals"] });
-      queryClient.invalidateQueries({ queryKey: ["favorites"] });
-      queryClient.invalidateQueries({ queryKey: ["recurring_rules"] });
-    },
+    onSuccess: invalidateCategoryDependents,
+  });
+
+  const mergeCategoriesMutation = useMutation({
+    mutationFn: ({ sourceId, targetId }: { sourceId: string; targetId: string }) =>
+      mergeCategories(sourceId, targetId),
+    onSuccess: invalidateCategoryDependents,
   });
 
   const deleteCategoryMutation = useMutation({
@@ -45,6 +59,8 @@ export const useCategories = () => {
     error: categoriesQuery.error,
     addCategory: addCategoryMutation.mutateAsync,
     updateCategory: updateCategoryMutation.mutateAsync,
+    mergeCategories: mergeCategoriesMutation.mutateAsync,
     deleteCategory: deleteCategoryMutation.mutateAsync,
+    isMerging: mergeCategoriesMutation.isPending,
   };
 };

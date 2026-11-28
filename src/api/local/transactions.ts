@@ -26,23 +26,43 @@ export const getTransactions = async (): Promise<Transaction[]> => {
   return allTransactions;
 };
 
+const isMissingTagsColumnError = (message: string) =>
+  /column .*tags/i.test(message) || /Could not find the 'tags' column/i.test(message);
+
 export const addTransaction = async (transaction: Omit<Transaction, "id"> & { id?: string }): Promise<void> => {
   const newTransaction = {
     id: transaction.id || crypto.randomUUID(),
     ...transaction
   };
   const { error } = await supabase.from('transactions').insert([newTransaction]);
-  if (error) throw new Error(error.message);
+  if (error) {
+    if (isMissingTagsColumnError(error.message)) {
+      const { tags: _tags, ...withoutTags } = newTransaction;
+      const { error: err2 } = await supabase.from('transactions').insert([withoutTags]);
+      if (err2) throw new Error(err2.message);
+      return;
+    }
+    throw new Error(error.message);
+  }
 };
 
 export const updateTransaction = async (transaction: Partial<Transaction> & { id: string }): Promise<void> => {
   const updateData = transaction;
-  if (transaction.id.startsWith('rec_') || transaction.id.startsWith('loan_')) {
-    const { error } = await supabase.from('transactions').upsert([updateData]);
-    if (error) throw new Error(error.message);
-  } else {
-    const { error } = await supabase.from('transactions').update(updateData).eq('id', transaction.id);
-    if (error) throw new Error(error.message);
+  const isUpsert = transaction.id.startsWith('rec_') || transaction.id.startsWith('loan_');
+  const { error } = isUpsert
+    ? await supabase.from('transactions').upsert([updateData])
+    : await supabase.from('transactions').update(updateData).eq('id', transaction.id);
+
+  if (error) {
+    if (isMissingTagsColumnError(error.message)) {
+      const { tags: _tags, ...withoutTags } = updateData;
+      const { error: err2 } = isUpsert
+        ? await supabase.from('transactions').upsert([withoutTags])
+        : await supabase.from('transactions').update(withoutTags).eq('id', transaction.id);
+      if (err2) throw new Error(err2.message);
+      return;
+    }
+    throw new Error(error.message);
   }
 };
 

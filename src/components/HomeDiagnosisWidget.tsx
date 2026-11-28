@@ -240,12 +240,70 @@ export function HomeDiagnosisWidget({
                   {formatCurrency(diagnosis.expectedNetBalance)}
                 </span>
                 <span className="text-[10px] text-muted-foreground">
-                  A día {diagnosis.currentDayOfMonth}:{' '}
-                  <strong>{formatCurrency(diagnosis.mtdCurAmount)}</strong> pagado
+                  {diagnosis.natureBreakdown.extraordinary > 0 ? (
+                    <>
+                      Estructural:{' '}
+                      <strong className={diagnosis.structuralNetBalance >= 0 ? 'text-emerald-600 dark:text-emerald-400' : 'text-rose-600 dark:text-rose-400'}>
+                        {diagnosis.structuralNetBalance > 0 ? '+' : ''}
+                        {formatCurrency(diagnosis.structuralNetBalance)}
+                      </strong>
+                    </>
+                  ) : (
+                    <>
+                      A día {diagnosis.currentDayOfMonth}:{' '}
+                      <strong>{formatCurrency(diagnosis.mtdCurAmount)}</strong> pagado
+                    </>
+                  )}
                 </span>
               </div>
             </div>
           </div>
+
+          {/* Desglose Ejecutivo por Naturaleza Contable */}
+          {(() => {
+            const nb = diagnosis.natureBreakdown
+            const classifiedTotal = nb.essential + nb.discretionary + nb.debt + nb.extraordinary
+            if (classifiedTotal <= 0) return null
+            const base = diagnosis.expectedTotal > 0 ? diagnosis.expectedTotal : classifiedTotal
+            const blocks = [
+              { label: 'Esencial', amount: nb.essential, barClass: 'bg-blue-500', textClass: 'text-blue-600 dark:text-blue-400' },
+              { label: 'Estilo de vida', amount: nb.discretionary, barClass: 'bg-amber-500', textClass: 'text-amber-600 dark:text-amber-400' },
+              { label: 'Deuda', amount: nb.debt, barClass: 'bg-rose-500', textClass: 'text-rose-600 dark:text-rose-400' },
+              { label: 'Extraordinarios', amount: nb.extraordinary, barClass: 'bg-purple-500', textClass: 'text-purple-600 dark:text-purple-400' },
+            ].filter((b) => b.amount > 0)
+
+            return (
+              <div className="p-3 rounded-xl bg-background/80 border border-border/40 space-y-2">
+                <div className="flex items-center justify-between text-[10px] font-bold uppercase tracking-wider text-muted-foreground">
+                  <span>Estructura del Gasto por Naturaleza</span>
+                  <span>{formatCurrency(base)}</span>
+                </div>
+                <div className="w-full h-2 rounded-full bg-muted overflow-hidden flex">
+                  {blocks.map((b) => (
+                    <div
+                      key={b.label}
+                      className={cn('h-full transition-all', b.barClass)}
+                      style={{ width: `${Math.max(2, (b.amount / base) * 100)}%` }}
+                      title={`${b.label}: ${formatCurrency(b.amount)} (${Math.round((b.amount / base) * 100)}%)`}
+                    />
+                  ))}
+                </div>
+                <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 pt-0.5">
+                  {blocks.map((b) => (
+                    <div key={b.label} className="flex items-center justify-between sm:flex-col sm:items-start gap-0.5">
+                      <span className="text-[10px] font-semibold text-muted-foreground flex items-center gap-1">
+                        <span className={cn('w-2 h-2 rounded-full', b.barClass)} />
+                        {b.label} ({Math.round((b.amount / base) * 100)}%)
+                      </span>
+                      <span className={cn('text-xs font-black', b.textClass)}>
+                        {formatCurrency(b.amount)}
+                      </span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )
+          })()}
 
           {/* Resumen de Gastos Habituales (presentes en ambos meses) */}
           {(diagnosis.comparablePrevTotal > 0 || diagnosis.comparableCurrentTotal > 0) && (

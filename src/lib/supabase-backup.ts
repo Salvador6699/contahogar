@@ -20,8 +20,20 @@ function buildSafePayloads(data: AnyData) {
   return {
     validAccountIds,
     safeAccounts: (data.accounts || []).map((a: AnyData) => ({ id: a.id, name: a.name, initialBalance: a.initialBalance, linkedAccountId: a.linkedAccountId, logo: a.logo, excludeFromTotals: a.excludeFromTotals })),
-    safeCategories: (data.categories || []).map((c: AnyData) => ({ id: c.id, name: c.name, icon: c.icon, color: c.color, monthlyLimit: c.monthlyLimit, customIcon: c.customIcon })),
-    safeTransactions: (data.transactions || []).filter((t: AnyData) => validAccountIds.has(t.accountId)).map((t: AnyData) => ({ id: t.id, date: t.date, amount: t.amount, category: t.category, type: t.type === 'income' ? 'income' : 'expense', accountId: t.accountId, description: t.description, isPending: t.isPending || false, isIgnored: t.isIgnored || false, linkedLoanId: t.linkedLoanId })),
+    safeCategories: (data.categories || []).map((c: AnyData) => ({
+      id: c.id,
+      name: typeof c.name === 'string' ? c.name.trim() : c.name,
+      icon: c.icon,
+      color: c.color,
+      monthlyLimit: c.monthlyLimit,
+      customIcon: c.customIcon,
+      parentId: c.parentId ?? null,
+      isGroup: Boolean(c.isGroup),
+      kind: c.kind ?? null,
+      nature: c.nature ?? null,
+      isArchived: Boolean(c.isArchived),
+    })),
+    safeTransactions: (data.transactions || []).filter((t: AnyData) => validAccountIds.has(t.accountId)).map((t: AnyData) => ({ id: t.id, date: t.date, amount: t.amount, category: t.category, type: t.type === 'income' ? 'income' : 'expense', accountId: t.accountId, description: t.description, tags: Array.isArray(t.tags) ? t.tags : [], isPending: t.isPending || false, isIgnored: t.isIgnored || false, linkedLoanId: t.linkedLoanId })),
     safeBudgets: (data.budgets || []).map((b: AnyData) => ({ id: b.id, category: b.category, amount: b.amount, month: b.month, isAuto: b.isAuto || false })),
     safeFavorites: (data.favorites || []).map((f: AnyData) => ({ id: f.id, name: f.name, amount: f.amount, category: f.category, accountId: safeId(f.accountId), description: f.description, type: f.type === 'income' ? 'income' : 'expense', icon: f.icon, customIcon: f.customIcon })).filter((f: AnyData) => f.accountId != null),
     safeSavingsGoals: (data.savingsGoals || []).map((sg: AnyData) => ({ id: sg.id, name: sg.name, targetAmount: sg.targetAmount, currentAmount: sg.currentAmount, deadline: sg.deadline, accountId: safeId(sg.accountId), color: sg.color, category: sg.category, priority: sg.priority, isIgnored: sg.isIgnored || false })).filter((sg: AnyData) => sg.accountId != null),
@@ -61,6 +73,14 @@ export const restoreToSupabase = async (data: AnyData): Promise<void> => {
           const stripped = chunk.map(({ includeInSavings, ...rest }: AnyData) => rest)
           const { error: err2 } = await supabase.from(table).insert(stripped)
           if (err2) throw new Error(`Error insertando en tabla ${table}: ${err2.message}`)
+        } else if (table === 'categories' && (error.message.includes('parentId') || error.message.includes('isGroup') || error.message.includes('column'))) {
+          const stripped = chunk.map(({ parentId, isGroup, kind, nature, isArchived, ...rest }: AnyData) => rest)
+          const { error: err2 } = await supabase.from(table).insert(stripped)
+          if (err2) throw new Error(`Error insertando en tabla ${table}: ${err2.message}`)
+        } else if (table === 'transactions' && (error.message.includes('tags') || error.message.includes('column'))) {
+          const stripped = chunk.map(({ tags, ...rest }: AnyData) => rest)
+          const { error: err2 } = await supabase.from(table).insert(stripped)
+          if (err2) throw new Error(`Error insertando en tabla ${table}: ${err2.message}`)
         } else {
           throw new Error(`Error insertando en tabla ${table}: ${error.message}`)
         }
@@ -90,6 +110,14 @@ export const uploadToSupabase = async (data: AnyData): Promise<void> => {
       if (error) {
         if (table === 'recurring_rules' && (error.message.includes('includeInSavings') || error.message.includes('column'))) {
           const stripped = chunk.map(({ includeInSavings, ...rest }: AnyData) => rest)
+          const { error: err2 } = await supabase.from(table).upsert(stripped)
+          if (err2) throw new Error(`Error en tabla ${table}: ${err2.message}`)
+        } else if (table === 'categories' && (error.message.includes('parentId') || error.message.includes('isGroup') || error.message.includes('column'))) {
+          const stripped = chunk.map(({ parentId, isGroup, kind, nature, isArchived, ...rest }: AnyData) => rest)
+          const { error: err2 } = await supabase.from(table).upsert(stripped)
+          if (err2) throw new Error(`Error en tabla ${table}: ${err2.message}`)
+        } else if (table === 'transactions' && (error.message.includes('tags') || error.message.includes('column'))) {
+          const stripped = chunk.map(({ tags, ...rest }: AnyData) => rest)
           const { error: err2 } = await supabase.from(table).upsert(stripped)
           if (err2) throw new Error(`Error en tabla ${table}: ${err2.message}`)
         } else {

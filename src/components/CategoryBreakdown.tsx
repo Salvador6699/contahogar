@@ -2,8 +2,17 @@ import { useState, useMemo, useEffect } from 'react';
 import { useNavigate } from '@tanstack/react-router';
 import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { CategorySummary, Transaction, Category, Account, Budget } from '@/types/finance';
-import { Tag, Pencil, ChevronLeft, ChevronRight, Calendar, Trash2, LucideIcon, CheckCircle2, TrendingUp, TrendingDown, Minus, Wallet, PiggyBank } from 'lucide-react';
+import {
+  CategorySummary,
+  Transaction,
+  Category,
+  Account,
+  Budget,
+  getCategoryGroup,
+  getCategoryNature,
+  CATEGORY_NATURE_LABELS,
+} from '@/types/finance';
+import { Tag, Pencil, ChevronLeft, ChevronRight, ChevronDown, ChevronUp, Calendar, Trash2, LucideIcon, CheckCircle2, TrendingUp, TrendingDown, Minus, Wallet, PiggyBank, FolderTree, List } from 'lucide-react';
 import * as Icons from 'lucide-react';
 import { calculateCategoryHistory, formatCurrency, calculateMonthlyAverages } from '@/lib/calculations';
 import { cn } from '@/lib/utils';
@@ -47,7 +56,58 @@ const CategoryBreakdown = ({
 }: CategoryBreakdownProps) => {
   const [currentPage, setCurrentPage] = useState(1);
   const [selectedCategoryName, setSelectedCategoryName] = useState<string | null>(null);
+  const hasGroups = useMemo(
+    () => categoryCatalog.some((c) => Boolean(c.isGroup)),
+    [categoryCatalog]
+  );
+  const [viewMode, setViewMode] = useState<'group' | 'detail'>('group');
+  const [expandedGroups, setExpandedGroups] = useState<Record<string, boolean>>({});
+  const effectiveViewMode = hasGroups && !isPending ? viewMode : 'detail';
   const navigate = useNavigate();
+
+  const groupedSummaries = useMemo(() => {
+    if (!hasGroups) return [];
+    const totalAll = categories.reduce((s, c) => s + c.total, 0);
+    const map = new Map<
+      string,
+      {
+        groupId: string;
+        groupName: string;
+        groupObj: Category | null;
+        total: number;
+        count: number;
+        items: CategorySummary[];
+      }
+    >();
+
+    for (const item of categories) {
+      const grp = getCategoryGroup(item.category, categoryCatalog);
+      const key = grp ? grp.id : '__ungrouped__';
+      const existing = map.get(key);
+      if (existing) {
+        existing.total = Number((existing.total + item.total).toFixed(2));
+        existing.count += item.count;
+        existing.items.push(item);
+      } else {
+        map.set(key, {
+          groupId: key,
+          groupName: grp ? grp.name : 'Otros / Sin grupo',
+          groupObj: grp,
+          total: Number(item.total.toFixed(2)),
+          count: item.count,
+          items: [item],
+        });
+      }
+    }
+
+    return Array.from(map.values())
+      .map((g) => ({
+        ...g,
+        items: g.items.sort((a, b) => b.total - a.total),
+        percent: totalAll > 0 ? Math.round((g.total / totalAll) * 100) : 0,
+      }))
+      .sort((a, b) => b.total - a.total);
+  }, [categories, categoryCatalog, hasGroups]);
 
   const now = new Date();
   const today = now.getDate();
@@ -370,11 +430,131 @@ const CategoryBreakdown = ({
 
   return (
     <div className="space-y-3">
-      <h3 className="text-lg font-semibold text-foreground flex items-center gap-2">
-        <Tag className="w-5 h-5" />
-        {title}
-      </h3>
-      <div className="flex flex-col gap-2">
+      <div className="flex items-center justify-between gap-2 flex-wrap">
+        <h3 className="text-lg font-semibold text-foreground flex items-center gap-2">
+          <Tag className="w-5 h-5" />
+          {title}
+        </h3>
+        {hasGroups && (
+          <div className="inline-flex items-center rounded-xl bg-muted/60 p-0.5 border border-border/50">
+            <button
+              type="button"
+              onClick={() => setViewMode('group')}
+              className={cn(
+                'inline-flex items-center gap-1 px-2.5 py-1 rounded-lg text-xs font-bold transition-all',
+                effectiveViewMode === 'group'
+                  ? 'bg-background text-foreground shadow-xs'
+                  : 'text-muted-foreground hover:text-foreground'
+              )}
+            >
+              <FolderTree className="w-3.5 h-3.5" />
+              Por Grupo
+            </button>
+            <button
+              type="button"
+              onClick={() => setViewMode('detail')}
+              className={cn(
+                'inline-flex items-center gap-1 px-2.5 py-1 rounded-lg text-xs font-bold transition-all',
+                effectiveViewMode === 'detail'
+                  ? 'bg-background text-foreground shadow-xs'
+                  : 'text-muted-foreground hover:text-foreground'
+              )}
+            >
+              <List className="w-3.5 h-3.5" />
+              Detalle
+            </button>
+          </div>
+        )}
+      </div>
+
+      {effectiveViewMode === 'group' ? (
+        <div className="flex flex-col gap-2">
+          {groupedSummaries.map((grp) => {
+            const isExpanded = Boolean(expandedGroups[grp.groupId]);
+            const IconComponent = (grp.groupObj?.icon && (Icons as any)[grp.groupObj.icon]) || Icons.Folder;
+            const grpNature = type === 'expense' && grp.groupObj ? getCategoryNature(grp.groupObj, categoryCatalog) : null;
+            const catBorderLeftClass = type === 'expense' ? 'border-l-expense' : 'border-l-income';
+
+            return (
+              <Card
+                key={grp.groupId}
+                className={`bg-white dark:bg-card border border-border/40 border-l-[4px] ${catBorderLeftClass} shadow-sm rounded-2xl overflow-hidden`}
+              >
+                <div
+                  onClick={() =>
+                    setExpandedGroups((prev) => ({
+                      ...prev,
+                      [grp.groupId]: !prev[grp.groupId],
+                    }))
+                  }
+                  className="p-3 sm:p-4 flex items-center justify-between gap-3 cursor-pointer hover:bg-muted/20 transition-colors select-none"
+                >
+                  <div className="flex items-center gap-3 min-w-0">
+                    <div
+                      className="w-10 h-10 rounded-xl flex items-center justify-center flex-shrink-0 text-white shadow-sm"
+                      style={{ backgroundColor: grp.groupObj?.color || (type === 'expense' ? '#ef4444' : '#10b981') }}
+                    >
+                      <IconComponent className="w-5 h-5" />
+                    </div>
+                    <div className="min-w-0">
+                      <div className="flex items-center gap-2 flex-wrap">
+                        <p className="font-bold text-foreground truncate">{grp.groupName}</p>
+                        <span className="text-[10px] font-bold px-1.5 py-0.5 rounded-full bg-muted text-muted-foreground">
+                          {grp.percent}%
+                        </span>
+                        {grpNature && (
+                          <span className="text-[10px] font-bold px-1.5 py-0.5 rounded-full bg-primary/10 text-primary">
+                            {CATEGORY_NATURE_LABELS[grpNature]}
+                          </span>
+                        )}
+                      </div>
+                      <p className="text-[10px] text-muted-foreground font-bold uppercase tracking-wider">
+                        {grp.items.length} {grp.items.length === 1 ? 'subcategoría' : 'subcategorías'} · {grp.count}{' '}
+                        {grp.count === 1 ? 'movimiento' : 'movimientos'}
+                      </p>
+                    </div>
+                  </div>
+                  <div className="flex items-center gap-2 shrink-0">
+                    <p className={`text-lg font-bold ${colorClass} whitespace-nowrap`}>
+                      {formatCurrency(grp.total)}
+                    </p>
+                    <div className="w-7 h-7 rounded-lg bg-muted/50 flex items-center justify-center text-muted-foreground">
+                      {isExpanded ? <ChevronUp className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />}
+                    </div>
+                  </div>
+                </div>
+
+                {isExpanded && (
+                  <div className="border-t border-border/40 divide-y divide-border/30 bg-muted/10 px-3 sm:px-4 py-1">
+                    {grp.items.map((sub) => (
+                      <div
+                        key={sub.category}
+                        onClick={() => setSelectedCategoryName(sub.category)}
+                        className="py-2.5 flex items-center justify-between gap-2 cursor-pointer hover:bg-muted/30 rounded-xl px-2 transition-colors"
+                      >
+                        <div className="min-w-0">
+                          <p className="text-sm font-semibold capitalize truncate">{sub.category}</p>
+                          <p className="text-[10px] text-muted-foreground">
+                            {sub.count} {sub.count === 1 ? 'transacción' : 'transacciones'}
+                          </p>
+                        </div>
+                        <div className="flex items-center gap-2 shrink-0">
+                          <span className={`text-sm font-bold ${colorClass}`}>
+                            {formatCurrency(sub.total)}
+                          </span>
+                          <ChevronRight className="w-4 h-4 text-muted-foreground" />
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </Card>
+            );
+          })}
+        </div>
+      ) : (
+        <>
+          <div className="flex flex-col gap-2">
         {paginatedCategories.map((category, index) => {
           const catHistory = calculateCategoryHistory(transactions, category.category, type, 6, selectedAccount, baseDate);
           const chartColor = type === 'expense' ? '#ef4444' : '#22c55e';
@@ -510,11 +690,13 @@ const CategoryBreakdown = ({
         })}
       </div>
 
-      <SmartPagination 
-        currentPage={currentPage}
-        totalPages={totalPages}
-        onPageChange={setCurrentPage}
-      />
+          <SmartPagination 
+            currentPage={currentPage}
+            totalPages={totalPages}
+            onPageChange={setCurrentPage}
+          />
+        </>
+      )}
 
       {selectedCategoryName && (
         <ResponsiveDialog open={true} onOpenChange={(open) => !open && setSelectedCategoryName(null)}>

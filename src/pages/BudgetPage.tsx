@@ -1,6 +1,6 @@
 import { useState, useMemo, useEffect, useCallback } from 'react';
 import { useSearchParams } from '@/hooks/useSearchParams';
-import { Budget } from '@/types/finance';
+import { Budget, getCategoryGroup } from '@/types/finance';
 import { formatCurrency, calculateTotalBalance, calculatePendingImpact, isTransfer } from '@/lib/calculations';
 import { format, parseISO, addMonths, subMonths } from 'date-fns';
 import { es } from 'date-fns/locale';
@@ -73,6 +73,12 @@ const BudgetPage = () => {
     
     // Search query for categories
     const [searchQuery, setSearchQuery] = useState(searchParams.get('category') || '');
+    const [budgetViewMode, setBudgetViewMode] = useState<'group' | 'status'>('group');
+    const hasCategoryGroups = useMemo(
+        () => categories.some(c => Boolean(c.isGroup)),
+        [categories]
+    );
+    const effectiveBudgetViewMode = hasCategoryGroups ? budgetViewMode : 'status';
 
     // Keep URL searchParams synchronized if navigated from CategoryBreakdown
     useEffect(() => {
@@ -848,8 +854,8 @@ const BudgetPage = () => {
                         </div>
                     </div>
 
-                    {/* SEARCH BAR */}
-                    <div className="mt-6 max-w-md mx-auto">
+                    {/* SEARCH BAR + VIEW MODE TOGGLE */}
+                    <div className="mt-6 max-w-md mx-auto space-y-3">
                         <div className="relative w-full">
                             <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
                             <Input 
@@ -868,6 +874,36 @@ const BudgetPage = () => {
                                 </button>
                             )}
                         </div>
+                        {hasCategoryGroups && hasBudgetsForMonth && (
+                            <div className="flex justify-center">
+                                <div className="inline-flex items-center rounded-xl bg-muted/60 p-0.5 border border-border/50">
+                                    <button
+                                        type="button"
+                                        onClick={() => setBudgetViewMode('group')}
+                                        className={cn(
+                                            'px-3 py-1.5 rounded-lg text-xs font-bold transition-all',
+                                            effectiveBudgetViewMode === 'group'
+                                                ? 'bg-background text-foreground shadow-xs'
+                                                : 'text-muted-foreground hover:text-foreground'
+                                        )}
+                                    >
+                                        Agrupado por Grupo
+                                    </button>
+                                    <button
+                                        type="button"
+                                        onClick={() => setBudgetViewMode('status')}
+                                        className={cn(
+                                            'px-3 py-1.5 rounded-lg text-xs font-bold transition-all',
+                                            effectiveBudgetViewMode === 'status'
+                                                ? 'bg-background text-foreground shadow-xs'
+                                                : 'text-muted-foreground hover:text-foreground'
+                                        )}
+                                    >
+                                        Por Estado
+                                    </button>
+                                </div>
+                            </div>
+                        )}
                     </div>
                 </div>
 
@@ -999,52 +1035,133 @@ const BudgetPage = () => {
                         </div>
                     )}
 
-                    {/* Sobres en Peligro */}
-                    {filteredEnPeligro.length > 0 && (
-                        <div className="mb-8">
-                            <div className="flex items-center gap-2 mb-4 px-2">
-                                <span className="w-3 h-3 rounded-full bg-destructive shadow-[0_0_8px_rgba(239,68,68,0.5)]" />
-                                <h2 className="text-lg font-bold text-foreground">Sobres en Peligro</h2>
-                                <span className="bg-muted/50 text-muted-foreground text-xs py-0.5 px-2 rounded-full font-bold ml-auto border border-border/50">
-                                    {filteredEnPeligro.length}
-                                </span>
-                            </div>
-                            <div className="flex flex-col gap-3">
-                                {filteredEnPeligro.map(cat => renderRow(cat, 'peligro'))}
-                            </div>
-                        </div>
-                    )}
+                    {/* VISTA AGRUPADA POR GRUPO PADRE */}
+                    {effectiveBudgetViewMode === 'group' && (filteredEnPeligro.length > 0 || filteredSaludables.length > 0 || filteredVacios.length > 0) ? (
+                        (() => {
+                            const allFiltered = [...filteredEnPeligro, ...filteredSaludables, ...filteredVacios];
+                            const groupsMap = new Map<string, { groupName: string; color: string; cats: string[] }>();
+                            allFiltered.forEach((cat) => {
+                                const grp = getCategoryGroup(cat, categories);
+                                const key = grp ? grp.id : '__ungrouped__';
+                                const existing = groupsMap.get(key);
+                                if (existing) {
+                                    existing.cats.push(cat);
+                                } else {
+                                    groupsMap.set(key, {
+                                        groupName: grp ? grp.name : 'Otros / Sin grupo',
+                                        color: grp?.color || '#64748b',
+                                        cats: [cat],
+                                    });
+                                }
+                            });
 
-                    {/* Sobres Saludables */}
-                    {filteredSaludables.length > 0 && (
-                        <div className="mb-8">
-                            <div className="flex items-center gap-2 mb-4 px-2">
-                                <span className="w-3 h-3 rounded-full bg-income shadow-[0_0_8px_rgba(34,197,94,0.4)]" />
-                                <h2 className="text-lg font-bold text-foreground">Sobres Saludables</h2>
-                                <span className="bg-muted/50 text-muted-foreground text-xs py-0.5 px-2 rounded-full font-bold ml-auto border border-border/50">
-                                    {filteredSaludables.length}
-                                </span>
-                            </div>
-                            <div className="flex flex-col gap-3">
-                                {filteredSaludables.map(cat => renderRow(cat, 'saludable'))}
-                            </div>
-                        </div>
-                    )}
+                            const groupedEntries = Array.from(groupsMap.entries())
+                                .map(([key, g]) => {
+                                    const assigned = Number(g.cats.reduce((s, c) => s + getBudgetAmount(c), 0).toFixed(2));
+                                    const spent = Number(g.cats.reduce((s, c) => s + getEffectiveSpent(c), 0).toFixed(2));
+                                    const remaining = Number((assigned - spent).toFixed(2));
+                                    return { key, ...g, assigned, spent, remaining };
+                                })
+                                .sort((a, b) => b.assigned - a.assigned || b.spent - a.spent);
 
-                    {/* Sobres Vacíos (Cumplidos) */}
-                    {filteredVacios.length > 0 && (
-                        <div className="mb-8">
-                            <div className="flex items-center gap-2 mb-4 px-2">
-                                <span className="w-3 h-3 rounded-full bg-muted-foreground/60 shadow-sm" />
-                                <h2 className="text-lg font-bold text-foreground">Sobres Cumplidos</h2>
-                                <span className="bg-muted/50 text-muted-foreground text-xs py-0.5 px-2 rounded-full font-bold ml-auto border border-border/50">
-                                    {filteredVacios.length}
-                                </span>
-                            </div>
-                            <div className="flex flex-col gap-3">
-                                {filteredVacios.map(cat => renderRow(cat, 'vacio'))}
-                            </div>
-                        </div>
+                            return (
+                                <div className="space-y-8">
+                                    {groupedEntries.map((g) => (
+                                        <div key={g.key}>
+                                            <div className="flex items-center justify-between gap-2 mb-3 px-2 flex-wrap">
+                                                <div className="flex items-center gap-2">
+                                                    <span
+                                                        className="w-3 h-3 rounded-full shrink-0"
+                                                        style={{ backgroundColor: g.color }}
+                                                    />
+                                                    <h2 className="text-base sm:text-lg font-bold text-foreground">
+                                                        {g.groupName}
+                                                    </h2>
+                                                    <span className="bg-muted/50 text-muted-foreground text-xs py-0.5 px-2 rounded-full font-bold border border-border/50">
+                                                        {g.cats.length}
+                                                    </span>
+                                                </div>
+                                                <div className="flex items-center gap-2 text-xs font-bold">
+                                                    <span className="text-muted-foreground">
+                                                        {formatCurrency(g.spent)} / {formatCurrency(g.assigned)}
+                                                    </span>
+                                                    <span
+                                                        className={cn(
+                                                            'px-2 py-0.5 rounded-full',
+                                                            g.remaining < 0
+                                                                ? 'bg-destructive/10 text-destructive'
+                                                                : g.remaining > 0
+                                                                    ? 'bg-income/10 text-income'
+                                                                    : 'bg-muted text-muted-foreground'
+                                                        )}
+                                                    >
+                                                        {g.remaining >= 0 ? `+${formatCurrency(g.remaining)}` : formatCurrency(g.remaining)}
+                                                    </span>
+                                                </div>
+                                            </div>
+                                            <div className="flex flex-col gap-3">
+                                                {g.cats.map((cat) => {
+                                                    const perc = getSortPercentage(cat);
+                                                    const rowType: 'peligro' | 'saludable' | 'vacio' =
+                                                        perc === 100 ? 'vacio' : perc >= 80 ? 'peligro' : 'saludable';
+                                                    return renderRow(cat, rowType);
+                                                })}
+                                            </div>
+                                        </div>
+                                    ))}
+                                </div>
+                            );
+                        })()
+                    ) : (
+                        <>
+                            {/* Sobres en Peligro */}
+                            {filteredEnPeligro.length > 0 && (
+                                <div className="mb-8">
+                                    <div className="flex items-center gap-2 mb-4 px-2">
+                                        <span className="w-3 h-3 rounded-full bg-destructive shadow-[0_0_8px_rgba(239,68,68,0.5)]" />
+                                        <h2 className="text-lg font-bold text-foreground">Sobres en Peligro</h2>
+                                        <span className="bg-muted/50 text-muted-foreground text-xs py-0.5 px-2 rounded-full font-bold ml-auto border border-border/50">
+                                            {filteredEnPeligro.length}
+                                        </span>
+                                    </div>
+                                    <div className="flex flex-col gap-3">
+                                        {filteredEnPeligro.map(cat => renderRow(cat, 'peligro'))}
+                                    </div>
+                                </div>
+                            )}
+
+                            {/* Sobres Saludables */}
+                            {filteredSaludables.length > 0 && (
+                                <div className="mb-8">
+                                    <div className="flex items-center gap-2 mb-4 px-2">
+                                        <span className="w-3 h-3 rounded-full bg-income shadow-[0_0_8px_rgba(34,197,94,0.4)]" />
+                                        <h2 className="text-lg font-bold text-foreground">Sobres Saludables</h2>
+                                        <span className="bg-muted/50 text-muted-foreground text-xs py-0.5 px-2 rounded-full font-bold ml-auto border border-border/50">
+                                            {filteredSaludables.length}
+                                        </span>
+                                    </div>
+                                    <div className="flex flex-col gap-3">
+                                        {filteredSaludables.map(cat => renderRow(cat, 'saludable'))}
+                                    </div>
+                                </div>
+                            )}
+
+                            {/* Sobres Vacíos (Cumplidos) */}
+                            {filteredVacios.length > 0 && (
+                                <div className="mb-8">
+                                    <div className="flex items-center gap-2 mb-4 px-2">
+                                        <span className="w-3 h-3 rounded-full bg-muted-foreground/60 shadow-sm" />
+                                        <h2 className="text-lg font-bold text-foreground">Sobres Cumplidos</h2>
+                                        <span className="bg-muted/50 text-muted-foreground text-xs py-0.5 px-2 rounded-full font-bold ml-auto border border-border/50">
+                                            {filteredVacios.length}
+                                        </span>
+                                    </div>
+                                    <div className="flex flex-col gap-3">
+                                        {filteredVacios.map(cat => renderRow(cat, 'vacio'))}
+                                    </div>
+                                </div>
+                            )}
+                        </>
                     )}
 
                     {filteredEnPeligro.length === 0 && filteredSaludables.length === 0 && filteredVacios.length === 0 && (
